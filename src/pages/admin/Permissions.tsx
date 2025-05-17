@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from "react";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Role } from "@/types/roles";
@@ -8,13 +8,12 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { ChevronDown, ChevronRight, Plus } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus, Save } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 
 interface Permission {
@@ -33,6 +32,15 @@ interface TableInfo {
   fields: string[];
 }
 
+interface UnsavedPermission {
+  roleId: string;
+  moduleName: string;
+  fieldName: string | null;
+  canView: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
+}
+
 const PermissionsPage = () => {
   const queryClient = useQueryClient();
   const [selectedRoleId, setSelectedRoleId] = useState<string>("");
@@ -41,6 +49,8 @@ const PermissionsPage = () => {
   const [newRoleDescription, setNewRoleDescription] = useState("");
   const [expandedTables, setExpandedTables] = useState<Record<string, boolean>>({});
   const [showSelectAll, setShowSelectAll] = useState<boolean>(false);
+  const [unsavedChanges, setUnsavedChanges] = useState<UnsavedPermission[]>([]);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   
   // Fetch all roles
   const { data: roles, isLoading: rolesLoading } = useQuery({
@@ -131,76 +141,46 @@ const PermissionsPage = () => {
     }
   });
 
-  // Update permission
-  const updatePermissionMutation = useMutation({
-    mutationFn: async ({ 
-      roleId, 
-      moduleName, 
-      fieldName = null, 
-      canView, 
-      canEdit,
-      canDelete 
-    }: { 
-      roleId: string;
-      moduleName: string;
-      fieldName?: string | null;
-      canView: boolean;
-      canEdit: boolean;
-      canDelete: boolean;
-    }) => {
-      // Check if permission already exists
-      const { data: existingPermissions } = await supabase
-        .from("permissions")
-        .select("id")
-        .eq("role_id", roleId)
-        .eq("module_name", moduleName)
-        .eq("field_name", fieldName);
+  // Save all permission changes
+  const savePermissionsMutation = useMutation({
+    mutationFn: async () => {
+      if (unsavedChanges.length === 0) return;
 
-      if (existingPermissions && existingPermissions.length > 0) {
-        // Update existing permission
-        const { data, error } = await supabase
-          .from("permissions")
-          .update({
-            can_view: canView,
-            can_edit: canEdit,
-            can_delete: canDelete,
-            updated_at: new Date().toISOString()
-          })
-          .eq("id", existingPermissions[0].id);
-          
-        if (error) throw error;
-        return data;
-      } else {
-        // Create new permission
-        const { data, error } = await supabase
-          .from("permissions")
-          .insert([{
-            role_id: roleId,
-            module_name: moduleName,
-            field_name: fieldName,
-            can_view: canView,
-            can_edit: canEdit,
-            can_delete: canDelete
-          }]);
-          
-        if (error) throw error;
-        return data;
-      }
+      const permissionsToSave = unsavedChanges.map(change => ({
+        role_id: change.roleId,
+        module_name: change.moduleName,
+        field_name: change.fieldName,
+        can_view: change.canView,
+        can_edit: change.canEdit,
+        can_delete: change.canDelete
+      }));
+
+      const { data, error } = await supabase
+        .from("permissions")
+        .upsert(permissionsToSave, { 
+          onConflict: 'role_id,module_name,field_name', 
+          ignoreDuplicates: false 
+        });
+        
+      if (error) throw error;
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["permissions", selectedRoleId] });
       toast({
-        title: "Permission updated",
-        description: "The permission has been updated successfully.",
+        title: "Permissions saved",
+        description: `All permission changes have been saved successfully.`
       });
+      setUnsavedChanges([]);
+      setHasUnsavedChanges(false);
     },
     onError: (error: Error) => {
       toast({
-        title: "Error updating permission",
+        title: "Error saving permissions",
         description: error.message,
-        variant: "destructive",
+        variant: "destructive"
       });
-    },
+    }
   });
 
   const handleToggleTable = (tableName: string) => {
@@ -210,6 +190,7 @@ const PermissionsPage = () => {
     }));
   };
 
+  // Handle permission change and track it as unsaved
   const handlePermissionChange = (
     roleId: string,
     moduleName: string,
@@ -263,15 +244,30 @@ const PermissionsPage = () => {
       }
     }
 
-    // Update the permission in the database
-    updatePermissionMutation.mutate({
-      roleId,
-      moduleName,
-      fieldName,
-      canView: newCanView,
-      canEdit: newCanEdit,
-      canDelete: newCanDelete
-    });
+    // Add to unsaved changes
+    const changeKey = `${roleId}-${moduleName}-${fieldName || 'null'}`; 
+    
+    // Remove previous change for the same permission if exists
+    const filteredChanges = unsavedChanges.filter(
+      change => !(change.roleId === roleId && 
+                 change.moduleName === moduleName && 
+                 change.fieldName === fieldName)
+    );
+    
+    // Add the new change
+    setUnsavedChanges([
+      ...filteredChanges,
+      {
+        roleId,
+        moduleName,
+        fieldName,
+        canView: newCanView,
+        canEdit: newCanEdit,
+        canDelete: newCanDelete
+      }
+    ]);
+    
+    setHasUnsavedChanges(true);
   };
 
   const handleSelectAllForTable = (
@@ -294,17 +290,34 @@ const PermissionsPage = () => {
     }
   };
 
-  const isChecked = (
+  const handleSaveChanges = () => {
+    savePermissionsMutation.mutate();
+  };
+
+  const getEffectivePermission = (
     roleId: string,
     moduleName: string,
     fieldName: string | null,
     type: 'view' | 'edit' | 'delete'
   ): boolean => {
+    // Check if there's an unsaved change
+    const unsavedChange = unsavedChanges.find(
+      change => change.roleId === roleId && 
+                change.moduleName === moduleName && 
+                change.fieldName === fieldName
+    );
+
+    if (unsavedChange) {
+      if (type === 'view') return unsavedChange.canView;
+      if (type === 'edit') return unsavedChange.canEdit;
+      return unsavedChange.canDelete;
+    }
+
     // For system roles specifically marked with is_system=true, return true for all permissions
     const role = roles?.find(r => r.id === roleId);
     if (role?.is_system === true) return true;
 
-    // Check if permission exists
+    // Check if permission exists in the database
     const permission = permissions?.find(
       p => p.role_id === roleId && 
            p.module_name === moduleName && 
@@ -427,6 +440,16 @@ const PermissionsPage = () => {
                     </Dialog>
                   </div>
                 </div>
+                
+                {hasUnsavedChanges && (
+                  <Button
+                    onClick={handleSaveChanges}
+                    disabled={savePermissionsMutation.isPending || unsavedChanges.length === 0}
+                    className="ml-auto"
+                  >
+                    <Save className="h-4 w-4 mr-2" /> Save Changes
+                  </Button>
+                )}
               </div>
               
               {!selectedRoleId ? (
@@ -470,7 +493,7 @@ const PermissionsPage = () => {
                                 <TableCell className="text-center">
                                   <div className="flex justify-center">
                                     <Checkbox 
-                                      checked={isChecked(selectedRoleId, table.name, null, 'view')}
+                                      checked={getEffectivePermission(selectedRoleId, table.name, null, 'view')}
                                       onCheckedChange={(checked) => 
                                         handlePermissionChange(selectedRoleId, table.name, null, 'view', !!checked)
                                       }
@@ -485,7 +508,7 @@ const PermissionsPage = () => {
                                           selectedRoleId, 
                                           table.name, 
                                           'view', 
-                                          !isChecked(selectedRoleId, table.name, null, 'view')
+                                          !getEffectivePermission(selectedRoleId, table.name, null, 'view')
                                         )}
                                       >
                                         all
@@ -496,13 +519,13 @@ const PermissionsPage = () => {
                                 <TableCell className="text-center">
                                   <div className="flex justify-center">
                                     <Checkbox 
-                                      checked={isChecked(selectedRoleId, table.name, null, 'edit')}
+                                      checked={getEffectivePermission(selectedRoleId, table.name, null, 'edit')}
                                       onCheckedChange={(checked) => 
                                         handlePermissionChange(selectedRoleId, table.name, null, 'edit', !!checked)
                                       }
                                       disabled={
                                         roles?.find(r => r.id === selectedRoleId)?.is_system === true || 
-                                        !isChecked(selectedRoleId, table.name, null, 'view')
+                                        !getEffectivePermission(selectedRoleId, table.name, null, 'view')
                                       }
                                     />
                                     {showSelectAll && (
@@ -514,9 +537,9 @@ const PermissionsPage = () => {
                                           selectedRoleId, 
                                           table.name, 
                                           'edit', 
-                                          !isChecked(selectedRoleId, table.name, null, 'edit')
+                                          !getEffectivePermission(selectedRoleId, table.name, null, 'edit')
                                         )}
-                                        disabled={!isChecked(selectedRoleId, table.name, null, 'view')}
+                                        disabled={!getEffectivePermission(selectedRoleId, table.name, null, 'view')}
                                       >
                                         all
                                       </Button>
@@ -526,13 +549,13 @@ const PermissionsPage = () => {
                                 <TableCell className="text-center">
                                   <div className="flex justify-center">
                                     <Checkbox 
-                                      checked={isChecked(selectedRoleId, table.name, null, 'delete')}
+                                      checked={getEffectivePermission(selectedRoleId, table.name, null, 'delete')}
                                       onCheckedChange={(checked) => 
                                         handlePermissionChange(selectedRoleId, table.name, null, 'delete', !!checked)
                                       }
                                       disabled={
                                         roles?.find(r => r.id === selectedRoleId)?.is_system === true || 
-                                        !isChecked(selectedRoleId, table.name, null, 'view')
+                                        !getEffectivePermission(selectedRoleId, table.name, null, 'view')
                                       }
                                     />
                                     {showSelectAll && (
@@ -544,9 +567,9 @@ const PermissionsPage = () => {
                                           selectedRoleId, 
                                           table.name, 
                                           'delete', 
-                                          !isChecked(selectedRoleId, table.name, null, 'delete')
+                                          !getEffectivePermission(selectedRoleId, table.name, null, 'delete')
                                         )}
-                                        disabled={!isChecked(selectedRoleId, table.name, null, 'view')}
+                                        disabled={!getEffectivePermission(selectedRoleId, table.name, null, 'view')}
                                       >
                                         all
                                       </Button>
@@ -563,7 +586,7 @@ const PermissionsPage = () => {
                                   </TableCell>
                                   <TableCell className="text-center py-2">
                                     <Checkbox 
-                                      checked={isChecked(selectedRoleId, table.name, field, 'view')}
+                                      checked={getEffectivePermission(selectedRoleId, table.name, field, 'view')}
                                       onCheckedChange={(checked) => 
                                         handlePermissionChange(selectedRoleId, table.name, field, 'view', !!checked)
                                       }
@@ -572,25 +595,25 @@ const PermissionsPage = () => {
                                   </TableCell>
                                   <TableCell className="text-center py-2">
                                     <Checkbox 
-                                      checked={isChecked(selectedRoleId, table.name, field, 'edit')}
+                                      checked={getEffectivePermission(selectedRoleId, table.name, field, 'edit')}
                                       onCheckedChange={(checked) => 
                                         handlePermissionChange(selectedRoleId, table.name, field, 'edit', !!checked)
                                       }
                                       disabled={
                                         roles?.find(r => r.id === selectedRoleId)?.is_system === true || 
-                                        !isChecked(selectedRoleId, table.name, field, 'view')
+                                        !getEffectivePermission(selectedRoleId, table.name, field, 'view')
                                       }
                                     />
                                   </TableCell>
                                   <TableCell className="text-center py-2">
                                     <Checkbox 
-                                      checked={isChecked(selectedRoleId, table.name, field, 'delete')}
+                                      checked={getEffectivePermission(selectedRoleId, table.name, field, 'delete')}
                                       onCheckedChange={(checked) => 
                                         handlePermissionChange(selectedRoleId, table.name, field, 'delete', !!checked)
                                       }
                                       disabled={
                                         roles?.find(r => r.id === selectedRoleId)?.is_system === true || 
-                                        !isChecked(selectedRoleId, table.name, field, 'view')
+                                        !getEffectivePermission(selectedRoleId, table.name, field, 'view')
                                       }
                                     />
                                   </TableCell>
@@ -620,6 +643,17 @@ const PermissionsPage = () => {
             </div>
           )}
         </CardContent>
+        <CardFooter>
+          {hasUnsavedChanges && (
+            <Button
+              onClick={handleSaveChanges}
+              disabled={savePermissionsMutation.isPending || unsavedChanges.length === 0}
+              className="w-full"
+            >
+              <Save className="h-4 w-4 mr-2" /> Save All Permission Changes
+            </Button>
+          )}
+        </CardFooter>
       </Card>
     </div>
   );
