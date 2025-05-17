@@ -10,8 +10,6 @@ import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
-import { Toggle } from "@/components/ui/toggle";
 
 interface Permission {
   id: string;
@@ -20,6 +18,7 @@ interface Permission {
   field_name: string | null;
   can_view: boolean;
   can_edit: boolean;
+  can_delete: boolean;
 }
 
 interface TableInfo {
@@ -97,13 +96,15 @@ const PermissionsPage = () => {
       moduleName, 
       fieldName = null, 
       canView, 
-      canEdit 
+      canEdit,
+      canDelete 
     }: { 
       roleId: string;
       moduleName: string;
       fieldName?: string | null;
       canView: boolean;
       canEdit: boolean;
+      canDelete: boolean;
     }) => {
       // Check if permission already exists
       const { data: existingPermission } = await supabase
@@ -121,6 +122,7 @@ const PermissionsPage = () => {
           .update({
             can_view: canView,
             can_edit: canEdit,
+            can_delete: canDelete,
             updated_at: new Date().toISOString()
           })
           .eq("id", existingPermission.id);
@@ -136,7 +138,8 @@ const PermissionsPage = () => {
             module_name: moduleName,
             field_name: fieldName,
             can_view: canView,
-            can_edit: canEdit
+            can_edit: canEdit,
+            can_delete: canDelete
           }]);
           
         if (error) throw error;
@@ -163,7 +166,7 @@ const PermissionsPage = () => {
     roleId: string,
     moduleName: string,
     fieldName: string | null,
-    type: 'view' | 'edit',
+    type: 'view' | 'edit' | 'delete',
     checked: boolean
   ) => {
     // For system roles, don't allow changes
@@ -184,12 +187,44 @@ const PermissionsPage = () => {
            p.field_name === fieldName
     );
 
+    // If 'edit' is checked, automatically check 'view' as well
+    let newCanView = existingPermission?.can_view || false;
+    let newCanEdit = existingPermission?.can_edit || false; 
+    let newCanDelete = existingPermission?.can_delete || false;
+
+    if (type === 'view') {
+      newCanView = checked;
+      // If view is unchecked, uncheck edit and delete as well
+      if (!checked) {
+        newCanEdit = false;
+        newCanDelete = false;
+      }
+    } else if (type === 'edit') {
+      newCanEdit = checked;
+      // If edit is checked, automatically check view
+      if (checked) {
+        newCanView = true;
+      }
+      // If edit is unchecked, uncheck delete as well
+      if (!checked) {
+        newCanDelete = false;
+      }
+    } else if (type === 'delete') {
+      newCanDelete = checked;
+      // If delete is checked, automatically check view and edit
+      if (checked) {
+        newCanView = true;
+        newCanEdit = true;
+      }
+    }
+
     updatePermission.mutate({
       roleId,
       moduleName,
       fieldName,
-      canView: type === 'view' ? checked : existingPermission?.can_view || false,
-      canEdit: type === 'edit' ? checked : existingPermission?.can_edit || false
+      canView: newCanView,
+      canEdit: newCanEdit,
+      canDelete: newCanDelete
     });
   };
 
@@ -197,7 +232,7 @@ const PermissionsPage = () => {
     roleId: string,
     moduleName: string,
     fieldName: string | null,
-    type: 'view' | 'edit'
+    type: 'view' | 'edit' | 'delete'
   ): boolean => {
     // System roles have all permissions by default
     const role = roles?.find(r => r.id === roleId);
@@ -210,7 +245,9 @@ const PermissionsPage = () => {
            p.field_name === fieldName
     );
 
-    return type === 'view' ? !!permission?.can_view : !!permission?.can_edit;
+    if (type === 'view') return !!permission?.can_view;
+    if (type === 'edit') return !!permission?.can_edit;
+    return !!permission?.can_delete;
   };
 
   // Define available modules for the tabs
@@ -299,6 +336,7 @@ const PermissionsPage = () => {
                                 <React.Fragment key={role.id}>
                                   <TableHead className="text-center border-l w-[80px]">View</TableHead>
                                   <TableHead className="text-center w-[80px]">Edit</TableHead>
+                                  <TableHead className="text-center w-[80px]">Delete</TableHead>
                                 </React.Fragment>
                               ))}
                             </TableRow>
@@ -308,7 +346,7 @@ const PermissionsPage = () => {
                               <React.Fragment key={table.name}>
                                 {/* Table-level permissions */}
                                 <TableRow className="bg-muted/50">
-                                  <TableCell className="font-medium flex items-center">
+                                  <TableCell className="font-medium">
                                     <div className="flex items-center justify-between w-full">
                                       <span>{table.name} (Entire table)</span>
                                       <Button 
@@ -341,6 +379,15 @@ const PermissionsPage = () => {
                                           disabled={role.is_system}
                                         />
                                       </TableCell>
+                                      <TableCell className="text-center">
+                                        <Checkbox 
+                                          checked={isChecked(role.id, table.name, null, 'delete')}
+                                          onCheckedChange={(checked) => 
+                                            handlePermissionChange(role.id, table.name, null, 'delete', !!checked)
+                                          }
+                                          disabled={role.is_system}
+                                        />
+                                      </TableCell>
                                     </React.Fragment>
                                   ))}
                                 </TableRow>
@@ -367,6 +414,15 @@ const PermissionsPage = () => {
                                             checked={isChecked(role.id, table.name, field, 'edit')}
                                             onCheckedChange={(checked) => 
                                               handlePermissionChange(role.id, table.name, field, 'edit', !!checked)
+                                            }
+                                            disabled={role.is_system}
+                                          />
+                                        </TableCell>
+                                        <TableCell className="text-center">
+                                          <Checkbox 
+                                            checked={isChecked(role.id, table.name, field, 'delete')}
+                                            onCheckedChange={(checked) => 
+                                              handlePermissionChange(role.id, table.name, field, 'delete', !!checked)
                                             }
                                             disabled={role.is_system}
                                           />
