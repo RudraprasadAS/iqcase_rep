@@ -190,7 +190,7 @@ const PermissionsPage = () => {
     }));
   };
 
-  // Updated handle permission change to implement new behavior rules
+  // Updated handle permission change to implement required behavior rules
   const handlePermissionChange = (
     roleId: string,
     moduleName: string,
@@ -218,7 +218,7 @@ const PermissionsPage = () => {
            p.field_name === fieldName
     );
 
-    // Apply updated permission logic based on new rules
+    // Apply updated permission logic based on behavior rules
     let newCanView = existingPermission?.can_view || false;
     let newCanEdit = existingPermission?.can_edit || false; 
     let newCanDelete = existingPermission?.can_delete || false;
@@ -276,6 +276,36 @@ const PermissionsPage = () => {
     ]);
     
     setHasUnsavedChanges(true);
+  };
+
+  // New function to handle bulk toggle for all fields in a table
+  const handleBulkToggleForTable = (
+    roleId: string,
+    tableName: string,
+    type: 'view' | 'edit' | 'delete',
+    checked: boolean
+  ) => {
+    // Find the table info
+    const tableInfo = tables?.find(t => t.name === tableName);
+    if (!tableInfo) return;
+
+    // Apply to table-level permission
+    handlePermissionChange(roleId, tableName, null, type, checked);
+
+    // Apply the same permission to all fields under this table
+    if (tableInfo.fields) {
+      tableInfo.fields.forEach(field => {
+        handlePermissionChange(roleId, tableName, field, type, checked);
+      });
+    }
+
+    // Auto-expand the table to show the affected fields
+    if (checked && !expandedTables[tableName]) {
+      setExpandedTables(prev => ({
+        ...prev,
+        [tableName]: true
+      }));
+    }
   };
 
   const handleSelectAllForTable = (
@@ -451,7 +481,7 @@ const PermissionsPage = () => {
                 
                 <Button
                   onClick={handleSaveChanges}
-                  disabled={savePermissionsMutation.isPending || unsavedChanges.length === 0}
+                  disabled={savePermissionsMutation.isPending}
                   className={`ml-auto ${hasUnsavedChanges ? 'animate-pulse' : ''}`}
                 >
                   <Save className="h-4 w-4 mr-2" /> Save Changes
@@ -501,7 +531,7 @@ const PermissionsPage = () => {
                                     <Checkbox 
                                       checked={getEffectivePermission(selectedRoleId, table.name, null, 'view')}
                                       onCheckedChange={(checked) => 
-                                        handlePermissionChange(selectedRoleId, table.name, null, 'view', !!checked)
+                                        handleBulkToggleForTable(selectedRoleId, table.name, 'view', !!checked)
                                       }
                                       disabled={roles?.find(r => r.id === selectedRoleId)?.is_system === true}
                                     />
@@ -527,7 +557,7 @@ const PermissionsPage = () => {
                                     <Checkbox 
                                       checked={getEffectivePermission(selectedRoleId, table.name, null, 'edit')}
                                       onCheckedChange={(checked) => 
-                                        handlePermissionChange(selectedRoleId, table.name, null, 'edit', !!checked)
+                                        handleBulkToggleForTable(selectedRoleId, table.name, 'edit', !!checked)
                                       }
                                       disabled={
                                         roles?.find(r => r.id === selectedRoleId)?.is_system === true
@@ -555,7 +585,7 @@ const PermissionsPage = () => {
                                     <Checkbox 
                                       checked={getEffectivePermission(selectedRoleId, table.name, null, 'delete')}
                                       onCheckedChange={(checked) => 
-                                        handlePermissionChange(selectedRoleId, table.name, null, 'delete', !!checked)
+                                        handleBulkToggleForTable(selectedRoleId, table.name, 'delete', !!checked)
                                       }
                                       disabled={
                                         roles?.find(r => r.id === selectedRoleId)?.is_system === true
@@ -642,6 +672,11 @@ const PermissionsPage = () => {
                       - Selecting Delete will automatically select Edit and View<br/>
                       - Deselecting View will deselect Edit and Delete<br/>
                       - Deselecting Edit will deselect Delete
+                    </p>
+                    <p className="mt-2 border-l-2 pl-3 border-primary/50">
+                      <strong>Bulk Toggles:</strong><br/>
+                      - Checking a table-level permission applies that permission to all fields<br/>
+                      - Individual field permissions can still be manually adjusted afterward
                     </p>
                   </div>
                 </div>
