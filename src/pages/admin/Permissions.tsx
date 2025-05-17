@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -297,24 +297,24 @@ const PermissionsPage = () => {
                             <TableRow>
                               <TableHead>Field</TableHead>
                               {roles?.map(role => (
-                                <React.Fragment key={role.id}>
-                                  <TableHead className="text-center border-l w-[80px]">View</TableHead>
-                                  <TableHead className="text-center w-[80px]">Edit</TableHead>
-                                </React.Fragment>
+                                <>
+                                  <TableHead key={`${role.id}-view`} className="text-center border-l w-[80px]">View</TableHead>
+                                  <TableHead key={`${role.id}-edit`} className="text-center w-[80px]">Edit</TableHead>
+                                </>
                               ))}
                             </TableRow>
                           </TableHeader>
                           <TableBody>
                             {getTablesForModule(module.id).map(table => (
-                              <React.Fragment key={table.name}>
+                              <>
                                 {/* Table-level permissions */}
-                                <TableRow className="bg-muted/50">
+                                <TableRow key={table.name} className="bg-muted/50">
                                   <TableCell className="font-medium">
                                     {table.name} (Entire table)
                                   </TableCell>
                                   {roles?.map(role => (
-                                    <React.Fragment key={role.id}>
-                                      <TableCell className="text-center border-l">
+                                    <>
+                                      <TableCell key={`${role.id}-${table.name}-view`} className="text-center border-l">
                                         <Checkbox 
                                           checked={isChecked(role.id, table.name, null, 'view')}
                                           onCheckedChange={(checked) => 
@@ -323,7 +323,7 @@ const PermissionsPage = () => {
                                           disabled={role.is_system}
                                         />
                                       </TableCell>
-                                      <TableCell className="text-center">
+                                      <TableCell key={`${role.id}-${table.name}-edit`} className="text-center">
                                         <Checkbox 
                                           checked={isChecked(role.id, table.name, null, 'edit')}
                                           onCheckedChange={(checked) => 
@@ -332,7 +332,7 @@ const PermissionsPage = () => {
                                           disabled={role.is_system}
                                         />
                                       </TableCell>
-                                    </React.Fragment>
+                                    </>
                                   ))}
                                 </TableRow>
                                 
@@ -367,7 +367,7 @@ const PermissionsPage = () => {
                                   </TableRow>
                                 ))}
                                 */}
-                              </React.Fragment>
+                              </>
                             ))}
                           </TableBody>
                         </Table>
