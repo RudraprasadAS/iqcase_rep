@@ -14,6 +14,7 @@ const Navbar = ({ toggleSidebar }: NavbarProps) => {
 
   const handleLogout = async () => {
     // Will implement with Supabase later
+    localStorage.removeItem("isAuthenticated");
     toast({
       title: "Logged out successfully",
       description: "You have been logged out of the system.",
