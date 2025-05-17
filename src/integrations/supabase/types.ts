@@ -525,6 +525,7 @@ export type Database = {
       }
       permissions: {
         Row: {
+          can_delete: boolean | null
           can_edit: boolean
           can_view: boolean
           created_at: string | null
@@ -535,6 +536,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          can_delete?: boolean | null
           can_edit?: boolean
           can_view?: boolean
           created_at?: string | null
@@ -545,6 +547,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          can_delete?: boolean | null
           can_edit?: boolean
           can_view?: boolean
           created_at?: string | null
@@ -828,6 +831,14 @@ export type Database = {
       create_role: {
         Args: { role_name: string; role_description: string }
         Returns: string
+      }
+      get_tables_info: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          name: string
+          schema: string
+          fields: string[]
+        }[]
       }
     }
     Enums: {

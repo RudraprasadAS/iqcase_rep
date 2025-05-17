@@ -10,6 +10,13 @@ import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { ChevronDown, ChevronRight, Plus } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 
 interface Permission {
   id: string;
@@ -29,8 +36,12 @@ interface TableInfo {
 
 const PermissionsPage = () => {
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<string>("tables");
-  const [showFields, setShowFields] = useState<Record<string, boolean>>({});
+  const [selectedRoleId, setSelectedRoleId] = useState<string>("");
+  const [isCreateRoleDialogOpen, setIsCreateRoleDialogOpen] = useState(false);
+  const [newRoleName, setNewRoleName] = useState("");
+  const [newRoleDescription, setNewRoleDescription] = useState("");
+  const [expandedTables, setExpandedTables] = useState<Record<string, boolean>>({});
+  const [showSelectAll, setShowSelectAll] = useState<boolean>(false);
   
   // Fetch all roles
   const { data: roles, isLoading: rolesLoading } = useQuery({
@@ -69,28 +80,59 @@ const PermissionsPage = () => {
     },
   });
   
-  // Fetch all permissions
+  // Fetch permissions for selected role
   const { data: permissions, isLoading: permissionsLoading } = useQuery({
-    queryKey: ["permissions"],
+    queryKey: ["permissions", selectedRoleId],
     queryFn: async () => {
+      if (!selectedRoleId) return [] as Permission[];
+      
       const { data, error } = await supabase
         .from("permissions")
-        .select("*");
+        .select("*")
+        .eq("role_id", selectedRoleId);
         
       if (error) throw error;
-      return data as Permission[];
+      return (data || []) as Permission[];
     },
+    enabled: !!selectedRoleId,
   });
 
-  const toggleFieldsDisplay = (tableName: string) => {
-    setShowFields(prev => ({
-      ...prev,
-      [tableName]: !prev[tableName]
-    }));
-  };
+  // Create new role
+  const createRoleMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase
+        .from("roles")
+        .insert([{
+          name: newRoleName,
+          description: newRoleDescription
+        }])
+        .select();
+        
+      if (error) throw error;
+      return data[0] as Role;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["roles"] });
+      toast({
+        title: "Role created",
+        description: `The role "${newRoleName}" has been created successfully.`
+      });
+      setSelectedRoleId(data.id);
+      setIsCreateRoleDialogOpen(false);
+      setNewRoleName("");
+      setNewRoleDescription("");
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error creating role",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
 
   // Update permission
-  const updatePermission = useMutation({
+  const updatePermissionMutation = useMutation({
     mutationFn: async ({ 
       roleId, 
       moduleName, 
@@ -107,15 +149,14 @@ const PermissionsPage = () => {
       canDelete: boolean;
     }) => {
       // Check if permission already exists
-      const { data: existingPermission } = await supabase
+      const { data: existingPermissions } = await supabase
         .from("permissions")
         .select("id")
         .eq("role_id", roleId)
         .eq("module_name", moduleName)
-        .eq("field_name", fieldName)
-        .single();
+        .eq("field_name", fieldName);
 
-      if (existingPermission) {
+      if (existingPermissions && existingPermissions.length > 0) {
         // Update existing permission
         const { data, error } = await supabase
           .from("permissions")
@@ -125,7 +166,7 @@ const PermissionsPage = () => {
             can_delete: canDelete,
             updated_at: new Date().toISOString()
           })
-          .eq("id", existingPermission.id);
+          .eq("id", existingPermissions[0].id);
           
         if (error) throw error;
         return data;
@@ -147,7 +188,7 @@ const PermissionsPage = () => {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["permissions"] });
+      queryClient.invalidateQueries({ queryKey: ["permissions", selectedRoleId] });
       toast({
         title: "Permission updated",
         description: "The permission has been updated successfully.",
@@ -161,6 +202,13 @@ const PermissionsPage = () => {
       });
     },
   });
+
+  const handleToggleTable = (tableName: string) => {
+    setExpandedTables(prev => ({
+      ...prev,
+      [tableName]: !prev[tableName]
+    }));
+  };
 
   const handlePermissionChange = (
     roleId: string,
@@ -187,7 +235,7 @@ const PermissionsPage = () => {
            p.field_name === fieldName
     );
 
-    // If 'edit' is checked, automatically check 'view' as well
+    // Apply permission logic
     let newCanView = existingPermission?.can_view || false;
     let newCanEdit = existingPermission?.can_edit || false; 
     let newCanDelete = existingPermission?.can_delete || false;
@@ -205,20 +253,15 @@ const PermissionsPage = () => {
       if (checked) {
         newCanView = true;
       }
-      // If edit is unchecked, uncheck delete as well
-      if (!checked) {
-        newCanDelete = false;
-      }
     } else if (type === 'delete') {
       newCanDelete = checked;
-      // If delete is checked, automatically check view and edit
+      // If delete is checked, automatically check view
       if (checked) {
         newCanView = true;
-        newCanEdit = true;
       }
     }
 
-    updatePermission.mutate({
+    updatePermissionMutation.mutate({
       roleId,
       moduleName,
       fieldName,
@@ -226,6 +269,26 @@ const PermissionsPage = () => {
       canEdit: newCanEdit,
       canDelete: newCanDelete
     });
+  };
+
+  const handleSelectAllForTable = (
+    roleId: string,
+    tableName: string,
+    type: 'view' | 'edit' | 'delete',
+    checked: boolean
+  ) => {
+    const tableInfo = tables?.find(t => t.name === tableName);
+    if (!tableInfo) return;
+
+    // Apply to table-level permission
+    handlePermissionChange(roleId, tableName, null, type, checked);
+
+    // Apply to all fields
+    if (tableInfo.fields) {
+      tableInfo.fields.forEach(field => {
+        handlePermissionChange(roleId, tableName, field, type, checked);
+      });
+    }
   };
 
   const isChecked = (
@@ -250,41 +313,17 @@ const PermissionsPage = () => {
     return !!permission?.can_delete;
   };
 
-  // Define available modules for the tabs
-  const modules = [
-    { id: "tables", name: "Tables" },
-    { id: "reports", name: "Reports" },
-    { id: "dashboards", name: "Dashboards" },
-    { id: "admin", name: "Admin" },
-  ];
+  // Define relevant modules/tables to show
+  const relevantTables = tables?.filter(t => 
+    !t.name.startsWith('pg_') && 
+    !t.name.includes('_audit_') && 
+    !t.name.includes('_log')
+  ) || [];
 
-  // Filter tables for the current tab/module
-  const getTablesForModule = (moduleId: string) => {
-    if (!tables) return [];
-    
-    switch (moduleId) {
-      case "tables":
-        return tables.filter(t => 
-          !t.name.startsWith('report_') && 
-          !t.name.startsWith('dashboard_') &&
-          !t.name.startsWith('pg_')
-        );
-      case "reports":
-        return tables.filter(t => t.name.startsWith('report_'));
-      case "dashboards":
-        return tables.filter(t => t.name.startsWith('dashboard_'));
-      case "admin":
-        return tables.filter(t => 
-          t.name === 'roles' || 
-          t.name === 'permissions' || 
-          t.name === 'users'
-        );
-      default:
-        return tables;
-    }
-  };
-
-  const isLoading = rolesLoading || tablesLoading || permissionsLoading;
+  // Filter out system tables and sort by name
+  const sortedTables = [...relevantTables].sort((a, b) => a.name.localeCompare(b.name));
+  
+  const isLoading = rolesLoading || tablesLoading || (!!selectedRoleId && permissionsLoading);
   
   return (
     <div className="container mx-auto py-6 space-y-6">
@@ -292,6 +331,17 @@ const PermissionsPage = () => {
         <div>
           <h1 className="text-3xl font-bold">Permission Matrix</h1>
           <p className="text-muted-foreground">Manage permissions by role and database entity</p>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Label htmlFor="select-all-toggle">Show "Select All" options</Label>
+            <Switch 
+              id="select-all-toggle"
+              checked={showSelectAll} 
+              onCheckedChange={setShowSelectAll} 
+            />
+          </div>
         </div>
       </div>
       
@@ -310,145 +360,260 @@ const PermissionsPage = () => {
             </div>
           ) : (
             <div>
-              {/* Module tabs */}
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="mb-6 overflow-x-auto flex w-full justify-start">
-                  {modules.map(module => (
-                    <TabsTrigger 
-                      key={module.id}
-                      value={module.id}
-                      className="min-w-[100px]"
+              <div className="flex justify-between items-end mb-6">
+                <div className="w-[300px]">
+                  <Label htmlFor="role-select" className="mb-2 block">Select Role</Label>
+                  <div className="flex gap-2">
+                    <Select 
+                      value={selectedRoleId} 
+                      onValueChange={setSelectedRoleId}
                     >
-                      {module.name}
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
-                
-                {modules.map(module => (
-                  <TabsContent key={module.id} value={module.id} className="mt-0">
-                    <div className="overflow-x-auto">
-                      {getTablesForModule(module.id).length > 0 ? (
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead className="min-w-[200px]">Table/Entity</TableHead>
-                              {roles?.map(role => (
-                                <React.Fragment key={role.id}>
-                                  <TableHead className="text-center border-l w-[80px]">View</TableHead>
-                                  <TableHead className="text-center w-[80px]">Edit</TableHead>
-                                  <TableHead className="text-center w-[80px]">Delete</TableHead>
-                                </React.Fragment>
-                              ))}
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {getTablesForModule(module.id).map(table => (
-                              <React.Fragment key={table.name}>
-                                {/* Table-level permissions */}
-                                <TableRow className="bg-muted/50">
-                                  <TableCell className="font-medium">
-                                    <div className="flex items-center justify-between w-full">
-                                      <span>{table.name} (Entire table)</span>
+                      <SelectTrigger id="role-select" className="flex-1">
+                        <SelectValue placeholder="Select a role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {roles?.map(role => (
+                          <SelectItem key={role.id} value={role.id}>
+                            {role.name} {role.is_system && "(System)"}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Dialog open={isCreateRoleDialogOpen} onOpenChange={setIsCreateRoleDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" size="icon">
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Create New Role</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="role-name">Role Name</Label>
+                            <Input
+                              id="role-name"
+                              value={newRoleName}
+                              onChange={(e) => setNewRoleName(e.target.value)}
+                              placeholder="Enter role name"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="role-description">Description (Optional)</Label>
+                            <Input
+                              id="role-description"
+                              value={newRoleDescription}
+                              onChange={(e) => setNewRoleDescription(e.target.value)}
+                              placeholder="Enter description"
+                            />
+                          </div>
+                        </div>
+                        <DialogFooter>
+                          <Button variant="outline" onClick={() => setIsCreateRoleDialogOpen(false)}>
+                            Cancel
+                          </Button>
+                          <Button 
+                            onClick={() => createRoleMutation.mutate()}
+                            disabled={!newRoleName.trim() || createRoleMutation.isPending}
+                          >
+                            Create Role
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                </div>
+              </div>
+              
+              {!selectedRoleId ? (
+                <div className="text-center py-12 border rounded-md bg-muted/10">
+                  <p className="text-muted-foreground">Select a role to manage permissions</p>
+                </div>
+              ) : (
+                <div>
+                  <div className="overflow-x-auto border rounded-md">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/50">
+                          <TableHead className="min-w-[200px]">Table / Field</TableHead>
+                          <TableHead className="text-center w-[100px]">View</TableHead>
+                          <TableHead className="text-center w-[100px]">Edit</TableHead>
+                          <TableHead className="text-center w-[100px]">Delete</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {sortedTables.length > 0 ? (
+                          sortedTables.map(table => (
+                            <React.Fragment key={table.name}>
+                              {/* Table-level row */}
+                              <TableRow className="bg-muted/20 hover:bg-muted/30">
+                                <TableCell className="font-medium">
+                                  <div className="flex items-center">
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm"
+                                      className="p-1 mr-2"
+                                      onClick={() => handleToggleTable(table.name)}
+                                    >
+                                      {expandedTables[table.name] ? 
+                                        <ChevronDown className="h-4 w-4" /> : 
+                                        <ChevronRight className="h-4 w-4" />
+                                      }
+                                    </Button>
+                                    <span className="font-semibold">{table.name}</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  <div className="flex justify-center">
+                                    <Checkbox 
+                                      checked={isChecked(selectedRoleId, table.name, null, 'view')}
+                                      onCheckedChange={(checked) => 
+                                        handlePermissionChange(selectedRoleId, table.name, null, 'view', !!checked)
+                                      }
+                                      disabled={roles?.find(r => r.id === selectedRoleId)?.is_system}
+                                    />
+                                    {showSelectAll && (
                                       <Button 
                                         variant="ghost" 
-                                        size="sm" 
-                                        onClick={() => toggleFieldsDisplay(table.name)}
-                                        className="ml-2"
+                                        size="sm"
+                                        className="ml-2 text-xs h-5"
+                                        onClick={() => handleSelectAllForTable(
+                                          selectedRoleId, 
+                                          table.name, 
+                                          'view', 
+                                          !isChecked(selectedRoleId, table.name, null, 'view')
+                                        )}
                                       >
-                                        {showFields[table.name] ? 'Hide Fields' : 'Show Fields'}
+                                        all
                                       </Button>
-                                    </div>
+                                    )}
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  <div className="flex justify-center">
+                                    <Checkbox 
+                                      checked={isChecked(selectedRoleId, table.name, null, 'edit')}
+                                      onCheckedChange={(checked) => 
+                                        handlePermissionChange(selectedRoleId, table.name, null, 'edit', !!checked)
+                                      }
+                                      disabled={
+                                        roles?.find(r => r.id === selectedRoleId)?.is_system || 
+                                        !isChecked(selectedRoleId, table.name, null, 'view')
+                                      }
+                                    />
+                                    {showSelectAll && (
+                                      <Button 
+                                        variant="ghost" 
+                                        size="sm"
+                                        className="ml-2 text-xs h-5"
+                                        onClick={() => handleSelectAllForTable(
+                                          selectedRoleId, 
+                                          table.name, 
+                                          'edit', 
+                                          !isChecked(selectedRoleId, table.name, null, 'edit')
+                                        )}
+                                        disabled={!isChecked(selectedRoleId, table.name, null, 'view')}
+                                      >
+                                        all
+                                      </Button>
+                                    )}
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  <div className="flex justify-center">
+                                    <Checkbox 
+                                      checked={isChecked(selectedRoleId, table.name, null, 'delete')}
+                                      onCheckedChange={(checked) => 
+                                        handlePermissionChange(selectedRoleId, table.name, null, 'delete', !!checked)
+                                      }
+                                      disabled={
+                                        roles?.find(r => r.id === selectedRoleId)?.is_system || 
+                                        !isChecked(selectedRoleId, table.name, null, 'view')
+                                      }
+                                    />
+                                    {showSelectAll && (
+                                      <Button 
+                                        variant="ghost" 
+                                        size="sm"
+                                        className="ml-2 text-xs h-5"
+                                        onClick={() => handleSelectAllForTable(
+                                          selectedRoleId, 
+                                          table.name, 
+                                          'delete', 
+                                          !isChecked(selectedRoleId, table.name, null, 'delete')
+                                        )}
+                                        disabled={!isChecked(selectedRoleId, table.name, null, 'view')}
+                                      >
+                                        all
+                                      </Button>
+                                    )}
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                              
+                              {/* Field-level rows */}
+                              {expandedTables[table.name] && table.fields && table.fields.map(field => (
+                                <TableRow key={`${table.name}-${field}`} className="border-0">
+                                  <TableCell className="pl-10 py-2 text-sm">
+                                    {field}
                                   </TableCell>
-                                  {roles?.map(role => (
-                                    <React.Fragment key={role.id}>
-                                      <TableCell className="text-center border-l">
-                                        <Checkbox 
-                                          checked={isChecked(role.id, table.name, null, 'view')}
-                                          onCheckedChange={(checked) => 
-                                            handlePermissionChange(role.id, table.name, null, 'view', !!checked)
-                                          }
-                                          disabled={role.is_system}
-                                        />
-                                      </TableCell>
-                                      <TableCell className="text-center">
-                                        <Checkbox 
-                                          checked={isChecked(role.id, table.name, null, 'edit')}
-                                          onCheckedChange={(checked) => 
-                                            handlePermissionChange(role.id, table.name, null, 'edit', !!checked)
-                                          }
-                                          disabled={role.is_system}
-                                        />
-                                      </TableCell>
-                                      <TableCell className="text-center">
-                                        <Checkbox 
-                                          checked={isChecked(role.id, table.name, null, 'delete')}
-                                          onCheckedChange={(checked) => 
-                                            handlePermissionChange(role.id, table.name, null, 'delete', !!checked)
-                                          }
-                                          disabled={role.is_system}
-                                        />
-                                      </TableCell>
-                                    </React.Fragment>
-                                  ))}
+                                  <TableCell className="text-center py-2">
+                                    <Checkbox 
+                                      checked={isChecked(selectedRoleId, table.name, field, 'view')}
+                                      onCheckedChange={(checked) => 
+                                        handlePermissionChange(selectedRoleId, table.name, field, 'view', !!checked)
+                                      }
+                                      disabled={roles?.find(r => r.id === selectedRoleId)?.is_system}
+                                    />
+                                  </TableCell>
+                                  <TableCell className="text-center py-2">
+                                    <Checkbox 
+                                      checked={isChecked(selectedRoleId, table.name, field, 'edit')}
+                                      onCheckedChange={(checked) => 
+                                        handlePermissionChange(selectedRoleId, table.name, field, 'edit', !!checked)
+                                      }
+                                      disabled={
+                                        roles?.find(r => r.id === selectedRoleId)?.is_system || 
+                                        !isChecked(selectedRoleId, table.name, field, 'view')
+                                      }
+                                    />
+                                  </TableCell>
+                                  <TableCell className="text-center py-2">
+                                    <Checkbox 
+                                      checked={isChecked(selectedRoleId, table.name, field, 'delete')}
+                                      onCheckedChange={(checked) => 
+                                        handlePermissionChange(selectedRoleId, table.name, field, 'delete', !!checked)
+                                      }
+                                      disabled={
+                                        roles?.find(r => r.id === selectedRoleId)?.is_system || 
+                                        !isChecked(selectedRoleId, table.name, field, 'view')
+                                      }
+                                    />
+                                  </TableCell>
                                 </TableRow>
-                                
-                                {/* Field-level permissions */}
-                                {showFields[table.name] && table.fields && table.fields.map(field => (
-                                  <TableRow key={`${table.name}-${field}`}>
-                                    <TableCell className="pl-8">
-                                      {field}
-                                    </TableCell>
-                                    {roles?.map(role => (
-                                      <React.Fragment key={role.id}>
-                                        <TableCell className="text-center border-l">
-                                          <Checkbox 
-                                            checked={isChecked(role.id, table.name, field, 'view')}
-                                            onCheckedChange={(checked) => 
-                                              handlePermissionChange(role.id, table.name, field, 'view', !!checked)
-                                            }
-                                            disabled={role.is_system}
-                                          />
-                                        </TableCell>
-                                        <TableCell className="text-center">
-                                          <Checkbox 
-                                            checked={isChecked(role.id, table.name, field, 'edit')}
-                                            onCheckedChange={(checked) => 
-                                              handlePermissionChange(role.id, table.name, field, 'edit', !!checked)
-                                            }
-                                            disabled={role.is_system}
-                                          />
-                                        </TableCell>
-                                        <TableCell className="text-center">
-                                          <Checkbox 
-                                            checked={isChecked(role.id, table.name, field, 'delete')}
-                                            onCheckedChange={(checked) => 
-                                              handlePermissionChange(role.id, table.name, field, 'delete', !!checked)
-                                            }
-                                            disabled={role.is_system}
-                                          />
-                                        </TableCell>
-                                      </React.Fragment>
-                                    ))}
-                                  </TableRow>
-                                ))}
-                              </React.Fragment>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      ) : (
-                        <div className="text-center py-6 text-muted-foreground">
-                          No tables found for this module.
-                        </div>
-                      )}
-                    </div>
-                  </TabsContent>
-                ))}
-              </Tabs>
-              
-              <div className="mt-6 text-sm text-muted-foreground">
-                <p>Note: System roles (Admin) have predefined permissions that cannot be modified.</p>
-                <p>Changes take effect immediately and will be applied to all users with the corresponding role.</p>
-              </div>
+                              ))}
+                            </React.Fragment>
+                          ))
+                        ) : (
+                          <TableRow>
+                            <TableCell colSpan={4} className="text-center py-8">
+                              No tables available
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  
+                  <div className="mt-6 text-sm text-muted-foreground">
+                    <p>• <strong>View</strong>: Controls whether the role can see the table/field</p>
+                    <p>• <strong>Edit</strong>: Controls whether the role can modify the field (requires View permission)</p>
+                    <p>• <strong>Delete</strong>: Controls whether the role can delete records (requires View permission)</p>
+                    <p>• System roles have predefined permissions that cannot be modified</p>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
