@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,7 +14,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ChevronDown, ChevronRight, Plus } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 
@@ -104,7 +103,8 @@ const PermissionsPage = () => {
         .from("roles")
         .insert([{
           name: newRoleName,
-          description: newRoleDescription
+          description: newRoleDescription,
+          is_system: false // Explicitly set is_system to false for new roles
         }])
         .select();
         
@@ -217,9 +217,11 @@ const PermissionsPage = () => {
     type: 'view' | 'edit' | 'delete',
     checked: boolean
   ) => {
-    // For system roles, don't allow changes
+    // Find the role to check if it's a system role
     const role = roles?.find(r => r.id === roleId);
-    if (role?.is_system) {
+    
+    // Only prevent modifications for system roles that are explicitly marked as is_system=true
+    if (role?.is_system === true) {
       toast({
         title: "Cannot modify system role",
         description: "System roles have predefined permissions that cannot be changed.",
@@ -261,6 +263,7 @@ const PermissionsPage = () => {
       }
     }
 
+    // Update the permission in the database
     updatePermissionMutation.mutate({
       roleId,
       moduleName,
@@ -297,9 +300,9 @@ const PermissionsPage = () => {
     fieldName: string | null,
     type: 'view' | 'edit' | 'delete'
   ): boolean => {
-    // System roles have all permissions by default
+    // For system roles specifically marked with is_system=true, return true for all permissions
     const role = roles?.find(r => r.id === roleId);
-    if (role?.is_system) return true;
+    if (role?.is_system === true) return true;
 
     // Check if permission exists
     const permission = permissions?.find(
@@ -374,7 +377,7 @@ const PermissionsPage = () => {
                       <SelectContent>
                         {roles?.map(role => (
                           <SelectItem key={role.id} value={role.id}>
-                            {role.name} {role.is_system && "(System)"}
+                            {role.name} {role.is_system === true && "(System)"}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -471,7 +474,7 @@ const PermissionsPage = () => {
                                       onCheckedChange={(checked) => 
                                         handlePermissionChange(selectedRoleId, table.name, null, 'view', !!checked)
                                       }
-                                      disabled={roles?.find(r => r.id === selectedRoleId)?.is_system}
+                                      disabled={roles?.find(r => r.id === selectedRoleId)?.is_system === true}
                                     />
                                     {showSelectAll && (
                                       <Button 
@@ -498,7 +501,7 @@ const PermissionsPage = () => {
                                         handlePermissionChange(selectedRoleId, table.name, null, 'edit', !!checked)
                                       }
                                       disabled={
-                                        roles?.find(r => r.id === selectedRoleId)?.is_system || 
+                                        roles?.find(r => r.id === selectedRoleId)?.is_system === true || 
                                         !isChecked(selectedRoleId, table.name, null, 'view')
                                       }
                                     />
@@ -528,7 +531,7 @@ const PermissionsPage = () => {
                                         handlePermissionChange(selectedRoleId, table.name, null, 'delete', !!checked)
                                       }
                                       disabled={
-                                        roles?.find(r => r.id === selectedRoleId)?.is_system || 
+                                        roles?.find(r => r.id === selectedRoleId)?.is_system === true || 
                                         !isChecked(selectedRoleId, table.name, null, 'view')
                                       }
                                     />
@@ -564,7 +567,7 @@ const PermissionsPage = () => {
                                       onCheckedChange={(checked) => 
                                         handlePermissionChange(selectedRoleId, table.name, field, 'view', !!checked)
                                       }
-                                      disabled={roles?.find(r => r.id === selectedRoleId)?.is_system}
+                                      disabled={roles?.find(r => r.id === selectedRoleId)?.is_system === true}
                                     />
                                   </TableCell>
                                   <TableCell className="text-center py-2">
@@ -574,7 +577,7 @@ const PermissionsPage = () => {
                                         handlePermissionChange(selectedRoleId, table.name, field, 'edit', !!checked)
                                       }
                                       disabled={
-                                        roles?.find(r => r.id === selectedRoleId)?.is_system || 
+                                        roles?.find(r => r.id === selectedRoleId)?.is_system === true || 
                                         !isChecked(selectedRoleId, table.name, field, 'view')
                                       }
                                     />
@@ -586,7 +589,7 @@ const PermissionsPage = () => {
                                         handlePermissionChange(selectedRoleId, table.name, field, 'delete', !!checked)
                                       }
                                       disabled={
-                                        roles?.find(r => r.id === selectedRoleId)?.is_system || 
+                                        roles?.find(r => r.id === selectedRoleId)?.is_system === true || 
                                         !isChecked(selectedRoleId, table.name, field, 'view')
                                       }
                                     />
@@ -610,7 +613,7 @@ const PermissionsPage = () => {
                     <p>• <strong>View</strong>: Controls whether the role can see the table/field</p>
                     <p>• <strong>Edit</strong>: Controls whether the role can modify the field (requires View permission)</p>
                     <p>• <strong>Delete</strong>: Controls whether the role can delete records (requires View permission)</p>
-                    <p>• System roles have predefined permissions that cannot be modified</p>
+                    <p>• System roles (marked as is_system=true) have predefined permissions that cannot be modified</p>
                   </div>
                 </div>
               )}
