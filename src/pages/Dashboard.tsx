@@ -36,40 +36,13 @@ import { useQuery } from "@tanstack/react-query";
 const Dashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [hasRole, setHasRole] = useState(false);
 
-  // Fetch user profile from Supabase Auth
-  const { data: session } = useQuery({
-    queryKey: ["session"],
-    queryFn: async () => {
-      const { data } = await supabase.auth.getSession();
-      return data.session;
-    },
-  });
-
-  // Check if the user has a role in the system
-  useEffect(() => {
-    const checkUserRole = async () => {
-      if (session?.user?.id) {
-        const { data } = await supabase
-          .from("users")
-          .select("*")
-          .eq("auth_user_id", session.user.id)
-          .single();
-        
-        if (data) {
-          setHasRole(true);
-        }
-      }
-    };
-    
-    checkUserRole();
-  }, [session]);
-
-  // Fetch case statistics from Supabase
+  // Fetch case statistics directly without requiring authentication
   const { data: caseStats, isLoading: isLoadingStats } = useQuery({
     queryKey: ["caseStats"],
     queryFn: async () => {
+      console.log("Fetching case statistics...");
+      
       const openCases = await supabase
         .from("cases")
         .select("*", { count: "exact" })
@@ -91,6 +64,13 @@ const Dashboard = () => {
         .lt("sla_due_at", new Date().toISOString())
         .eq("status", "open");
       
+      console.log("Case stats:", {
+        open: openCases.count,
+        inProgress: inProgressCases.count,
+        closed: closedCases.count,
+        overdue: overdueCases.count
+      });
+      
       return {
         open: openCases.count || 0,
         inProgress: inProgressCases.count || 0,
@@ -98,28 +78,34 @@ const Dashboard = () => {
         overdue: overdueCases.count || 0,
       };
     },
-    enabled: !!session,
   });
 
-  // Fetch recent activities from Supabase
+  // Fetch recent activities
   const { data: activities, isLoading: isLoadingActivities } = useQuery({
     queryKey: ["activities"],
     queryFn: async () => {
-      const { data } = await supabase
+      console.log("Fetching case activities...");
+      const { data, error } = await supabase
         .from("case_activities")
         .select("*, cases(title)")
         .order("created_at", { ascending: false })
         .limit(4);
 
+      if (error) {
+        console.error("Error fetching activities:", error);
+        return [];
+      }
+
+      console.log("Activities data:", data);
       return data || [];
     },
-    enabled: !!session,
   });
 
-  // Weekly case data (this could be further enhanced with a weekly aggregation query)
+  // Weekly case data
   const { data: weeklyData, isLoading: isLoadingWeekly } = useQuery({
     queryKey: ["weeklyData"],
     queryFn: async () => {
+      console.log("Fetching weekly data...");
       const getDayName = (dateStr) => {
         const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         return days[new Date(dateStr).getDay()];
@@ -129,13 +115,25 @@ const Dashboard = () => {
       const oneWeekAgo = new Date();
       oneWeekAgo.setDate(today.getDate() - 7);
       
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("cases")
         .select("created_at")
         .gte("created_at", oneWeekAgo.toISOString())
         .lte("created_at", today.toISOString());
       
-      if (!data) return [];
+      if (error) {
+        console.error("Error fetching weekly data:", error);
+        return [];
+      }
+
+      console.log("Weekly data raw:", data);
+      
+      if (!data || data.length === 0) {
+        return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => ({
+          name: day,
+          cases: 0
+        }));
+      }
       
       // Group by day of week
       const groupedByDay = data.reduce((acc, curr) => {
@@ -145,12 +143,14 @@ const Dashboard = () => {
       }, {});
       
       // Convert to array format for chart
-      return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => ({
+      const result = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => ({
         name: day,
         cases: groupedByDay[day] || 0
       }));
+
+      console.log("Weekly data processed:", result);
+      return result;
     },
-    enabled: !!session,
   });
 
   // Transform fetched data for pie chart
@@ -160,10 +160,10 @@ const Dashboard = () => {
     { name: "Closed", value: caseStats?.closed || 0, color: "#10B981" },
   ] : [];
 
-  // Mock user data - would come from auth context in production
+  // Mock user data since we're skipping auth for now
   const user = {
-    name: session?.user?.email?.split('@')[0] || "User",
-    role: hasRole ? "Staff" : "Guest",
+    name: "Guest User",
+    role: "Guest",
     lastLogin: "Recently",
   };
 
