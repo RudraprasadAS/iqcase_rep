@@ -190,7 +190,7 @@ const PermissionsPage = () => {
     }));
   };
 
-  // Handle permission change and track it as unsaved
+  // Updated handle permission change to implement new behavior rules
   const handlePermissionChange = (
     roleId: string,
     moduleName: string,
@@ -218,30 +218,38 @@ const PermissionsPage = () => {
            p.field_name === fieldName
     );
 
-    // Apply permission logic
+    // Apply updated permission logic based on new rules
     let newCanView = existingPermission?.can_view || false;
     let newCanEdit = existingPermission?.can_edit || false; 
     let newCanDelete = existingPermission?.can_delete || false;
 
     if (type === 'view') {
       newCanView = checked;
-      // If view is unchecked, uncheck edit and delete as well
+      // If unchecking view, also uncheck edit and delete
       if (!checked) {
         newCanEdit = false;
         newCanDelete = false;
       }
     } else if (type === 'edit') {
       newCanEdit = checked;
-      // If edit is checked, automatically check view
+      
+      // If checking edit, auto-enable view
       if (checked) {
         newCanView = true;
+      } 
+      // If unchecking edit, auto-uncheck delete
+      else {
+        newCanDelete = false;
       }
     } else if (type === 'delete') {
       newCanDelete = checked;
-      // If delete is checked, automatically check view
+      
+      // If checking delete, auto-enable both view and edit
       if (checked) {
         newCanView = true;
+        newCanEdit = true;
       }
+      // If unchecking delete, no impact on other permissions
     }
 
     // Add to unsaved changes
@@ -441,15 +449,13 @@ const PermissionsPage = () => {
                   </div>
                 </div>
                 
-                {hasUnsavedChanges && (
-                  <Button
-                    onClick={handleSaveChanges}
-                    disabled={savePermissionsMutation.isPending || unsavedChanges.length === 0}
-                    className="ml-auto"
-                  >
-                    <Save className="h-4 w-4 mr-2" /> Save Changes
-                  </Button>
-                )}
+                <Button
+                  onClick={handleSaveChanges}
+                  disabled={savePermissionsMutation.isPending || unsavedChanges.length === 0}
+                  className={`ml-auto ${hasUnsavedChanges ? 'animate-pulse' : ''}`}
+                >
+                  <Save className="h-4 w-4 mr-2" /> Save Changes
+                </Button>
               </div>
               
               {!selectedRoleId ? (
@@ -524,8 +530,7 @@ const PermissionsPage = () => {
                                         handlePermissionChange(selectedRoleId, table.name, null, 'edit', !!checked)
                                       }
                                       disabled={
-                                        roles?.find(r => r.id === selectedRoleId)?.is_system === true || 
-                                        !getEffectivePermission(selectedRoleId, table.name, null, 'view')
+                                        roles?.find(r => r.id === selectedRoleId)?.is_system === true
                                       }
                                     />
                                     {showSelectAll && (
@@ -539,7 +544,6 @@ const PermissionsPage = () => {
                                           'edit', 
                                           !getEffectivePermission(selectedRoleId, table.name, null, 'edit')
                                         )}
-                                        disabled={!getEffectivePermission(selectedRoleId, table.name, null, 'view')}
                                       >
                                         all
                                       </Button>
@@ -554,8 +558,7 @@ const PermissionsPage = () => {
                                         handlePermissionChange(selectedRoleId, table.name, null, 'delete', !!checked)
                                       }
                                       disabled={
-                                        roles?.find(r => r.id === selectedRoleId)?.is_system === true || 
-                                        !getEffectivePermission(selectedRoleId, table.name, null, 'view')
+                                        roles?.find(r => r.id === selectedRoleId)?.is_system === true
                                       }
                                     />
                                     {showSelectAll && (
@@ -569,7 +572,6 @@ const PermissionsPage = () => {
                                           'delete', 
                                           !getEffectivePermission(selectedRoleId, table.name, null, 'delete')
                                         )}
-                                        disabled={!getEffectivePermission(selectedRoleId, table.name, null, 'view')}
                                       >
                                         all
                                       </Button>
@@ -600,8 +602,7 @@ const PermissionsPage = () => {
                                         handlePermissionChange(selectedRoleId, table.name, field, 'edit', !!checked)
                                       }
                                       disabled={
-                                        roles?.find(r => r.id === selectedRoleId)?.is_system === true || 
-                                        !getEffectivePermission(selectedRoleId, table.name, field, 'view')
+                                        roles?.find(r => r.id === selectedRoleId)?.is_system === true
                                       }
                                     />
                                   </TableCell>
@@ -612,8 +613,7 @@ const PermissionsPage = () => {
                                         handlePermissionChange(selectedRoleId, table.name, field, 'delete', !!checked)
                                       }
                                       disabled={
-                                        roles?.find(r => r.id === selectedRoleId)?.is_system === true || 
-                                        !getEffectivePermission(selectedRoleId, table.name, field, 'view')
+                                        roles?.find(r => r.id === selectedRoleId)?.is_system === true
                                       }
                                     />
                                   </TableCell>
@@ -634,9 +634,15 @@ const PermissionsPage = () => {
                   
                   <div className="mt-6 text-sm text-muted-foreground">
                     <p>• <strong>View</strong>: Controls whether the role can see the table/field</p>
-                    <p>• <strong>Edit</strong>: Controls whether the role can modify the field (requires View permission)</p>
-                    <p>• <strong>Delete</strong>: Controls whether the role can delete records (requires View permission)</p>
-                    <p>• System roles (marked as is_system=true) have predefined permissions that cannot be modified</p>
+                    <p>• <strong>Edit</strong>: Controls whether the role can modify the field</p>
+                    <p>• <strong>Delete</strong>: Controls whether the role can delete records</p>
+                    <p className="mt-2 border-l-2 pl-3 border-primary/50">
+                      <strong>Permission Rules:</strong><br/>
+                      - Selecting Edit will automatically select View<br/>
+                      - Selecting Delete will automatically select Edit and View<br/>
+                      - Deselecting View will deselect Edit and Delete<br/>
+                      - Deselecting Edit will deselect Delete
+                    </p>
                   </div>
                 </div>
               )}
@@ -644,15 +650,13 @@ const PermissionsPage = () => {
           )}
         </CardContent>
         <CardFooter>
-          {hasUnsavedChanges && (
-            <Button
-              onClick={handleSaveChanges}
-              disabled={savePermissionsMutation.isPending || unsavedChanges.length === 0}
-              className="w-full"
-            >
-              <Save className="h-4 w-4 mr-2" /> Save All Permission Changes
-            </Button>
-          )}
+          <Button
+            onClick={handleSaveChanges}
+            disabled={savePermissionsMutation.isPending || unsavedChanges.length === 0}
+            className="w-full"
+          >
+            <Save className="h-4 w-4 mr-2" /> Save All Permission Changes
+          </Button>
         </CardFooter>
       </Card>
     </div>
