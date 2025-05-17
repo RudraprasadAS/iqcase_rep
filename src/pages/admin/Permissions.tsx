@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,6 +10,8 @@ import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
+import { Toggle } from "@/components/ui/toggle";
 
 interface Permission {
   id: string;
@@ -29,6 +31,7 @@ interface TableInfo {
 const PermissionsPage = () => {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<string>("tables");
+  const [showFields, setShowFields] = useState<Record<string, boolean>>({});
   
   // Fetch all roles
   const { data: roles, isLoading: rolesLoading } = useQuery({
@@ -48,8 +51,6 @@ const PermissionsPage = () => {
   const { data: tables, isLoading: tablesLoading } = useQuery({
     queryKey: ["database_tables"],
     queryFn: async () => {
-      // This is a simplified approach. In a real implementation, you might want to use
-      // a dedicated function to get table information or have an API endpoint for this
       const { data, error } = await supabase
         .rpc('get_tables_info');
         
@@ -81,6 +82,13 @@ const PermissionsPage = () => {
       return data as Permission[];
     },
   });
+
+  const toggleFieldsDisplay = (tableName: string) => {
+    setShowFields(prev => ({
+      ...prev,
+      [tableName]: !prev[tableName]
+    }));
+  };
 
   // Update permission
   const updatePermission = useMutation({
@@ -288,33 +296,34 @@ const PermissionsPage = () => {
                             <TableRow>
                               <TableHead className="min-w-[200px]">Table/Entity</TableHead>
                               {roles?.map(role => (
-                                <TableHead key={role.id} colSpan={2} className="text-center border-l">
-                                  {role.name}
-                                  {role.is_system && <span className="ml-1 text-xs text-muted-foreground">(System)</span>}
-                                </TableHead>
-                              ))}
-                            </TableRow>
-                            <TableRow>
-                              <TableHead>Field</TableHead>
-                              {roles?.map(role => (
-                                <>
-                                  <TableHead key={`${role.id}-view`} className="text-center border-l w-[80px]">View</TableHead>
-                                  <TableHead key={`${role.id}-edit`} className="text-center w-[80px]">Edit</TableHead>
-                                </>
+                                <React.Fragment key={role.id}>
+                                  <TableHead className="text-center border-l w-[80px]">View</TableHead>
+                                  <TableHead className="text-center w-[80px]">Edit</TableHead>
+                                </React.Fragment>
                               ))}
                             </TableRow>
                           </TableHeader>
                           <TableBody>
                             {getTablesForModule(module.id).map(table => (
-                              <>
+                              <React.Fragment key={table.name}>
                                 {/* Table-level permissions */}
-                                <TableRow key={table.name} className="bg-muted/50">
-                                  <TableCell className="font-medium">
-                                    {table.name} (Entire table)
+                                <TableRow className="bg-muted/50">
+                                  <TableCell className="font-medium flex items-center">
+                                    <div className="flex items-center justify-between w-full">
+                                      <span>{table.name} (Entire table)</span>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="sm" 
+                                        onClick={() => toggleFieldsDisplay(table.name)}
+                                        className="ml-2"
+                                      >
+                                        {showFields[table.name] ? 'Hide Fields' : 'Show Fields'}
+                                      </Button>
+                                    </div>
                                   </TableCell>
                                   {roles?.map(role => (
-                                    <>
-                                      <TableCell key={`${role.id}-${table.name}-view`} className="text-center border-l">
+                                    <React.Fragment key={role.id}>
+                                      <TableCell className="text-center border-l">
                                         <Checkbox 
                                           checked={isChecked(role.id, table.name, null, 'view')}
                                           onCheckedChange={(checked) => 
@@ -323,7 +332,7 @@ const PermissionsPage = () => {
                                           disabled={role.is_system}
                                         />
                                       </TableCell>
-                                      <TableCell key={`${role.id}-${table.name}-edit`} className="text-center">
+                                      <TableCell className="text-center">
                                         <Checkbox 
                                           checked={isChecked(role.id, table.name, null, 'edit')}
                                           onCheckedChange={(checked) => 
@@ -332,12 +341,12 @@ const PermissionsPage = () => {
                                           disabled={role.is_system}
                                         />
                                       </TableCell>
-                                    </>
+                                    </React.Fragment>
                                   ))}
                                 </TableRow>
                                 
-                                {/* Field-level permissions - commented out for now as it can get very large
-                                {table.fields?.map(field => (
+                                {/* Field-level permissions */}
+                                {showFields[table.name] && table.fields && table.fields.map(field => (
                                   <TableRow key={`${table.name}-${field}`}>
                                     <TableCell className="pl-8">
                                       {field}
@@ -366,8 +375,7 @@ const PermissionsPage = () => {
                                     ))}
                                   </TableRow>
                                 ))}
-                                */}
-                              </>
+                              </React.Fragment>
                             ))}
                           </TableBody>
                         </Table>
