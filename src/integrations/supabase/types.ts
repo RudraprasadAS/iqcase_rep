@@ -677,6 +677,57 @@ export type Database = {
         }
         Relationships: []
       }
+      sla_definitions: {
+        Row: {
+          category_id: string | null
+          created_at: string | null
+          duration_hours: number
+          id: string
+          is_active: boolean | null
+          name: string
+          priority_level: string | null
+          role_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          category_id?: string | null
+          created_at?: string | null
+          duration_hours: number
+          id?: string
+          is_active?: boolean | null
+          name: string
+          priority_level?: string | null
+          role_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          category_id?: string | null
+          created_at?: string | null
+          duration_hours?: number
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          priority_level?: string | null
+          role_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sla_definitions_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "case_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sla_definitions_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_audit_log: {
         Row: {
           action: string

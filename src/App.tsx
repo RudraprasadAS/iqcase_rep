@@ -14,6 +14,7 @@ import Dashboard from "./pages/Dashboard";
 import Layout from "./components/layout/Layout";
 import AuthLayout from "./components/layout/AuthLayout";
 import RequireAuth from "./components/auth/RequireAuth";
+import Roles from "./pages/admin/Roles";
 
 const queryClient = new QueryClient();
 
@@ -39,7 +40,9 @@ const App = () => (
           <Route element={<RequireAuth />}>
             <Route element={<Layout />}>
               <Route path="/dashboard" element={<Dashboard />} />
-              {/* Add more protected routes here */}
+              
+              {/* Admin routes */}
+              <Route path="/admin/roles" element={<Roles />} />
             </Route>
           </Route>
           
