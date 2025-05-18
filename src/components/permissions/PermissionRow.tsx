@@ -1,4 +1,3 @@
-
 import React, { useEffect } from "react";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -74,17 +73,19 @@ export const PermissionRow: React.FC<PermissionRowProps> = ({
   const canView = getEffectivePermission(roleId, moduleName, actualFieldName, 'view');
   const canEdit = getEffectivePermission(roleId, moduleName, actualFieldName, 'edit');
 
+  // Debug permissions
   useEffect(() => {
-    if (!isTable) {
-      console.log(`Field ${moduleName}.${actualFieldName} permissions:`, {
-        canView,
-        canEdit
-      });
+    if (isTable) {
+      console.log(`Table ${name} permissions for role ${roleId}: view=${canView}, edit=${canEdit}`);
+    } else if (moduleName && actualFieldName) {
+      console.log(`Field ${moduleName}.${actualFieldName} permissions for role ${roleId}: view=${canView}, edit=${canEdit}`);
     }
-  }, [canView, canEdit, moduleName, actualFieldName, isTable]);
+  }, [canView, canEdit, name, moduleName, actualFieldName, isTable, roleId]);
 
   // Handle checking logic with enforced relationships
   const handleCheck = (type: 'view' | 'edit', checked: boolean) => {
+    console.log(`Permission change: ${isTable ? 'table' : 'field'} ${moduleName}${actualFieldName ? '.' + actualFieldName : ''}, ${type}=${checked}`);
+    
     // For table level permissions, use the select all handler if provided
     if (isTable && handleSelectAllForTable && showSelectAll) {
       handleSelectAllForTable(roleId, moduleName, type, checked);

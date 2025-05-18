@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,6 +15,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { Permission, TableInfo } from "@/types/permissions";
 import { DeleteRoleDialog } from "@/components/roles/DeleteRoleDialog";
 import { EditRoleDialog } from "@/components/roles/EditRoleDialog";
+import { toast } from "@/hooks/use-toast";
 
 const PermissionsPage = () => {
   const [selectedRoleId, setSelectedRoleId] = useState<string>("");
@@ -27,12 +28,18 @@ const PermissionsPage = () => {
   const { data: roles, isLoading: rolesLoading } = useQuery({
     queryKey: ["roles"],
     queryFn: async () => {
+      console.log("Fetching roles from database");
       const { data, error } = await supabase
         .from("roles")
         .select("*")
         .order("name");
         
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching roles:", error);
+        throw error;
+      }
+      
+      console.log("Roles fetched successfully:", data);
       return data as Role[];
     },
   });
@@ -41,6 +48,7 @@ const PermissionsPage = () => {
   const { data: tables, isLoading: tablesLoading } = useQuery({
     queryKey: ["database_tables"],
     queryFn: async () => {
+      console.log("Fetching database tables");
       const { data, error } = await supabase
         .rpc('get_tables_info');
         
@@ -56,6 +64,7 @@ const PermissionsPage = () => {
         ] as TableInfo[];
       }
       
+      console.log("Tables fetched successfully:", data);
       return data as TableInfo[];
     },
   });
@@ -66,12 +75,18 @@ const PermissionsPage = () => {
     queryFn: async () => {
       if (!selectedRoleId) return [] as Permission[];
       
+      console.log(`Fetching permissions for role: ${selectedRoleId}`);
       const { data, error } = await supabase
         .from("permissions")
         .select("*")
         .eq("role_id", selectedRoleId);
         
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching permissions:", error);
+        throw error;
+      }
+      
+      console.log(`Permissions fetched for role ${selectedRoleId}:`, data);
       return (data || []) as Permission[];
     },
     enabled: !!selectedRoleId,
@@ -89,15 +104,28 @@ const PermissionsPage = () => {
   } = usePermissions(selectedRoleId, permissions, roles, tables);
 
   const handleSaveChanges = () => {
+    console.log("Saving permission changes...");
     savePermissionsMutation.mutate();
   };
 
   const handleRoleUpdate = () => {
+    console.log("Role updated, refreshing roles list");
     // Refresh roles list
     queryClient.invalidateQueries({ queryKey: ["roles"] });
+    
+    // Also refresh permissions if a role is selected
+    if (selectedRoleId) {
+      refetchPermissions();
+    }
+    
+    toast({
+      title: "Role updated",
+      description: "The role has been updated successfully."
+    });
   };
 
   const handleRoleSelected = (roleId: string) => {
+    console.log(`Role selected: ${roleId}`);
     if (hasUnsavedChanges) {
       if (confirm("You have unsaved changes. Do you want to discard them?")) {
         setSelectedRoleId(roleId);
@@ -106,6 +134,13 @@ const PermissionsPage = () => {
       setSelectedRoleId(roleId);
     }
   };
+
+  // Log when permissions data changes
+  useEffect(() => {
+    if (permissions) {
+      console.log(`Current permissions for role ${selectedRoleId}:`, permissions);
+    }
+  }, [permissions, selectedRoleId]);
 
   const selectedRole = roles?.find(role => role.id === selectedRoleId);
 

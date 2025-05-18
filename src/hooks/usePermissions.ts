@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +15,8 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
   const savePermissionsMutation = useMutation({
     mutationFn: async () => {
       if (unsavedChanges.length === 0) return;
+      
+      console.log("Saving permissions to database:", unsavedChanges);
 
       const permissionsToSave = unsavedChanges.map(change => ({
         role_id: change.roleId,
@@ -32,7 +33,12 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
           ignoreDuplicates: false 
         });
         
-      if (error) throw error;
+      if (error) {
+        console.error("Error saving permissions:", error);
+        throw error;
+      }
+      
+      console.log("Permissions saved successfully:", data);
       return data;
     },
     onSuccess: () => {
@@ -45,6 +51,7 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
       setHasUnsavedChanges(false);
     },
     onError: (error: Error) => {
+      console.error("Error in savePermissionsMutation:", error);
       toast({
         title: "Error saving permissions",
         description: error.message,
@@ -337,6 +344,13 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
   useEffect(() => {
     console.log("Unsaved changes updated:", unsavedChanges);
   }, [unsavedChanges]);
+
+  // Add a debug log when permissions are fetched from database
+  useEffect(() => {
+    if (permissions) {
+      console.log(`Permissions fetched from database for role ${selectedRoleId}:`, permissions);
+    }
+  }, [permissions, selectedRoleId]);
 
   return {
     unsavedChanges,
