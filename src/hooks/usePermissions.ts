@@ -123,10 +123,7 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
       // If unchecking delete, no impact on other permissions
     }
 
-    // Add to unsaved changes
-    const changeKey = `${roleId}-${moduleName}-${fieldName || 'null'}`; 
-    
-    // Remove previous change for the same permission if exists
+    // Find and remove any existing unsaved change for this permission
     const filteredChanges = unsavedChanges.filter(
       change => !(change.roleId === roleId && 
                  change.moduleName === moduleName && 
@@ -185,11 +182,11 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
     type: 'view' | 'edit' | 'delete',
     checked: boolean
   ) => {
-    // Apply to table-level permission first
-    handlePermissionChange(roleId, tableName, null, type, checked);
-    
     // Find the table in the tables array
     const tableInfo = tables?.find(t => t.name === tableName);
+    
+    // Apply to table-level permission first
+    handlePermissionChange(roleId, tableName, null, type, checked);
     
     // Apply the same permission to all fields within the table
     if (tableInfo && tableInfo.fields) {
@@ -199,12 +196,10 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
     }
     
     // Auto-expand the table to show the affected fields
-    if (!expandedTables[tableName]) {
-      setExpandedTables(prev => ({
-        ...prev,
-        [tableName]: true
-      }));
-    }
+    setExpandedTables(prev => ({
+      ...prev,
+      [tableName]: true
+    }));
   };
 
   // Modified function to correctly check for table-level permissions that should apply to fields
@@ -218,7 +213,7 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
     const role = roles?.find(r => r.id === roleId);
     if (role?.is_system === true) return true;
 
-    // First check for any unsaved changes at this specific level
+    // Check for unsaved changes first at this specific level
     const unsavedChange = unsavedChanges.find(
       change => change.roleId === roleId && 
                 change.moduleName === moduleName && 
@@ -231,9 +226,9 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
       return unsavedChange.canDelete;
     }
 
-    // For field-level permissions, check if there's a table-level permission that applies
+    // For field-level permissions, check if any table-level permissions have been changed
     if (fieldName !== null) {
-      // First check for an unsaved table-level change
+      // Check for unsaved table-level changes
       const unsavedTableChange = unsavedChanges.find(
         change => change.roleId === roleId && 
                   change.moduleName === moduleName && 
@@ -245,14 +240,14 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
         if (type === 'edit' && unsavedTableChange.canEdit) return true;
         if (type === 'delete' && unsavedTableChange.canDelete) return true;
       }
-      
-      // Then check for saved table-level permissions
+
+      // Check for saved table-level permissions
       const tablePermission = permissions?.find(
         p => p.role_id === roleId && 
              p.module_name === moduleName && 
              p.field_name === null
       );
-      
+
       if (tablePermission) {
         if (type === 'view' && tablePermission.can_view) return true;
         if (type === 'edit' && tablePermission.can_edit) return true;
@@ -260,7 +255,7 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
       }
     }
 
-    // Check for a saved permission at this specific level
+    // Finally, check for a saved permission at this specific level
     const savedPermission = permissions?.find(
       p => p.role_id === roleId && 
            p.module_name === moduleName && 

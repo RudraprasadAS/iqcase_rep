@@ -63,16 +63,16 @@ export const PermissionRow: React.FC<PermissionRowProps> = ({
 }) => {
   const isSystemRole = roles?.find(r => r.id === roleId)?.is_system === true;
   
-  // Determine the correct moduleName
+  // Determine the correct moduleName based on whether this is a table or field level row
   const moduleName = isTable ? name : name.split('-')[0];
   
-  // Field name should be null for table level, and the actual field name for field level
-  const actualFieldName = isTable ? null : name;
+  // For field rows, we need the actual field name (not the full string with module name)
+  const actualFieldName = isTable ? null : fieldName;
   
   // Get the current state of permissions for this row
-  const canView = getEffectivePermission(roleId, moduleName, isTable ? null : actualFieldName, 'view');
-  const canEdit = getEffectivePermission(roleId, moduleName, isTable ? null : actualFieldName, 'edit');
-  const canDelete = getEffectivePermission(roleId, moduleName, isTable ? null : actualFieldName, 'delete');
+  const canView = getEffectivePermission(roleId, moduleName, actualFieldName, 'view');
+  const canEdit = getEffectivePermission(roleId, moduleName, actualFieldName, 'edit');
+  const canDelete = getEffectivePermission(roleId, moduleName, actualFieldName, 'delete');
 
   return (
     <TableRow className={isTable ? "bg-muted/20 hover:bg-muted/30" : "border-0"}>
@@ -101,7 +101,7 @@ export const PermissionRow: React.FC<PermissionRowProps> = ({
           <Checkbox 
             checked={canView}
             onCheckedChange={(checked) => {
-              handlePermissionChange(roleId, moduleName, isTable ? null : actualFieldName, 'view', !!checked);
+              handlePermissionChange(roleId, moduleName, actualFieldName, 'view', !!checked);
             }}
             disabled={isSystemRole}
           />
@@ -127,7 +127,7 @@ export const PermissionRow: React.FC<PermissionRowProps> = ({
           <Checkbox 
             checked={canEdit}
             onCheckedChange={(checked) => {
-              handlePermissionChange(roleId, moduleName, isTable ? null : actualFieldName, 'edit', !!checked);
+              handlePermissionChange(roleId, moduleName, actualFieldName, 'edit', !!checked);
             }}
             disabled={isSystemRole}
           />
@@ -153,7 +153,7 @@ export const PermissionRow: React.FC<PermissionRowProps> = ({
           <Checkbox 
             checked={canDelete}
             onCheckedChange={(checked) => {
-              handlePermissionChange(roleId, moduleName, isTable ? null : actualFieldName, 'delete', !!checked);
+              handlePermissionChange(roleId, moduleName, actualFieldName, 'delete', !!checked);
             }}
             disabled={isSystemRole}
           />
