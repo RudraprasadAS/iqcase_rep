@@ -14,7 +14,6 @@ import Dashboard from "./pages/Dashboard";
 import Layout from "./components/layout/Layout";
 import AuthLayout from "./components/layout/AuthLayout";
 import RequireAuth from "./components/auth/RequireAuth";
-import Roles from "./pages/admin/Roles";
 import Permissions from "./pages/admin/Permissions";
 
 const queryClient = new QueryClient();
@@ -43,7 +42,6 @@ const App = () => (
               <Route path="/dashboard" element={<Dashboard />} />
               
               {/* Admin routes */}
-              <Route path="/admin/roles" element={<Roles />} />
               <Route path="/admin/permissions" element={<Permissions />} />
             </Route>
           </Route>

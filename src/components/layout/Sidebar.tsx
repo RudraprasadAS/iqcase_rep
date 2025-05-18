@@ -45,10 +45,9 @@ const Sidebar = ({ isOpen, setIsOpen }: SidebarProps) => {
               <NavItem icon={CalendarCheck} to="/deadlines" label="Deadlines" isOpen={isOpen} />
               <NavItem icon={BarChart} to="/reports" label="Reports" isOpen={isOpen} />
               
-              {/* Admin section with Roles and Permissions */}
+              {/* Admin section with only Roles & Permissions now */}
               {isOpen && <div className="pt-4 pb-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Admin</div>}
-              <NavItem icon={ShieldCheck} to="/admin/roles" label="Roles" isOpen={isOpen} />
-              <NavItem icon={ShieldCheck} to="/admin/permissions" label="Permissions" isOpen={isOpen} />
+              <NavItem icon={ShieldCheck} to="/admin/permissions" label="Roles & Permissions" isOpen={isOpen} />
               
               <Separator className="my-4" />
               
