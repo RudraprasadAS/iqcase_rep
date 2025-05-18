@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
 import { useQuery } from "@tanstack/react-query";
@@ -51,9 +52,9 @@ interface User {
 const Users = () => {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedRole, setSelectedRole] = useState<string>("");
-  const [selectedStatus, setSelectedStatus] = useState<string>("");
-  const [selectedType, setSelectedType] = useState<string>("");
+  const [selectedRole, setSelectedRole] = useState<string>("all");
+  const [selectedStatus, setSelectedStatus] = useState<string>("all");
+  const [selectedType, setSelectedType] = useState<string>("all");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -94,14 +95,14 @@ const Users = () => {
       user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.email.toLowerCase().includes(searchQuery.toLowerCase());
     
-    const matchesRole = !selectedRole || user.role_id === selectedRole;
+    const matchesRole = selectedRole === "all" || user.role_id === selectedRole;
     
     const matchesStatus = 
-      !selectedStatus || 
+      selectedStatus === "all" || 
       (selectedStatus === "active" && user.is_active) ||
       (selectedStatus === "inactive" && !user.is_active);
     
-    const matchesType = !selectedType || user.user_type === selectedType;
+    const matchesType = selectedType === "all" || user.user_type === selectedType;
     
     return matchesSearch && matchesRole && matchesStatus && matchesType;
   });
@@ -200,7 +201,7 @@ const Users = () => {
                   <SelectValue placeholder="Filter by role" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All roles</SelectItem>
+                  <SelectItem value="all">All roles</SelectItem>
                   {roles?.map(role => (
                     <SelectItem key={role.id} value={role.id}>
                       {role.name}
@@ -215,7 +216,7 @@ const Users = () => {
                   <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All statuses</SelectItem>
+                  <SelectItem value="all">All statuses</SelectItem>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="inactive">Inactive</SelectItem>
                 </SelectContent>
@@ -227,7 +228,7 @@ const Users = () => {
                   <SelectValue placeholder="Filter by type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All types</SelectItem>
+                  <SelectItem value="all">All types</SelectItem>
                   {userTypes.map(type => (
                     <SelectItem key={type} value={type}>
                       {type}
