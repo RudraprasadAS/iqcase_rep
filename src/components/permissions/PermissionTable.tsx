@@ -5,7 +5,8 @@ import {
   TableHeader, 
   TableHead, 
   TableBody, 
-  TableRow 
+  TableRow,
+  TableCell 
 } from "@/components/ui/table";
 import { PermissionRow } from "./PermissionRow";
 import { Role } from "@/types/roles";
