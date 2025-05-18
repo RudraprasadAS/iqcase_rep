@@ -176,11 +176,6 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
         [tableName]: true
       }));
     }
-    
-    // Force a refresh of the UI
-    setTimeout(() => {
-      setHasUnsavedChanges(true);
-    }, 50);
   };
 
   // Updated to apply changes to all fields within a table
@@ -223,7 +218,7 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
     const role = roles?.find(r => r.id === roleId);
     if (role?.is_system === true) return true;
 
-    // Check if there's an unsaved change for this specific permission
+    // First check for any unsaved changes at this specific level
     const unsavedChange = unsavedChanges.find(
       change => change.roleId === roleId && 
                 change.moduleName === moduleName && 
@@ -236,7 +231,7 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
       return unsavedChange.canDelete;
     }
 
-    // If this is a field (not a table), check for table-level permissions
+    // For field-level permissions, check if there's a table-level permission that applies
     if (fieldName !== null) {
       // First check for an unsaved table-level change
       const unsavedTableChange = unsavedChanges.find(
@@ -251,7 +246,7 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
         if (type === 'delete' && unsavedTableChange.canDelete) return true;
       }
       
-      // Then check for a saved table-level permission
+      // Then check for saved table-level permissions
       const tablePermission = permissions?.find(
         p => p.role_id === roleId && 
              p.module_name === moduleName && 
@@ -265,17 +260,17 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
       }
     }
 
-    // Finally, check for saved permissions specifically for this item
-    const permission = permissions?.find(
+    // Check for a saved permission at this specific level
+    const savedPermission = permissions?.find(
       p => p.role_id === roleId && 
            p.module_name === moduleName && 
            p.field_name === fieldName
     );
 
-    if (permission) {
-      if (type === 'view') return permission.can_view;
-      if (type === 'edit') return permission.can_edit;
-      return permission.can_delete;
+    if (savedPermission) {
+      if (type === 'view') return savedPermission.can_view;
+      if (type === 'edit') return savedPermission.can_edit;
+      return savedPermission.can_delete;
     }
 
     // Default to false if no permission is found
