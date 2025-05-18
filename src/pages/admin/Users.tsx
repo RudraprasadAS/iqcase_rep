@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
 import { useQuery } from "@tanstack/react-query";
@@ -152,6 +151,9 @@ const Users = () => {
   if (error) {
     return (
       <div className="p-6">
+        <Helmet>
+          <title>Users Management | Case Management</title>
+        </Helmet>
         <h1 className="text-2xl font-semibold mb-4">Users</h1>
         <p className="text-red-500">Error loading users: {error.message}</p>
       </div>
