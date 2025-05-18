@@ -19,7 +19,6 @@ interface Permission {
   field_name: string | null;
   can_view: boolean;
   can_edit: boolean;
-  can_delete: boolean;
 }
 
 interface PermissionTableProps {
@@ -33,19 +32,19 @@ interface PermissionTableProps {
     roleId: string,
     moduleName: string,
     fieldName: string | null,
-    type: 'view' | 'edit' | 'delete'
+    type: 'view' | 'edit'
   ) => boolean;
   handlePermissionChange: (
     roleId: string,
     moduleName: string,
     fieldName: string | null,
-    type: 'view' | 'edit' | 'delete',
+    type: 'view' | 'edit',
     checked: boolean
   ) => void;
   handleSelectAllForTable: (
     roleId: string,
     tableName: string,
-    type: 'view' | 'edit' | 'delete',
+    type: 'view' | 'edit',
     checked: boolean
   ) => void;
   showSelectAll: boolean;
@@ -78,7 +77,6 @@ export const PermissionTable: React.FC<PermissionTableProps> = ({
             <TableHead className="min-w-[200px]">Table / Field</TableHead>
             <TableHead className="text-center w-[100px]">View</TableHead>
             <TableHead className="text-center w-[100px]">Edit</TableHead>
-            <TableHead className="text-center w-[100px]">Delete</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -103,7 +101,7 @@ export const PermissionTable: React.FC<PermissionTableProps> = ({
                 {/* Field-level rows - using a unique key for each render to force updates */}
                 {expandedTables[table.name] && table.fields && table.fields.map(field => (
                   <PermissionRow
-                    key={`${table.name}-${field}-${Date.now()}`}
+                    key={`${table.name}-${field}-${selectedRoleId}-${Date.now()}`}
                     name={field}
                     roleId={selectedRoleId}
                     isTable={false}
@@ -120,7 +118,7 @@ export const PermissionTable: React.FC<PermissionTableProps> = ({
             ))
           ) : (
             <TableRow>
-              <TableCell colSpan={4} className="text-center py-8">
+              <TableCell colSpan={3} className="text-center py-8">
                 No tables available
               </TableCell>
             </TableRow>

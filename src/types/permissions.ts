@@ -12,7 +12,6 @@ export interface Permission {
   field_name: string | null;
   can_view: boolean;
   can_edit: boolean;
-  can_delete: boolean;
 }
 
 export interface UnsavedPermission {
@@ -21,5 +20,4 @@ export interface UnsavedPermission {
   fieldName: string | null;
   canView: boolean;
   canEdit: boolean;
-  canDelete: boolean;
 }

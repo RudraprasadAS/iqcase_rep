@@ -13,7 +13,6 @@ interface Permission {
   field_name: string | null;
   can_view: boolean;
   can_edit: boolean;
-  can_delete: boolean;
 }
 
 interface PermissionRowProps {
@@ -23,27 +22,27 @@ interface PermissionRowProps {
   isExpanded?: boolean;
   onToggleExpand?: () => void;
   fieldName?: string | null;
-  tableName?: string; // Added to identify parent table for field rows
+  tableName?: string;
   roles?: Role[];
   permissions?: Permission[];
   getEffectivePermission: (
     roleId: string,
     moduleName: string,
     fieldName: string | null,
-    type: 'view' | 'edit' | 'delete'
+    type: 'view' | 'edit'
   ) => boolean;
   handlePermissionChange: (
     roleId: string,
     moduleName: string,
     fieldName: string | null,
-    type: 'view' | 'edit' | 'delete',
+    type: 'view' | 'edit',
     checked: boolean
   ) => void;
   showSelectAll?: boolean;
   handleSelectAllForTable?: (
     roleId: string,
     tableName: string,
-    type: 'view' | 'edit' | 'delete',
+    type: 'view' | 'edit',
     checked: boolean
   ) => void;
 }
@@ -74,20 +73,18 @@ export const PermissionRow: React.FC<PermissionRowProps> = ({
   // Get the current state of permissions for this row
   const canView = getEffectivePermission(roleId, moduleName, actualFieldName, 'view');
   const canEdit = getEffectivePermission(roleId, moduleName, actualFieldName, 'edit');
-  const canDelete = getEffectivePermission(roleId, moduleName, actualFieldName, 'delete');
 
   useEffect(() => {
     if (!isTable) {
       console.log(`Field ${moduleName}.${actualFieldName} permissions:`, {
         canView,
-        canEdit,
-        canDelete
+        canEdit
       });
     }
-  }, [canView, canEdit, canDelete, moduleName, actualFieldName, isTable]);
+  }, [canView, canEdit, moduleName, actualFieldName, isTable]);
 
   // Handle checking logic with enforced relationships
-  const handleCheck = (type: 'view' | 'edit' | 'delete', checked: boolean) => {
+  const handleCheck = (type: 'view' | 'edit', checked: boolean) => {
     // For table level permissions, use the select all handler if provided
     if (isTable && handleSelectAllForTable && showSelectAll) {
       handleSelectAllForTable(roleId, moduleName, type, checked);
@@ -157,28 +154,6 @@ export const PermissionRow: React.FC<PermissionRowProps> = ({
               className="ml-2 text-xs h-5"
               onClick={() => handleSelectAllForTable && 
                 handleSelectAllForTable(roleId, moduleName, 'edit', !canEdit)}
-            >
-              all
-            </Button>
-          )}
-        </div>
-      </TableCell>
-      <TableCell className="text-center py-2">
-        <div className="flex justify-center">
-          <Checkbox 
-            checked={canDelete}
-            onCheckedChange={(checked) => {
-              handleCheck('delete', !!checked);
-            }}
-            disabled={isSystemRole}
-          />
-          {isTable && showSelectAll && !isSystemRole && (
-            <Button 
-              variant="ghost" 
-              size="sm"
-              className="ml-2 text-xs h-5"
-              onClick={() => handleSelectAllForTable && 
-                handleSelectAllForTable(roleId, moduleName, 'delete', !canDelete)}
             >
               all
             </Button>

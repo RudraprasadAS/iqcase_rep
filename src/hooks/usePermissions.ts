@@ -22,8 +22,7 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
         module_name: change.moduleName,
         field_name: change.fieldName,
         can_view: change.canView,
-        can_edit: change.canEdit,
-        can_delete: change.canDelete
+        can_edit: change.canEdit
       }));
 
       const { data, error } = await supabase
@@ -66,7 +65,7 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
     roleId: string,
     moduleName: string,
     fieldName: string | null,
-    type: 'view' | 'edit' | 'delete',
+    type: 'view' | 'edit',
     checked: boolean
   ) => {
     // Find the role to check if it's a system role
@@ -99,15 +98,13 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
     // Start with either unsaved changes or existing permissions
     let newCanView = existingChange?.canView ?? existingPermission?.can_view ?? false;
     let newCanEdit = existingChange?.canEdit ?? existingPermission?.can_edit ?? false; 
-    let newCanDelete = existingChange?.canDelete ?? existingPermission?.can_delete ?? false;
 
     // Apply updated permission logic based on behavior rules
     if (type === 'view') {
       newCanView = checked;
-      // If unchecking view, also uncheck edit and delete
+      // If unchecking view, also uncheck edit
       if (!checked) {
         newCanEdit = false;
-        newCanDelete = false;
       }
     } else if (type === 'edit') {
       newCanEdit = checked;
@@ -115,20 +112,7 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
       // If checking edit, auto-enable view
       if (checked) {
         newCanView = true;
-      } 
-      // If unchecking edit, auto-uncheck delete
-      else {
-        newCanDelete = false;
       }
-    } else if (type === 'delete') {
-      newCanDelete = checked;
-      
-      // If checking delete, auto-enable both view and edit
-      if (checked) {
-        newCanView = true;
-        newCanEdit = true;
-      }
-      // If unchecking delete, no impact on other permissions
     }
 
     // Find and remove any existing unsaved change for this permission
@@ -146,21 +130,24 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
         moduleName,
         fieldName,
         canView: newCanView,
-        canEdit: newCanEdit,
-        canDelete: newCanDelete
+        canEdit: newCanEdit
       }
     ]);
     
     setHasUnsavedChanges(true);
+    
+    console.log(`Permission change made for ${moduleName}.${fieldName}, ${type}=${checked} -> canView=${newCanView}, canEdit=${newCanEdit}`);
   };
 
   // Completely rewritten to properly update all fields under a table
   const handleSelectAllForTable = (
     roleId: string,
     tableName: string,
-    type: 'view' | 'edit' | 'delete',
+    type: 'view' | 'edit',
     checked: boolean
   ) => {
+    console.log(`Bulk table permission: ${tableName}, ${type}=${checked}`);
+    
     // Find the role
     const role = roles?.find(r => r.id === roleId);
     
@@ -191,8 +178,7 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
         moduleName: tableName,
         fieldName: null,
         canView: existingTablePerm?.can_view ?? false,
-        canEdit: existingTablePerm?.can_edit ?? false,
-        canDelete: existingTablePerm?.can_delete ?? false
+        canEdit: existingTablePerm?.can_edit ?? false
       };
     }
     
@@ -201,20 +187,11 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
       tablePermission.canView = checked;
       if (!checked) {
         tablePermission.canEdit = false;
-        tablePermission.canDelete = false;
       }
     } else if (type === 'edit') {
       tablePermission.canEdit = checked;
       if (checked) {
         tablePermission.canView = true;
-      } else {
-        tablePermission.canDelete = false;
-      }
-    } else if (type === 'delete') {
-      tablePermission.canDelete = checked;
-      if (checked) {
-        tablePermission.canView = true;
-        tablePermission.canEdit = true;
       }
     }
     
@@ -239,8 +216,7 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
             moduleName: tableName,
             fieldName: field,
             canView: existingFieldPerm?.can_view ?? false,
-            canEdit: existingFieldPerm?.can_edit ?? false,
-            canDelete: existingFieldPerm?.can_delete ?? false
+            canEdit: existingFieldPerm?.can_edit ?? false
           };
         }
         
@@ -249,26 +225,19 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
           fieldPermission.canView = checked;
           if (!checked) {
             fieldPermission.canEdit = false;
-            fieldPermission.canDelete = false;
           }
         } else if (type === 'edit') {
           fieldPermission.canEdit = checked;
           if (checked) {
             fieldPermission.canView = true;
-          } else {
-            fieldPermission.canDelete = false;
-          }
-        } else if (type === 'delete') {
-          fieldPermission.canDelete = checked;
-          if (checked) {
-            fieldPermission.canView = true;
-            fieldPermission.canEdit = true;
           }
         }
         
         batchChanges.push({ ...fieldPermission });
       });
     }
+    
+    console.log("Bulk changes created:", batchChanges);
     
     // Filter out any existing changes for these items
     const remainingChanges = unsavedChanges.filter(
@@ -297,7 +266,7 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
     roleId: string,
     moduleName: string,
     fieldName: string | null,
-    type: 'view' | 'edit' | 'delete'
+    type: 'view' | 'edit'
   ): boolean => {
     // For system roles specifically marked with is_system=true, return true for all permissions
     const role = roles?.find(r => r.id === roleId);
@@ -312,8 +281,7 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
 
     if (unsavedChange) {
       if (type === 'view') return unsavedChange.canView;
-      if (type === 'edit') return unsavedChange.canEdit;
-      return unsavedChange.canDelete;
+      return unsavedChange.canEdit;
     }
 
     // For field-level permissions, check if any table-level permissions have been changed
@@ -328,7 +296,6 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
       if (unsavedTableChange) {
         if (type === 'view' && unsavedTableChange.canView) return true;
         if (type === 'edit' && unsavedTableChange.canEdit) return true;
-        if (type === 'delete' && unsavedTableChange.canDelete) return true;
       }
 
       // Check for saved table-level permissions
@@ -341,7 +308,6 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
       if (tablePermission) {
         if (type === 'view' && tablePermission.can_view) return true;
         if (type === 'edit' && tablePermission.can_edit) return true;
-        if (type === 'delete' && tablePermission.can_delete) return true;
       }
     }
 
@@ -354,8 +320,7 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
 
     if (savedPermission) {
       if (type === 'view') return savedPermission.can_view;
-      if (type === 'edit') return savedPermission.can_edit;
-      return savedPermission.can_delete;
+      return savedPermission.can_edit;
     }
 
     // Default to false if no permission is found

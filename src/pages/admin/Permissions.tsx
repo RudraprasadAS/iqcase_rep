@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
@@ -188,13 +189,10 @@ const PermissionsPage = () => {
                   <div className="mt-6 text-sm text-muted-foreground">
                     <p>• <strong>View</strong>: Controls whether the role can see the table/field</p>
                     <p>• <strong>Edit</strong>: Controls whether the role can modify the field</p>
-                    <p>• <strong>Delete</strong>: Controls whether the role can delete records</p>
                     <p className="mt-2 border-l-2 pl-3 border-primary/50">
                       <strong>Permission Rules:</strong><br/>
                       - Selecting Edit will automatically select View<br/>
-                      - Selecting Delete will automatically select Edit and View<br/>
-                      - Deselecting View will deselect Edit and Delete<br/>
-                      - Deselecting Edit will deselect Delete
+                      - Deselecting View will deselect Edit<br/>
                     </p>
                     <p className="mt-2 border-l-2 pl-3 border-primary/50">
                       <strong>Bulk Toggles:</strong><br/>
