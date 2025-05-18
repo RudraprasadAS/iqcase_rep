@@ -8,16 +8,20 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Save } from "lucide-react";
+import { Save, Edit, Trash2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { CreateRoleDialog } from "@/components/permissions/CreateRoleDialog";
 import { PermissionTable } from "@/components/permissions/PermissionTable";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Permission, TableInfo } from "@/types/permissions";
+import { DeleteRoleDialog } from "@/components/roles/DeleteRoleDialog";
+import { EditRoleDialog } from "@/components/roles/EditRoleDialog";
 
 const PermissionsPage = () => {
   const [selectedRoleId, setSelectedRoleId] = useState<string>("");
   const [showSelectAll, setShowSelectAll] = useState<boolean>(false);
+  const [editRoleOpen, setEditRoleOpen] = useState<boolean>(false);
+  const [deleteRoleOpen, setDeleteRoleOpen] = useState<boolean>(false);
   
   // Fetch all roles
   const { data: roles, isLoading: rolesLoading } = useQuery({
@@ -57,7 +61,7 @@ const PermissionsPage = () => {
   });
   
   // Fetch permissions for selected role
-  const { data: permissions, isLoading: permissionsLoading } = useQuery({
+  const { data: permissions, isLoading: permissionsLoading, refetch: refetchPermissions } = useQuery({
     queryKey: ["permissions", selectedRoleId],
     queryFn: async () => {
       if (!selectedRoleId) return [] as Permission[];
@@ -82,11 +86,28 @@ const PermissionsPage = () => {
     handleBulkToggleForTable,
     handleSelectAllForTable,
     getEffectivePermission
-  } = usePermissions(selectedRoleId, permissions, roles, tables); // Pass tables to usePermissions
+  } = usePermissions(selectedRoleId, permissions, roles, tables);
 
   const handleSaveChanges = () => {
     savePermissionsMutation.mutate();
   };
+
+  const handleRoleUpdate = () => {
+    // Refresh roles list
+    queryClient.invalidateQueries({ queryKey: ["roles"] });
+  };
+
+  const handleRoleSelected = (roleId: string) => {
+    if (hasUnsavedChanges) {
+      if (confirm("You have unsaved changes. Do you want to discard them?")) {
+        setSelectedRoleId(roleId);
+      }
+    } else {
+      setSelectedRoleId(roleId);
+    }
+  };
+
+  const selectedRole = roles?.find(role => role.id === selectedRoleId);
 
   // Define relevant modules/tables to show
   const relevantTables = tables?.filter(t => 
@@ -104,8 +125,8 @@ const PermissionsPage = () => {
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Permission Matrix</h1>
-          <p className="text-muted-foreground">Manage permissions by role and database entity</p>
+          <h1 className="text-3xl font-bold">Roles & Permissions</h1>
+          <p className="text-muted-foreground">Manage roles and their permissions across the system</p>
         </div>
 
         <div className="flex items-center gap-4">
@@ -122,9 +143,9 @@ const PermissionsPage = () => {
       
       <Card>
         <CardHeader>
-          <CardTitle>Permission Matrix</CardTitle>
+          <CardTitle>Role Management & Permissions</CardTitle>
           <CardDescription>
-            Configure what each role can access across your database tables and fields
+            Create roles and configure what they can access across your database tables and fields
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -136,12 +157,12 @@ const PermissionsPage = () => {
           ) : (
             <div>
               <div className="flex justify-between items-end mb-6">
-                <div className="w-[300px]">
-                  <Label htmlFor="role-select" className="mb-2 block">Select Role</Label>
-                  <div className="flex gap-2">
+                <div className="w-full flex items-end gap-2">
+                  <div className="flex-1 max-w-[300px]">
+                    <Label htmlFor="role-select" className="mb-2 block">Select Role</Label>
                     <Select 
                       value={selectedRoleId} 
-                      onValueChange={setSelectedRoleId}
+                      onValueChange={handleRoleSelected}
                     >
                       <SelectTrigger id="role-select" className="flex-1">
                         <SelectValue placeholder="Select a role" />
@@ -154,17 +175,38 @@ const PermissionsPage = () => {
                         ))}
                       </SelectContent>
                     </Select>
-                    <CreateRoleDialog onRoleCreated={setSelectedRoleId} />
                   </div>
+                  <CreateRoleDialog onRoleCreated={setSelectedRoleId} />
+                  
+                  {selectedRole && (
+                    <>
+                      <Button 
+                        variant="outline" 
+                        size="icon" 
+                        onClick={() => setEditRoleOpen(true)}
+                        disabled={selectedRole?.is_system}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="icon"
+                        onClick={() => setDeleteRoleOpen(true)}
+                        disabled={selectedRole?.is_system}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </>
+                  )}
+                  
+                  <Button
+                    onClick={handleSaveChanges}
+                    disabled={savePermissionsMutation.isPending || !hasUnsavedChanges}
+                    className={`ml-auto ${hasUnsavedChanges ? 'animate-pulse' : ''}`}
+                  >
+                    <Save className="h-4 w-4 mr-2" /> Save Changes
+                  </Button>
                 </div>
-                
-                <Button
-                  onClick={handleSaveChanges}
-                  disabled={savePermissionsMutation.isPending}
-                  className={`ml-auto ${hasUnsavedChanges ? 'animate-pulse' : ''}`}
-                >
-                  <Save className="h-4 w-4 mr-2" /> Save Changes
-                </Button>
               </div>
               
               {!selectedRoleId ? (
@@ -208,13 +250,31 @@ const PermissionsPage = () => {
         <CardFooter>
           <Button
             onClick={handleSaveChanges}
-            disabled={savePermissionsMutation.isPending}
+            disabled={savePermissionsMutation.isPending || !hasUnsavedChanges}
             className="w-full"
           >
             <Save className="h-4 w-4 mr-2" /> Save All Permission Changes
           </Button>
         </CardFooter>
       </Card>
+      
+      {/* Role management dialogs */}
+      {selectedRole && (
+        <>
+          <EditRoleDialog 
+            role={selectedRole}
+            open={editRoleOpen}
+            onOpenChange={setEditRoleOpen}
+            onSuccess={handleRoleUpdate}
+          />
+          <DeleteRoleDialog
+            role={selectedRole}
+            open={deleteRoleOpen}
+            onOpenChange={setDeleteRoleOpen}
+            onSuccess={handleRoleUpdate}
+          />
+        </>
+      )}
     </div>
   );
 };
