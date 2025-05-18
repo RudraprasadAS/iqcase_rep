@@ -1,7 +1,6 @@
-
 import React, { useState } from "react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Role } from "@/types/roles";
 import { Button } from "@/components/ui/button";
@@ -22,6 +21,7 @@ const PermissionsPage = () => {
   const [showSelectAll, setShowSelectAll] = useState<boolean>(false);
   const [editRoleOpen, setEditRoleOpen] = useState<boolean>(false);
   const [deleteRoleOpen, setDeleteRoleOpen] = useState<boolean>(false);
+  const queryClient = useQueryClient();
   
   // Fetch all roles
   const { data: roles, isLoading: rolesLoading } = useQuery({
