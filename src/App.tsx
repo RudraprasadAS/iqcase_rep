@@ -15,6 +15,7 @@ import Layout from "./components/layout/Layout";
 import AuthLayout from "./components/layout/AuthLayout";
 import RequireAuth from "./components/auth/RequireAuth";
 import Permissions from "./pages/admin/Permissions";
+import Users from "./pages/admin/Users";
 
 const queryClient = new QueryClient();
 
@@ -43,6 +44,7 @@ const App = () => (
               
               {/* Admin routes */}
               <Route path="/admin/permissions" element={<Permissions />} />
+              <Route path="/admin/users" element={<Users />} />
             </Route>
           </Route>
           
