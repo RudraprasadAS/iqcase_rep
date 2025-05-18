@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, permissionsApi } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Role } from "@/types/roles";
 import { Permission, UnsavedPermission, TableInfo } from "@/types/permissions";
@@ -15,12 +15,15 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
   const savePermissionsMutation = useMutation({
     mutationFn: async () => {
       if (unsavedChanges.length === 0) {
-        console.log("No changes to save - returning early");
+        console.log("[usePermissions] No changes to save - returning early");
         return;
       }
       
-      console.log("Starting to save permissions to database:", unsavedChanges);
-      console.log("Total number of changes:", unsavedChanges.length);
+      console.log("[usePermissions] Starting to save permissions to database:", unsavedChanges);
+      console.log("[usePermissions] Total number of changes:", unsavedChanges.length);
+
+      // First, clean up any duplicate permissions for this role
+      await permissionsApi.cleanupDuplicatePermissions(selectedRoleId);
 
       const permissionsToSave = unsavedChanges.map(change => ({
         role_id: change.roleId,
@@ -30,30 +33,31 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
         can_edit: change.canEdit
       }));
 
-      console.log("Formatted permissions for database save:", permissionsToSave);
+      console.log("[usePermissions] Formatted permissions for database save:", permissionsToSave);
 
       try {
+        // Use upsert with merge strategy
         const { data, error } = await supabase
           .from("permissions")
           .upsert(permissionsToSave, { 
-            onConflict: 'role_id,module_name,field_name', 
+            onConflict: 'role_id,module_name,field_name',
             ignoreDuplicates: false 
           });
           
         if (error) {
-          console.error("Supabase error saving permissions:", error);
+          console.error("[usePermissions] Supabase error saving permissions:", error);
           throw error;
         }
         
-        console.log("Permissions saved successfully. Response:", data);
+        console.log("[usePermissions] Permissions saved successfully. Response:", data);
         return data;
       } catch (error) {
-        console.error("Exception during permission save:", error);
+        console.error("[usePermissions] Exception during permission save:", error);
         throw error;
       }
     },
     onSuccess: () => {
-      console.log("Save mutation succeeded, invalidating queries and resetting state");
+      console.log("[usePermissions] Save mutation succeeded, invalidating queries and resetting state");
       queryClient.invalidateQueries({ queryKey: ["permissions", selectedRoleId] });
       toast({
         title: "Permissions saved",
@@ -63,7 +67,7 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
       setHasUnsavedChanges(false);
     },
     onError: (error: Error) => {
-      console.error("Error in savePermissionsMutation:", error);
+      console.error("[usePermissions] Error in savePermissionsMutation:", error);
       toast({
         title: "Error saving permissions",
         description: error.message,
@@ -354,23 +358,24 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
   
   // Add a debug log whenever unsavedChanges updates
   useEffect(() => {
-    console.log("Unsaved changes updated:", unsavedChanges);
+    console.log("[usePermissions] Unsaved changes updated:", unsavedChanges);
     
     // If we have pending changes but hasUnsavedChanges is false, log a warning
     if (unsavedChanges.length > 0 && !hasUnsavedChanges) {
-      console.warn("WARNING: We have unsaved changes, but hasUnsavedChanges flag is false!");
+      console.warn("[usePermissions] WARNING: We have unsaved changes, but hasUnsavedChanges flag is false!");
+      setHasUnsavedChanges(true);
     }
     
     // If we have no pending changes but hasUnsavedChanges is true, log a warning
     if (unsavedChanges.length === 0 && hasUnsavedChanges) {
-      console.warn("WARNING: We have no unsaved changes, but hasUnsavedChanges flag is true!");
+      console.warn("[usePermissions] WARNING: We have no unsaved changes, but hasUnsavedChanges flag is true!");
     }
   }, [unsavedChanges, hasUnsavedChanges]);
 
   // Add a debug log when permissions are fetched from database
   useEffect(() => {
     if (permissions) {
-      console.log(`Permissions fetched from database for role ${selectedRoleId}:`, permissions);
+      console.log(`[usePermissions] Permissions fetched from database for role ${selectedRoleId}:`, permissions);
     }
   }, [permissions, selectedRoleId]);
 

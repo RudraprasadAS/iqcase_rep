@@ -90,7 +90,7 @@ export const PermissionRow: React.FC<PermissionRowProps> = ({
       );
       
       if (duplicates.length > 1) {
-        console.warn(`WARNING: Found ${duplicates.length} duplicate permissions for ${rowType} "${rowId}"!`, duplicates);
+        console.warn(`[PermissionRow] WARNING: Found ${duplicates.length} duplicate permissions for ${rowType} "${rowId}"!`, duplicates);
       }
     }
   }, [canView, canEdit, name, moduleName, actualFieldName, isTable, roleId, permissions]);
