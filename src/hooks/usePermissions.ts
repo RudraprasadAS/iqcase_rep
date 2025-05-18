@@ -146,33 +146,14 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
     setHasUnsavedChanges(true);
   };
 
-  // Enhanced function to handle bulk toggle for all fields in a table
+  // This function has been simplified to delegate to handleSelectAllForTable
   const handleBulkToggleForTable = (
     roleId: string,
     tableName: string,
     type: 'view' | 'edit' | 'delete',
     checked: boolean
   ) => {
-    // Apply to table-level permission first
-    handlePermissionChange(roleId, tableName, null, type, checked);
-    
-    // Find the table in the tables array
-    const tableInfo = tables?.find(t => t.name === tableName);
-    
-    // Apply the same permission to all fields within the table
-    if (tableInfo && tableInfo.fields) {
-      tableInfo.fields.forEach(field => {
-        handlePermissionChange(roleId, tableName, field, type, checked);
-      });
-    }
-    
-    // Auto-expand the table to show the affected fields
-    if (checked && !expandedTables[tableName]) {
-      setExpandedTables(prev => ({
-        ...prev,
-        [tableName]: true
-      }));
-    }
+    handleSelectAllForTable(roleId, tableName, type, checked);
   };
 
   // Updated to apply changes to all fields within a table
@@ -182,11 +163,11 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
     type: 'view' | 'edit' | 'delete',
     checked: boolean
   ) => {
-    // Find the table in the tables array
-    const tableInfo = tables?.find(t => t.name === tableName);
-    
     // Apply to table-level permission first
     handlePermissionChange(roleId, tableName, null, type, checked);
+    
+    // Find the table in the tables array
+    const tableInfo = tables?.find(t => t.name === tableName);
     
     // Apply the same permission to all fields within the table
     if (tableInfo && tableInfo.fields) {
@@ -196,10 +177,15 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
     }
     
     // Auto-expand the table to show the affected fields
-    setExpandedTables(prev => ({
-      ...prev,
-      [tableName]: true
-    }));
+    if (!expandedTables[tableName]) {
+      setExpandedTables(prev => ({
+        ...prev,
+        [tableName]: true
+      }));
+    }
+    
+    // Force an immediate state update through refactoring the unsavedChanges array
+    setUnsavedChanges(prev => [...prev]);
   };
 
   // Modified function to correctly check for table-level permissions that should apply to fields

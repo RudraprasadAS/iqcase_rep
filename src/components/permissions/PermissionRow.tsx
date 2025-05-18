@@ -74,6 +74,18 @@ export const PermissionRow: React.FC<PermissionRowProps> = ({
   const canEdit = getEffectivePermission(roleId, moduleName, actualFieldName, 'edit');
   const canDelete = getEffectivePermission(roleId, moduleName, actualFieldName, 'delete');
 
+  // Handle checking logic with enforced relationships
+  const handleCheck = (type: 'view' | 'edit' | 'delete', checked: boolean) => {
+    // For table level permissions, use the select all handler if provided
+    if (isTable && handleSelectAllForTable && showSelectAll) {
+      console.log(`Table level ${type} changed to ${checked}`);
+      handleSelectAllForTable(roleId, moduleName, type, checked);
+    } else {
+      // For field level or when select all is not enabled
+      handlePermissionChange(roleId, moduleName, actualFieldName, type, checked);
+    }
+  };
+
   return (
     <TableRow className={isTable ? "bg-muted/20 hover:bg-muted/30" : "border-0"}>
       <TableCell className={isTable ? "font-medium" : "pl-10 py-2 text-sm"}>
@@ -101,21 +113,17 @@ export const PermissionRow: React.FC<PermissionRowProps> = ({
           <Checkbox 
             checked={canView}
             onCheckedChange={(checked) => {
-              handlePermissionChange(roleId, moduleName, actualFieldName, 'view', !!checked);
+              handleCheck('view', !!checked);
             }}
             disabled={isSystemRole}
           />
-          {isTable && showSelectAll && handleSelectAllForTable && (
+          {isTable && showSelectAll && !isSystemRole && (
             <Button 
               variant="ghost" 
               size="sm"
               className="ml-2 text-xs h-5"
-              onClick={() => handleSelectAllForTable(
-                roleId, 
-                moduleName, 
-                'view', 
-                !canView
-              )}
+              onClick={() => handleSelectAllForTable && 
+                handleSelectAllForTable(roleId, moduleName, 'view', !canView)}
             >
               all
             </Button>
@@ -127,21 +135,17 @@ export const PermissionRow: React.FC<PermissionRowProps> = ({
           <Checkbox 
             checked={canEdit}
             onCheckedChange={(checked) => {
-              handlePermissionChange(roleId, moduleName, actualFieldName, 'edit', !!checked);
+              handleCheck('edit', !!checked);
             }}
             disabled={isSystemRole}
           />
-          {isTable && showSelectAll && handleSelectAllForTable && (
+          {isTable && showSelectAll && !isSystemRole && (
             <Button 
               variant="ghost" 
               size="sm"
               className="ml-2 text-xs h-5"
-              onClick={() => handleSelectAllForTable(
-                roleId, 
-                moduleName, 
-                'edit', 
-                !canEdit
-              )}
+              onClick={() => handleSelectAllForTable && 
+                handleSelectAllForTable(roleId, moduleName, 'edit', !canEdit)}
             >
               all
             </Button>
@@ -153,21 +157,17 @@ export const PermissionRow: React.FC<PermissionRowProps> = ({
           <Checkbox 
             checked={canDelete}
             onCheckedChange={(checked) => {
-              handlePermissionChange(roleId, moduleName, actualFieldName, 'delete', !!checked);
+              handleCheck('delete', !!checked);
             }}
             disabled={isSystemRole}
           />
-          {isTable && showSelectAll && handleSelectAllForTable && (
+          {isTable && showSelectAll && !isSystemRole && (
             <Button 
               variant="ghost" 
               size="sm"
               className="ml-2 text-xs h-5"
-              onClick={() => handleSelectAllForTable(
-                roleId, 
-                moduleName, 
-                'delete', 
-                !canDelete
-              )}
+              onClick={() => handleSelectAllForTable && 
+                handleSelectAllForTable(roleId, moduleName, 'delete', !canDelete)}
             >
               all
             </Button>

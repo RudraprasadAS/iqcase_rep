@@ -105,6 +105,7 @@ export const PermissionTable: React.FC<PermissionTableProps> = ({
                     permissions={permissions}
                     getEffectivePermission={getEffectivePermission}
                     handlePermissionChange={handlePermissionChange}
+                    showSelectAll={false}
                   />
                 ))}
               </React.Fragment>
