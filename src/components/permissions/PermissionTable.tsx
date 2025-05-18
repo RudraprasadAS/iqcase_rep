@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useEffect } from "react";
 import { 
   Table, 
   TableHeader, 
@@ -63,6 +63,13 @@ export const PermissionTable: React.FC<PermissionTableProps> = ({
   handleSelectAllForTable,
   showSelectAll
 }) => {
+  // Debug logging on mount or when permissions change
+  useEffect(() => {
+    console.log("PermissionTable rendering with permissions:", permissions);
+    console.log("Selected role ID:", selectedRoleId);
+    console.log("Expanded tables:", expandedTables);
+  }, [permissions, selectedRoleId, expandedTables]);
+  
   return (
     <div className="overflow-x-auto border rounded-md">
       <Table>

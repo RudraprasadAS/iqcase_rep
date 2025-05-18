@@ -78,7 +78,6 @@ export const PermissionRow: React.FC<PermissionRowProps> = ({
   const handleCheck = (type: 'view' | 'edit' | 'delete', checked: boolean) => {
     // For table level permissions, use the select all handler if provided
     if (isTable && handleSelectAllForTable && showSelectAll) {
-      console.log(`Table level ${type} changed to ${checked}`);
       handleSelectAllForTable(roleId, moduleName, type, checked);
     } else {
       // For field level or when select all is not enabled

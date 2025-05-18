@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -89,11 +89,19 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
            p.field_name === fieldName
     );
 
-    // Apply updated permission logic based on behavior rules
-    let newCanView = existingPermission?.can_view || false;
-    let newCanEdit = existingPermission?.can_edit || false; 
-    let newCanDelete = existingPermission?.can_delete || false;
+    // Find unsaved changes for this permission
+    const existingChange = unsavedChanges.find(
+      c => c.roleId === roleId && 
+           c.moduleName === moduleName && 
+           c.fieldName === fieldName
+    );
 
+    // Start with either unsaved changes or existing permissions
+    let newCanView = existingChange?.canView ?? existingPermission?.can_view ?? false;
+    let newCanEdit = existingChange?.canEdit ?? existingPermission?.can_edit ?? false; 
+    let newCanDelete = existingChange?.canDelete ?? existingPermission?.can_delete ?? false;
+
+    // Apply updated permission logic based on behavior rules
     if (type === 'view') {
       newCanView = checked;
       // If unchecking view, also uncheck edit and delete
@@ -146,49 +154,145 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
     setHasUnsavedChanges(true);
   };
 
-  // This function has been simplified to delegate to handleSelectAllForTable
-  const handleBulkToggleForTable = (
-    roleId: string,
-    tableName: string,
-    type: 'view' | 'edit' | 'delete',
-    checked: boolean
-  ) => {
-    handleSelectAllForTable(roleId, tableName, type, checked);
-  };
-
-  // Updated to apply changes to all fields within a table
+  // Completely rewritten to properly update all fields under a table
   const handleSelectAllForTable = (
     roleId: string,
     tableName: string,
     type: 'view' | 'edit' | 'delete',
     checked: boolean
   ) => {
-    // Apply to table-level permission first
-    handlePermissionChange(roleId, tableName, null, type, checked);
+    // Find the role
+    const role = roles?.find(r => r.id === roleId);
     
-    // Find the table in the tables array
+    if (role?.is_system === true) {
+      toast({
+        title: "Cannot modify system role",
+        description: "System roles have predefined permissions that cannot be changed.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Create a batch of changes for all the fields
+    const batchChanges: UnsavedPermission[] = [];
+    
+    // First, handle the table-level permission itself
+    let tablePermission = unsavedChanges.find(
+      p => p.roleId === roleId && p.moduleName === tableName && p.fieldName === null
+    );
+    
+    if (!tablePermission) {
+      const existingTablePerm = permissions?.find(
+        p => p.role_id === roleId && p.module_name === tableName && p.field_name === null
+      );
+      
+      tablePermission = {
+        roleId,
+        moduleName: tableName,
+        fieldName: null,
+        canView: existingTablePerm?.can_view ?? false,
+        canEdit: existingTablePerm?.can_edit ?? false,
+        canDelete: existingTablePerm?.can_delete ?? false
+      };
+    }
+    
+    // Apply the permission change with cascading logic
+    if (type === 'view') {
+      tablePermission.canView = checked;
+      if (!checked) {
+        tablePermission.canEdit = false;
+        tablePermission.canDelete = false;
+      }
+    } else if (type === 'edit') {
+      tablePermission.canEdit = checked;
+      if (checked) {
+        tablePermission.canView = true;
+      } else {
+        tablePermission.canDelete = false;
+      }
+    } else if (type === 'delete') {
+      tablePermission.canDelete = checked;
+      if (checked) {
+        tablePermission.canView = true;
+        tablePermission.canEdit = true;
+      }
+    }
+    
+    batchChanges.push({ ...tablePermission });
+    
+    // Now, do the same for all fields under this table
     const tableInfo = tables?.find(t => t.name === tableName);
     
-    // Apply the same permission to all fields within the table
     if (tableInfo && tableInfo.fields) {
       tableInfo.fields.forEach(field => {
-        handlePermissionChange(roleId, tableName, field, type, checked);
+        let fieldPermission = unsavedChanges.find(
+          p => p.roleId === roleId && p.moduleName === tableName && p.fieldName === field
+        );
+        
+        if (!fieldPermission) {
+          const existingFieldPerm = permissions?.find(
+            p => p.role_id === roleId && p.module_name === tableName && p.field_name === field
+          );
+          
+          fieldPermission = {
+            roleId,
+            moduleName: tableName,
+            fieldName: field,
+            canView: existingFieldPerm?.can_view ?? false,
+            canEdit: existingFieldPerm?.can_edit ?? false,
+            canDelete: existingFieldPerm?.can_delete ?? false
+          };
+        }
+        
+        // Apply the same permission changes with cascading logic
+        if (type === 'view') {
+          fieldPermission.canView = checked;
+          if (!checked) {
+            fieldPermission.canEdit = false;
+            fieldPermission.canDelete = false;
+          }
+        } else if (type === 'edit') {
+          fieldPermission.canEdit = checked;
+          if (checked) {
+            fieldPermission.canView = true;
+          } else {
+            fieldPermission.canDelete = false;
+          }
+        } else if (type === 'delete') {
+          fieldPermission.canDelete = checked;
+          if (checked) {
+            fieldPermission.canView = true;
+            fieldPermission.canEdit = true;
+          }
+        }
+        
+        batchChanges.push({ ...fieldPermission });
       });
     }
     
-    // Auto-expand the table to show the affected fields
+    // Filter out any existing changes for these items
+    const remainingChanges = unsavedChanges.filter(
+      change => !(change.roleId === roleId && 
+                 change.moduleName === tableName)
+    );
+    
+    // Merge the batch changes with remaining changes
+    setUnsavedChanges([...remainingChanges, ...batchChanges]);
+    setHasUnsavedChanges(true);
+    
+    // Ensure the table is expanded to show changes
     if (!expandedTables[tableName]) {
       setExpandedTables(prev => ({
         ...prev,
         [tableName]: true
       }));
     }
-    
-    // Force an immediate state update through refactoring the unsavedChanges array
-    setUnsavedChanges(prev => [...prev]);
   };
+  
+  // Delegate to the main function
+  const handleBulkToggleForTable = handleSelectAllForTable;
 
-  // Modified function to correctly check for table-level permissions that should apply to fields
+  // Modified to correctly check both existing and unsaved changes
   const getEffectivePermission = (
     roleId: string,
     moduleName: string,
@@ -214,7 +318,7 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
 
     // For field-level permissions, check if any table-level permissions have been changed
     if (fieldName !== null) {
-      // Check for unsaved table-level changes
+      // Check for unsaved table-level changes first
       const unsavedTableChange = unsavedChanges.find(
         change => change.roleId === roleId && 
                   change.moduleName === moduleName && 
@@ -241,7 +345,7 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
       }
     }
 
-    // Finally, check for a saved permission at this specific level
+    // If no unsaved changes, check for a saved permission at this specific level
     const savedPermission = permissions?.find(
       p => p.role_id === roleId && 
            p.module_name === moduleName && 
@@ -258,6 +362,17 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
     return false;
   };
 
+  // Extra debug function to help diagnose permission issues
+  const logPermissionState = () => {
+    console.log("Current permissions:", permissions);
+    console.log("Unsaved changes:", unsavedChanges);
+  };
+  
+  // Add a debug log whenever unsavedChanges updates
+  useEffect(() => {
+    console.log("Unsaved changes updated:", unsavedChanges);
+  }, [unsavedChanges]);
+
   return {
     unsavedChanges,
     hasUnsavedChanges,
@@ -267,6 +382,7 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
     handlePermissionChange,
     handleBulkToggleForTable,
     handleSelectAllForTable,
-    getEffectivePermission
+    getEffectivePermission,
+    logPermissionState
   };
 };
