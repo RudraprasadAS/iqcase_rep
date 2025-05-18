@@ -278,22 +278,28 @@ const PermissionsPage = () => {
     setHasUnsavedChanges(true);
   };
 
-  // New function to handle bulk toggle for all fields in a table
+  // Enhanced function to handle bulk toggle for all fields in a table
   const handleBulkToggleForTable = (
     roleId: string,
     tableName: string,
     type: 'view' | 'edit' | 'delete',
     checked: boolean
   ) => {
+    console.log(`Bulk toggle for ${tableName}, type: ${type}, checked: ${checked}`);
+    
     // Find the table info
     const tableInfo = tables?.find(t => t.name === tableName);
-    if (!tableInfo) return;
+    if (!tableInfo) {
+      console.error(`Table info not found for ${tableName}`);
+      return;
+    }
 
-    // Apply to table-level permission
+    // Apply to table-level permission first
     handlePermissionChange(roleId, tableName, null, type, checked);
-
-    // Apply the same permission to all fields under this table
-    if (tableInfo.fields) {
+    
+    // Then apply the same permission to all fields under this table
+    if (tableInfo.fields && tableInfo.fields.length > 0) {
+      console.log(`Applying to ${tableInfo.fields.length} fields of ${tableName}`);
       tableInfo.fields.forEach(field => {
         handlePermissionChange(roleId, tableName, field, type, checked);
       });
@@ -306,6 +312,11 @@ const PermissionsPage = () => {
         [tableName]: true
       }));
     }
+    
+    // Force a refresh of the UI
+    setTimeout(() => {
+      setHasUnsavedChanges(true);
+    }, 50);
   };
 
   const handleSelectAllForTable = (
@@ -529,10 +540,11 @@ const PermissionsPage = () => {
                                 <TableCell className="text-center">
                                   <div className="flex justify-center">
                                     <Checkbox 
+                                      id={`view-${table.name}`}
                                       checked={getEffectivePermission(selectedRoleId, table.name, null, 'view')}
-                                      onCheckedChange={(checked) => 
-                                        handleBulkToggleForTable(selectedRoleId, table.name, 'view', !!checked)
-                                      }
+                                      onCheckedChange={(checked) => {
+                                        handleBulkToggleForTable(selectedRoleId, table.name, 'view', !!checked);
+                                      }}
                                       disabled={roles?.find(r => r.id === selectedRoleId)?.is_system === true}
                                     />
                                     {showSelectAll && (
@@ -555,10 +567,11 @@ const PermissionsPage = () => {
                                 <TableCell className="text-center">
                                   <div className="flex justify-center">
                                     <Checkbox 
+                                      id={`edit-${table.name}`}
                                       checked={getEffectivePermission(selectedRoleId, table.name, null, 'edit')}
-                                      onCheckedChange={(checked) => 
-                                        handleBulkToggleForTable(selectedRoleId, table.name, 'edit', !!checked)
-                                      }
+                                      onCheckedChange={(checked) => {
+                                        handleBulkToggleForTable(selectedRoleId, table.name, 'edit', !!checked);
+                                      }}
                                       disabled={
                                         roles?.find(r => r.id === selectedRoleId)?.is_system === true
                                       }
@@ -583,10 +596,11 @@ const PermissionsPage = () => {
                                 <TableCell className="text-center">
                                   <div className="flex justify-center">
                                     <Checkbox 
+                                      id={`delete-${table.name}`}
                                       checked={getEffectivePermission(selectedRoleId, table.name, null, 'delete')}
-                                      onCheckedChange={(checked) => 
-                                        handleBulkToggleForTable(selectedRoleId, table.name, 'delete', !!checked)
-                                      }
+                                      onCheckedChange={(checked) => {
+                                        handleBulkToggleForTable(selectedRoleId, table.name, 'delete', !!checked);
+                                      }}
                                       disabled={
                                         roles?.find(r => r.id === selectedRoleId)?.is_system === true
                                       }
@@ -687,7 +701,7 @@ const PermissionsPage = () => {
         <CardFooter>
           <Button
             onClick={handleSaveChanges}
-            disabled={savePermissionsMutation.isPending || unsavedChanges.length === 0}
+            disabled={savePermissionsMutation.isPending}
             className="w-full"
           >
             <Save className="h-4 w-4 mr-2" /> Save All Permission Changes
