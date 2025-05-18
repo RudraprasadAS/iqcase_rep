@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -158,6 +157,16 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
   ) => {
     // Apply to table-level permission first
     handlePermissionChange(roleId, tableName, null, type, checked);
+    
+    // Find the table in the tables array
+    const tableInfo = tables?.find(t => t.name === tableName);
+    
+    // Apply the same permission to all fields within the table
+    if (tableInfo && tableInfo.fields) {
+      tableInfo.fields.forEach(field => {
+        handlePermissionChange(roleId, tableName, field, type, checked);
+      });
+    }
     
     // Auto-expand the table to show the affected fields
     if (checked && !expandedTables[tableName]) {
