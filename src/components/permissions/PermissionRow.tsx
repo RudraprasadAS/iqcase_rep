@@ -100,7 +100,7 @@ export const PermissionRow: React.FC<PermissionRowProps> = ({
     console.log(`[PermissionRow] Permission change request: ${isTable ? 'table' : 'field'} ${moduleName}${actualFieldName ? '.' + actualFieldName : ''}, ${type}=${checked}`);
     
     // For table level permissions, use the select all handler if provided
-    if (isTable && handleSelectAllForTable && showSelectAll) {
+    if (isTable && handleSelectAllForTable) {
       console.log(`[PermissionRow] Using selectAll handler for table ${moduleName}`);
       handleSelectAllForTable(roleId, moduleName, type, checked);
     } else {

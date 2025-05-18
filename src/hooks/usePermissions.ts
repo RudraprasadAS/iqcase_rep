@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase, permissionsApi } from "@/integrations/supabase/client";
@@ -50,6 +51,10 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
         }
         
         console.log("[usePermissions] Permissions saved successfully. Response:", data);
+        
+        // Run cleanup again after save to ensure we don't have duplicates
+        await permissionsApi.cleanupDuplicatePermissions(selectedRoleId);
+        
         return data;
       } catch (error) {
         console.error("[usePermissions] Exception during permission save:", error);
@@ -162,7 +167,7 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
     console.log(`Permission change made for ${moduleName}.${fieldName}, ${type}=${checked} -> canView=${newCanView}, canEdit=${newCanEdit}`);
   };
 
-  // Completely rewritten to properly update all fields under a table
+  // Completely rewritten to properly cascade table-level permissions to fields
   const handleSelectAllForTable = (
     roleId: string,
     tableName: string,
@@ -243,7 +248,8 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
           };
         }
         
-        // Apply the same permission changes with cascading logic
+        // Important: Apply cascading permissions to all child fields
+        // This ensures that toggling View at table level affects all fields
         if (type === 'view') {
           fieldPermission.canView = checked;
           if (!checked) {
