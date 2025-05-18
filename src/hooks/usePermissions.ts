@@ -4,9 +4,9 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Role } from "@/types/roles";
-import { Permission, UnsavedPermission } from "@/types/permissions";
+import { Permission, UnsavedPermission, TableInfo } from "@/types/permissions";
 
-export const usePermissions = (selectedRoleId: string, permissions?: Permission[], roles?: Role[]) => {
+export const usePermissions = (selectedRoleId: string, permissions?: Permission[], roles?: Role[], tables?: TableInfo[]) => {
   const queryClient = useQueryClient();
   const [unsavedChanges, setUnsavedChanges] = useState<UnsavedPermission[]>([]);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -173,14 +173,33 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
     }, 50);
   };
 
+  // Updated to apply changes to all fields within a table
   const handleSelectAllForTable = (
     roleId: string,
     tableName: string,
     type: 'view' | 'edit' | 'delete',
     checked: boolean
   ) => {
-    // Apply to table-level permission
+    // Apply to table-level permission first
     handlePermissionChange(roleId, tableName, null, type, checked);
+    
+    // Find the table in the tables array
+    const tableInfo = tables?.find(t => t.name === tableName);
+    
+    // Apply the same permission to all fields within the table
+    if (tableInfo && tableInfo.fields) {
+      tableInfo.fields.forEach(field => {
+        handlePermissionChange(roleId, tableName, field, type, checked);
+      });
+    }
+    
+    // Auto-expand the table to show the affected fields
+    if (!expandedTables[tableName]) {
+      setExpandedTables(prev => ({
+        ...prev,
+        [tableName]: true
+      }));
+    }
   };
 
   const getEffectivePermission = (

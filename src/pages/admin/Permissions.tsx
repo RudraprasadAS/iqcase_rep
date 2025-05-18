@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
@@ -82,7 +81,7 @@ const PermissionsPage = () => {
     handleBulkToggleForTable,
     handleSelectAllForTable,
     getEffectivePermission
-  } = usePermissions(selectedRoleId, permissions, roles);
+  } = usePermissions(selectedRoleId, permissions, roles, tables); // Pass tables to usePermissions
 
   const handleSaveChanges = () => {
     savePermissionsMutation.mutate();
