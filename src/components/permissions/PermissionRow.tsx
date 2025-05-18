@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useEffect } from "react";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
@@ -64,6 +64,11 @@ export const PermissionRow: React.FC<PermissionRowProps> = ({
   const tableName = isTable ? name : "";
   const isSystemRole = roles?.find(r => r.id === roleId)?.is_system === true;
   const moduleName = isTable ? name : name.split('-')[0];
+  
+  // Get the current state of permissions for this row
+  const canView = getEffectivePermission(roleId, tableName || moduleName, fieldName, 'view');
+  const canEdit = getEffectivePermission(roleId, tableName || moduleName, fieldName, 'edit');
+  const canDelete = getEffectivePermission(roleId, tableName || moduleName, fieldName, 'delete');
 
   return (
     <TableRow className={isTable ? "bg-muted/20 hover:bg-muted/30" : "border-0"}>
@@ -90,7 +95,7 @@ export const PermissionRow: React.FC<PermissionRowProps> = ({
       <TableCell className="text-center py-2">
         <div className="flex justify-center">
           <Checkbox 
-            checked={getEffectivePermission(roleId, tableName || moduleName, fieldName, 'view')}
+            checked={canView}
             onCheckedChange={(checked) => {
               handlePermissionChange(roleId, tableName || moduleName, fieldName, 'view', !!checked);
             }}
@@ -105,7 +110,7 @@ export const PermissionRow: React.FC<PermissionRowProps> = ({
                 roleId, 
                 name, 
                 'view', 
-                !getEffectivePermission(roleId, tableName, null, 'view')
+                !canView
               )}
             >
               all
@@ -116,7 +121,7 @@ export const PermissionRow: React.FC<PermissionRowProps> = ({
       <TableCell className="text-center py-2">
         <div className="flex justify-center">
           <Checkbox 
-            checked={getEffectivePermission(roleId, tableName || moduleName, fieldName, 'edit')}
+            checked={canEdit}
             onCheckedChange={(checked) => {
               handlePermissionChange(roleId, tableName || moduleName, fieldName, 'edit', !!checked);
             }}
@@ -131,7 +136,7 @@ export const PermissionRow: React.FC<PermissionRowProps> = ({
                 roleId, 
                 name, 
                 'edit', 
-                !getEffectivePermission(roleId, tableName, null, 'edit')
+                !canEdit
               )}
             >
               all
@@ -142,7 +147,7 @@ export const PermissionRow: React.FC<PermissionRowProps> = ({
       <TableCell className="text-center py-2">
         <div className="flex justify-center">
           <Checkbox 
-            checked={getEffectivePermission(roleId, tableName || moduleName, fieldName, 'delete')}
+            checked={canDelete}
             onCheckedChange={(checked) => {
               handlePermissionChange(roleId, tableName || moduleName, fieldName, 'delete', !!checked);
             }}
@@ -157,7 +162,7 @@ export const PermissionRow: React.FC<PermissionRowProps> = ({
                 roleId, 
                 name, 
                 'delete', 
-                !getEffectivePermission(roleId, tableName, null, 'delete')
+                !canDelete
               )}
             >
               all

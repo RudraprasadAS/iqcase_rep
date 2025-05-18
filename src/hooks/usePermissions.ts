@@ -217,6 +217,10 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
     fieldName: string | null,
     type: 'view' | 'edit' | 'delete'
   ): boolean => {
+    // For system roles specifically marked with is_system=true, return true for all permissions
+    const role = roles?.find(r => r.id === roleId);
+    if (role?.is_system === true) return true;
+
     // Check if there's an unsaved change
     const unsavedChange = unsavedChanges.find(
       change => change.roleId === roleId && 
@@ -230,9 +234,35 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
       return unsavedChange.canDelete;
     }
 
-    // For system roles specifically marked with is_system=true, return true for all permissions
-    const role = roles?.find(r => r.id === roleId);
-    if (role?.is_system === true) return true;
+    // For field permissions, check if there's a table-level permission that applies
+    // when fieldName is provided (not null) and different from moduleName
+    if (fieldName !== null) {
+      // Check for an unsaved table-level change first
+      const unsavedTableChange = unsavedChanges.find(
+        change => change.roleId === roleId && 
+                  change.moduleName === moduleName && 
+                  change.fieldName === null
+      );
+
+      if (unsavedTableChange) {
+        if (type === 'view') return unsavedTableChange.canView;
+        if (type === 'edit') return unsavedTableChange.canEdit;
+        return unsavedTableChange.canDelete;
+      }
+      
+      // Then check for a saved table-level permission
+      const tablePermission = permissions?.find(
+        p => p.role_id === roleId && 
+             p.module_name === moduleName && 
+             p.field_name === null
+      );
+      
+      if (tablePermission) {
+        if (type === 'view' && tablePermission.can_view) return true;
+        if (type === 'edit' && tablePermission.can_edit) return true;
+        if (type === 'delete' && tablePermission.can_delete) return true;
+      }
+    }
 
     // Check if permission exists in the database
     const permission = permissions?.find(
