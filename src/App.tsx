@@ -4,6 +4,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/components/auth/AuthProvider";
+import { Helmet, HelmetProvider } from "react-helmet-async";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/auth/Login";
@@ -15,43 +17,50 @@ import Layout from "./components/layout/Layout";
 import AuthLayout from "./components/layout/AuthLayout";
 import RequireAuth from "./components/auth/RequireAuth";
 import Permissions from "./pages/admin/Permissions";
+import Users from "./pages/admin/Users";
 
 const queryClient = new QueryClient();
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          {/* Public routes */}
-          <Route path="/" element={<Index />} />
-          
-          {/* Auth routes */}
-          <Route element={<AuthLayout />}>
-            <Route path="/auth/login" element={<Login />} />
-            <Route path="/auth/register" element={<Register />} />
-            <Route path="/auth/forgot-password" element={<ForgotPassword />} />
-            <Route path="/auth/reset-password" element={<ResetPassword />} />
-          </Route>
-          
-          {/* Protected routes */}
-          <Route element={<RequireAuth />}>
-            <Route element={<Layout />}>
-              <Route path="/dashboard" element={<Dashboard />} />
+  <HelmetProvider>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Helmet titleTemplate="%s | Case Management" defaultTitle="Case Management System" />
+            <Routes>
+              {/* Public routes */}
+              <Route path="/" element={<Index />} />
               
-              {/* Admin routes */}
-              <Route path="/admin/permissions" element={<Permissions />} />
-            </Route>
-          </Route>
-          
-          {/* Catch-all route */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+              {/* Auth routes */}
+              <Route element={<AuthLayout />}>
+                <Route path="/auth/login" element={<Login />} />
+                <Route path="/auth/register" element={<Register />} />
+                <Route path="/auth/forgot-password" element={<ForgotPassword />} />
+                <Route path="/auth/reset-password" element={<ResetPassword />} />
+              </Route>
+              
+              {/* Protected routes */}
+              <Route element={<RequireAuth />}>
+                <Route element={<Layout />}>
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  
+                  {/* Admin routes */}
+                  <Route path="/admin/permissions" element={<Permissions />} />
+                  <Route path="/admin/users" element={<Users />} />
+                </Route>
+              </Route>
+              
+              {/* Catch-all route */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </AuthProvider>
+    </QueryClientProvider>
+  </HelmetProvider>
 );
 
 export default App;
