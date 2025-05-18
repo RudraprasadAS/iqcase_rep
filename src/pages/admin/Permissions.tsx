@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -28,18 +29,18 @@ const PermissionsPage = () => {
   const { data: roles, isLoading: rolesLoading } = useQuery({
     queryKey: ["roles"],
     queryFn: async () => {
-      console.log("Fetching roles from database");
+      console.log("[PermissionsPage] Fetching roles from database");
       const { data, error } = await supabase
         .from("roles")
         .select("*")
         .order("name");
         
       if (error) {
-        console.error("Error fetching roles:", error);
+        console.error("[PermissionsPage] Error fetching roles:", error);
         throw error;
       }
       
-      console.log("Roles fetched successfully:", data);
+      console.log("[PermissionsPage] Roles fetched successfully:", data);
       return data as Role[];
     },
   });
@@ -48,24 +49,28 @@ const PermissionsPage = () => {
   const { data: tables, isLoading: tablesLoading } = useQuery({
     queryKey: ["database_tables"],
     queryFn: async () => {
-      console.log("Fetching database tables");
-      const { data, error } = await supabase
-        .rpc('get_tables_info');
+      console.log("[PermissionsPage] Fetching database tables");
+      try {
+        const { data, error } = await supabase.rpc('get_tables_info');
+          
+        if (error) {
+          console.error("[PermissionsPage] Error fetching tables:", error);
+          // Fallback to a predefined list of core tables
+          return [
+            { name: "cases", schema: "public", fields: ["id", "title", "description", "status"] },
+            { name: "users", schema: "public", fields: ["id", "name", "email"] },
+            { name: "roles", schema: "public", fields: ["id", "name", "description"] },
+            { name: "permissions", schema: "public", fields: ["id", "role_id", "module_name"] },
+            { name: "case_categories", schema: "public", fields: ["id", "name", "description"] }
+          ] as TableInfo[];
+        }
         
-      if (error) {
-        console.error("Error fetching tables:", error);
-        // Fallback to a predefined list of core tables
-        return [
-          { name: "cases", schema: "public", fields: ["id", "title", "description", "status"] },
-          { name: "users", schema: "public", fields: ["id", "name", "email"] },
-          { name: "roles", schema: "public", fields: ["id", "name", "description"] },
-          { name: "permissions", schema: "public", fields: ["id", "role_id", "module_name"] },
-          { name: "case_categories", schema: "public", fields: ["id", "name", "description"] }
-        ] as TableInfo[];
+        console.log("[PermissionsPage] Tables fetched successfully:", data);
+        return data as TableInfo[];
+      } catch (e) {
+        console.error("[PermissionsPage] Exception fetching tables:", e);
+        throw e;
       }
-      
-      console.log("Tables fetched successfully:", data);
-      return data as TableInfo[];
     },
   });
   
@@ -75,19 +80,24 @@ const PermissionsPage = () => {
     queryFn: async () => {
       if (!selectedRoleId) return [] as Permission[];
       
-      console.log(`Fetching permissions for role: ${selectedRoleId}`);
-      const { data, error } = await supabase
-        .from("permissions")
-        .select("*")
-        .eq("role_id", selectedRoleId);
+      console.log(`[PermissionsPage] Fetching permissions for role: ${selectedRoleId}`);
+      try {
+        const { data, error } = await supabase
+          .from("permissions")
+          .select("*")
+          .eq("role_id", selectedRoleId);
+          
+        if (error) {
+          console.error("[PermissionsPage] Error fetching permissions:", error);
+          throw error;
+        }
         
-      if (error) {
-        console.error("Error fetching permissions:", error);
-        throw error;
+        console.log(`[PermissionsPage] Permissions fetched for role ${selectedRoleId}:`, data);
+        return (data || []) as Permission[];
+      } catch (e) {
+        console.error("[PermissionsPage] Exception fetching permissions:", e);
+        throw e;
       }
-      
-      console.log(`Permissions fetched for role ${selectedRoleId}:`, data);
-      return (data || []) as Permission[];
     },
     enabled: !!selectedRoleId,
   });
@@ -100,21 +110,24 @@ const PermissionsPage = () => {
     handlePermissionChange,
     handleBulkToggleForTable,
     handleSelectAllForTable,
-    getEffectivePermission
+    getEffectivePermission,
+    debugCurrentState
   } = usePermissions(selectedRoleId, permissions, roles, tables);
 
   const handleSaveChanges = () => {
-    console.log("Saving permission changes...");
+    console.log("[PermissionsPage] Save changes button clicked");
+    debugCurrentState(); // Log current state before saving
     savePermissionsMutation.mutate();
   };
 
   const handleRoleUpdate = () => {
-    console.log("Role updated, refreshing roles list");
+    console.log("[PermissionsPage] Role updated, refreshing roles list");
     // Refresh roles list
     queryClient.invalidateQueries({ queryKey: ["roles"] });
     
     // Also refresh permissions if a role is selected
     if (selectedRoleId) {
+      console.log("[PermissionsPage] Refreshing permissions after role update");
       refetchPermissions();
     }
     
@@ -125,7 +138,7 @@ const PermissionsPage = () => {
   };
 
   const handleRoleSelected = (roleId: string) => {
-    console.log(`Role selected: ${roleId}`);
+    console.log(`[PermissionsPage] Role selected: ${roleId}`);
     if (hasUnsavedChanges) {
       if (confirm("You have unsaved changes. Do you want to discard them?")) {
         setSelectedRoleId(roleId);
@@ -138,7 +151,24 @@ const PermissionsPage = () => {
   // Log when permissions data changes
   useEffect(() => {
     if (permissions) {
-      console.log(`Current permissions for role ${selectedRoleId}:`, permissions);
+      console.log(`[PermissionsPage] Current permissions for role ${selectedRoleId}:`, permissions);
+      
+      // Check for permission conflicts (multiple permissions for same role/module/field)
+      const permissionMap = new Map<string, Permission[]>();
+      permissions.forEach(p => {
+        const key = `${p.role_id}|${p.module_name}|${p.field_name}`;
+        if (!permissionMap.has(key)) {
+          permissionMap.set(key, []);
+        }
+        permissionMap.get(key)?.push(p);
+      });
+      
+      // Log any permission conflicts
+      permissionMap.forEach((perms, key) => {
+        if (perms.length > 1) {
+          console.warn(`[PermissionsPage] DUPLICATE PERMISSION DETECTED: ${key}`, perms);
+        }
+      });
     }
   }, [permissions, selectedRoleId]);
 
@@ -156,6 +186,17 @@ const PermissionsPage = () => {
   
   const isLoading = rolesLoading || tablesLoading || (!!selectedRoleId && permissionsLoading);
   
+  // Debug render
+  useEffect(() => {
+    console.log("[PermissionsPage] Rendering with state:", {
+      selectedRoleId,
+      hasUnsavedChanges,
+      isLoading,
+      permissionsCount: permissions?.length,
+      tablesCount: sortedTables.length
+    });
+  });
+
   return (
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex justify-between items-center">

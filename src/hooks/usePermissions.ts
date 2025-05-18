@@ -14,9 +14,13 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
   // Save all permission changes
   const savePermissionsMutation = useMutation({
     mutationFn: async () => {
-      if (unsavedChanges.length === 0) return;
+      if (unsavedChanges.length === 0) {
+        console.log("No changes to save - returning early");
+        return;
+      }
       
-      console.log("Saving permissions to database:", unsavedChanges);
+      console.log("Starting to save permissions to database:", unsavedChanges);
+      console.log("Total number of changes:", unsavedChanges.length);
 
       const permissionsToSave = unsavedChanges.map(change => ({
         role_id: change.roleId,
@@ -26,22 +30,30 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
         can_edit: change.canEdit
       }));
 
-      const { data, error } = await supabase
-        .from("permissions")
-        .upsert(permissionsToSave, { 
-          onConflict: 'role_id,module_name,field_name', 
-          ignoreDuplicates: false 
-        });
+      console.log("Formatted permissions for database save:", permissionsToSave);
+
+      try {
+        const { data, error } = await supabase
+          .from("permissions")
+          .upsert(permissionsToSave, { 
+            onConflict: 'role_id,module_name,field_name', 
+            ignoreDuplicates: false 
+          });
+          
+        if (error) {
+          console.error("Supabase error saving permissions:", error);
+          throw error;
+        }
         
-      if (error) {
-        console.error("Error saving permissions:", error);
+        console.log("Permissions saved successfully. Response:", data);
+        return data;
+      } catch (error) {
+        console.error("Exception during permission save:", error);
         throw error;
       }
-      
-      console.log("Permissions saved successfully:", data);
-      return data;
     },
     onSuccess: () => {
+      console.log("Save mutation succeeded, invalidating queries and resetting state");
       queryClient.invalidateQueries({ queryKey: ["permissions", selectedRoleId] });
       toast({
         title: "Permissions saved",
@@ -343,7 +355,17 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
   // Add a debug log whenever unsavedChanges updates
   useEffect(() => {
     console.log("Unsaved changes updated:", unsavedChanges);
-  }, [unsavedChanges]);
+    
+    // If we have pending changes but hasUnsavedChanges is false, log a warning
+    if (unsavedChanges.length > 0 && !hasUnsavedChanges) {
+      console.warn("WARNING: We have unsaved changes, but hasUnsavedChanges flag is false!");
+    }
+    
+    // If we have no pending changes but hasUnsavedChanges is true, log a warning
+    if (unsavedChanges.length === 0 && hasUnsavedChanges) {
+      console.warn("WARNING: We have no unsaved changes, but hasUnsavedChanges flag is true!");
+    }
+  }, [unsavedChanges, hasUnsavedChanges]);
 
   // Add a debug log when permissions are fetched from database
   useEffect(() => {
@@ -351,6 +373,17 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
       console.log(`Permissions fetched from database for role ${selectedRoleId}:`, permissions);
     }
   }, [permissions, selectedRoleId]);
+
+  // Add this new debug function to examine current data state
+  const debugCurrentState = () => {
+    console.log("=== CURRENT PERMISSION STATE ===");
+    console.log("Selected Role ID:", selectedRoleId);
+    console.log("Database Permissions:", permissions);
+    console.log("Unsaved Changes:", unsavedChanges);
+    console.log("Has Unsaved Changes Flag:", hasUnsavedChanges);
+    console.log("Expanded Tables:", expandedTables);
+    console.log("================================");
+  };
 
   return {
     unsavedChanges,
@@ -362,6 +395,6 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
     handleBulkToggleForTable,
     handleSelectAllForTable,
     getEffectivePermission,
-    logPermissionState
+    debugCurrentState
   };
 };
