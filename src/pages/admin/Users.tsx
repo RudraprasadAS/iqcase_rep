@@ -5,7 +5,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Helmet } from "react-helmet-async";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { UserList } from "@/components/users/UserList";
 import { CreateUserDialog } from "@/components/users/CreateUserDialog";
@@ -14,7 +13,7 @@ import { Role } from "@/types/roles";
 import { Card, CardContent } from "@/components/ui/card";
 import { Search, UserPlus, Filter } from "lucide-react";
 import {
-  Select as SelectPrimitive,
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -163,7 +162,7 @@ const Users = () => {
             
             <div className="flex flex-wrap gap-3 w-full md:w-auto">
               <div className="w-full md:w-auto">
-                <SelectPrimitive
+                <Select
                   value={statusFilter}
                   onValueChange={setStatusFilter}
                 >
@@ -175,11 +174,11 @@ const Users = () => {
                     <SelectItem value="active">Active</SelectItem>
                     <SelectItem value="inactive">Inactive</SelectItem>
                   </SelectContent>
-                </SelectPrimitive>
+                </Select>
               </div>
               
               <div className="w-full md:w-auto">
-                <SelectPrimitive
+                <Select
                   value={roleFilter}
                   onValueChange={setRoleFilter}
                 >
@@ -194,11 +193,11 @@ const Users = () => {
                       </SelectItem>
                     ))}
                   </SelectContent>
-                </SelectPrimitive>
+                </Select>
               </div>
               
               <div className="w-full md:w-auto">
-                <SelectPrimitive
+                <Select
                   value={userTypeFilter}
                   onValueChange={setUserTypeFilter}
                 >
@@ -213,7 +212,7 @@ const Users = () => {
                       </SelectItem>
                     ))}
                   </SelectContent>
-                </SelectPrimitive>
+                </Select>
               </div>
             </div>
           </div>
