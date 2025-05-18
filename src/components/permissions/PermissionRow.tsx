@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useEffect } from "react";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,7 @@ interface PermissionRowProps {
   isExpanded?: boolean;
   onToggleExpand?: () => void;
   fieldName?: string | null;
+  tableName?: string; // Added to identify parent table for field rows
   roles?: Role[];
   permissions?: Permission[];
   getEffectivePermission: (
@@ -54,6 +55,7 @@ export const PermissionRow: React.FC<PermissionRowProps> = ({
   isExpanded,
   onToggleExpand,
   fieldName = null,
+  tableName,
   roles,
   permissions,
   getEffectivePermission,
@@ -64,7 +66,7 @@ export const PermissionRow: React.FC<PermissionRowProps> = ({
   const isSystemRole = roles?.find(r => r.id === roleId)?.is_system === true;
   
   // Determine the correct moduleName based on whether this is a table or field level row
-  const moduleName = isTable ? name : name.split('-')[0];
+  const moduleName = isTable ? name : tableName || name;
   
   // For field rows, we need the actual field name (not the full string with module name)
   const actualFieldName = isTable ? null : fieldName;
@@ -73,6 +75,16 @@ export const PermissionRow: React.FC<PermissionRowProps> = ({
   const canView = getEffectivePermission(roleId, moduleName, actualFieldName, 'view');
   const canEdit = getEffectivePermission(roleId, moduleName, actualFieldName, 'edit');
   const canDelete = getEffectivePermission(roleId, moduleName, actualFieldName, 'delete');
+
+  useEffect(() => {
+    if (!isTable) {
+      console.log(`Field ${moduleName}.${actualFieldName} permissions:`, {
+        canView,
+        canEdit,
+        canDelete
+      });
+    }
+  }, [canView, canEdit, canDelete, moduleName, actualFieldName, isTable]);
 
   // Handle checking logic with enforced relationships
   const handleCheck = (type: 'view' | 'edit' | 'delete', checked: boolean) => {

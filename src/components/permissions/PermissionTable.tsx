@@ -100,14 +100,15 @@ export const PermissionTable: React.FC<PermissionTableProps> = ({
                   handleSelectAllForTable={handleSelectAllForTable}
                 />
                 
-                {/* Field-level rows */}
+                {/* Field-level rows - using a unique key for each render to force updates */}
                 {expandedTables[table.name] && table.fields && table.fields.map(field => (
                   <PermissionRow
-                    key={`${table.name}-${field}`}
+                    key={`${table.name}-${field}-${Date.now()}`}
                     name={field}
                     roleId={selectedRoleId}
                     isTable={false}
                     fieldName={field}
+                    tableName={table.name} // Add tableName prop to identify parent table
                     roles={roles}
                     permissions={permissions}
                     getEffectivePermission={getEffectivePermission}
