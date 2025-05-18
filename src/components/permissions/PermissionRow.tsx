@@ -1,5 +1,5 @@
 
-import React, { useEffect } from "react";
+import React from "react";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
@@ -61,6 +61,8 @@ export const PermissionRow: React.FC<PermissionRowProps> = ({
   showSelectAll,
   handleSelectAllForTable
 }) => {
+  // For table rows, use the name as moduleName
+  // For field rows, use the parent table name as moduleName
   const tableName = isTable ? name : "";
   const isSystemRole = roles?.find(r => r.id === roleId)?.is_system === true;
   const moduleName = isTable ? name : name.split('-')[0];

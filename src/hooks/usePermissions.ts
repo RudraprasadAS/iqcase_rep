@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -211,6 +212,7 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
     }
   };
 
+  // Modified function to correctly check for table-level permissions that should apply to fields
   const getEffectivePermission = (
     roleId: string,
     moduleName: string,
@@ -221,7 +223,7 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
     const role = roles?.find(r => r.id === roleId);
     if (role?.is_system === true) return true;
 
-    // Check if there's an unsaved change
+    // Check if there's an unsaved change for this specific permission
     const unsavedChange = unsavedChanges.find(
       change => change.roleId === roleId && 
                 change.moduleName === moduleName && 
@@ -234,10 +236,9 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
       return unsavedChange.canDelete;
     }
 
-    // For field permissions, check if there's a table-level permission that applies
-    // when fieldName is provided (not null) and different from moduleName
+    // If this is a field (not a table), check for table-level permissions
     if (fieldName !== null) {
-      // Check for an unsaved table-level change first
+      // First check for an unsaved table-level change
       const unsavedTableChange = unsavedChanges.find(
         change => change.roleId === roleId && 
                   change.moduleName === moduleName && 
@@ -245,9 +246,9 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
       );
 
       if (unsavedTableChange) {
-        if (type === 'view') return unsavedTableChange.canView;
-        if (type === 'edit') return unsavedTableChange.canEdit;
-        return unsavedTableChange.canDelete;
+        if (type === 'view' && unsavedTableChange.canView) return true;
+        if (type === 'edit' && unsavedTableChange.canEdit) return true;
+        if (type === 'delete' && unsavedTableChange.canDelete) return true;
       }
       
       // Then check for a saved table-level permission
@@ -264,16 +265,21 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
       }
     }
 
-    // Check if permission exists in the database
+    // Finally, check for saved permissions specifically for this item
     const permission = permissions?.find(
       p => p.role_id === roleId && 
            p.module_name === moduleName && 
            p.field_name === fieldName
     );
 
-    if (type === 'view') return !!permission?.can_view;
-    if (type === 'edit') return !!permission?.can_edit;
-    return !!permission?.can_delete;
+    if (permission) {
+      if (type === 'view') return permission.can_view;
+      if (type === 'edit') return permission.can_edit;
+      return permission.can_delete;
+    }
+
+    // Default to false if no permission is found
+    return false;
   };
 
   return {
