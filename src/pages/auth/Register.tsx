@@ -6,8 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import { FcGoogle } from "react-icons/fc";
 
 const Register = () => {
   const { toast } = useToast();
@@ -45,48 +43,19 @@ const Register = () => {
     setIsLoading(true);
 
     try {
-      // Register with Supabase Auth
-      const { data, error } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          data: {
-            full_name: formData.name,
-          },
-        },
-      });
-      
-      if (error) {
-        setError(error.message);
-        return;
-      }
+      // This is a placeholder - will be replaced with actual Supabase auth call
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       
       toast({
         title: "Registration successful",
         description: "Your account has been created successfully.",
       });
-      
       navigate("/auth/login");
     } catch (err) {
       setError("An error occurred during registration");
       console.error("Registration error:", err);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleGoogleSignIn = async () => {
-    try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-      });
-      
-      if (error) {
-        setError(error.message);
-      }
-    } catch (err) {
-      setError("An error occurred during Google sign-in");
-      console.error("Google sign-in error:", err);
     }
   };
 
@@ -169,26 +138,6 @@ const Register = () => {
           {isLoading ? "Creating account..." : "Create account"}
         </Button>
       </form>
-      
-      <div className="relative mt-6">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-gray-300"></div>
-        </div>
-        <div className="relative flex justify-center text-sm">
-          <span className="px-2 bg-white text-gray-500">Or continue with</span>
-        </div>
-      </div>
-      
-      <Button
-        type="button"
-        variant="outline"
-        className="w-full mt-4 flex items-center justify-center gap-2"
-        onClick={handleGoogleSignIn}
-        disabled={isLoading}
-      >
-        <FcGoogle className="h-5 w-5" />
-        Sign up with Google
-      </Button>
       
       <div className="mt-6 text-center">
         <p className="text-sm text-gray-500">

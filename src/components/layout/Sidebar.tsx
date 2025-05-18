@@ -1,172 +1,88 @@
 
-import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
-import {
-  ChevronDown,
-  ChevronUp,
-  LayoutDashboard,
-  Shield,
-  Users,
-  Menu,
-  X
-} from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import {
+  Home,
+  FileText,
+  Users,
+  Settings,
+  BarChart,
+  MessageSquare,
+  FolderClosed,
+  CalendarCheck,
+  ShieldCheck,
+} from "lucide-react";
+import { NavLink } from "react-router-dom";
 
 interface SidebarProps {
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
 }
 
-interface SidebarItemProps {
-  icon: React.ReactNode;
-  title: string;
-  path?: string;
-  isActive: boolean;
-  children?: React.ReactNode;
-  isSubmenuOpen?: boolean;
-  toggleSubmenu?: () => void;
-}
-
 const Sidebar = ({ isOpen, setIsOpen }: SidebarProps) => {
-  const location = useLocation();
-  const [isAdminOpen, setIsAdminOpen] = useState(
-    location.pathname.startsWith("/admin")
-  );
-
-  const toggleAdminMenu = () => {
-    setIsAdminOpen(!isAdminOpen);
-  };
-
-  const isPathActive = (path: string) => location.pathname === path;
-  const isPathInSubmenu = (basePath: string) => location.pathname.startsWith(basePath);
-
   return (
-    <>
-      {/* Mobile sidebar backdrop */}
-      {isOpen && (
-        <div
-          className="fixed inset-0 z-20 bg-black/50 lg:hidden"
-          onClick={() => setIsOpen(false)}
-        />
+    <div
+      className={cn(
+        "bg-white border-r border-caseMgmt-border h-screen transition-all duration-300 overflow-hidden",
+        isOpen ? "w-64" : "w-16"
       )}
-
-      {/* Sidebar */}
-      <aside
-        className={cn(
-          "fixed inset-y-0 left-0 z-30 w-64 flex-shrink-0 flex-col bg-caseMgmt-surface text-caseMgmt-foreground border-r transform transition-transform duration-200 ease-in-out lg:translate-x-0 lg:static lg:z-auto",
-          isOpen ? "translate-x-0" : "-translate-x-full"
-        )}
-      >
-        <div className="flex h-16 items-center justify-between px-4 border-b">
-          <Link to="/" className="flex items-center space-x-2">
-            <span className="text-xl font-semibold">Case Management</span>
-          </Link>
-          <button
-            className="lg:hidden"
-            onClick={() => setIsOpen(false)}
-          >
-            <X size={20} />
-          </button>
+    >
+      <div className="flex flex-col h-full">
+        <div className={cn("h-16 p-4", isOpen ? "justify-between" : "justify-center", "flex items-center")}>
+          {isOpen && <h1 className="font-semibold text-caseMgmt-primary text-lg">CaseManager</h1>}
         </div>
 
-        <div className="flex flex-col flex-grow overflow-y-auto">
-          <nav className="flex-1 px-2 py-4 space-y-1">
-            {/* Dashboard */}
-            <SidebarItem
-              icon={<LayoutDashboard className="h-5 w-5" />}
-              title="Dashboard"
-              path="/dashboard"
-              isActive={isPathActive("/dashboard")}
-            />
-
-            {/* Admin section */}
-            <div>
-              <SidebarItem
-                icon={<Shield className="h-5 w-5" />}
-                title="Administration"
-                isActive={isPathInSubmenu("/admin")}
-                isSubmenuOpen={isAdminOpen}
-                toggleSubmenu={toggleAdminMenu}
-              />
-
-              {isAdminOpen && (
-                <div className="ml-6 space-y-1 mt-1">
-                  <SidebarItem
-                    icon={<Users className="h-4 w-4" />}
-                    title="Users"
-                    path="/admin/users"
-                    isActive={isPathActive("/admin/users")}
-                  />
-                  <SidebarItem
-                    icon={<Shield className="h-4 w-4" />}
-                    title="Permissions"
-                    path="/admin/permissions"
-                    isActive={isPathActive("/admin/permissions")}
-                  />
-                </div>
-              )}
-            </div>
-          </nav>
-        </div>
-      </aside>
-    </>
+        <ScrollArea className="flex-1">
+          <div className="px-2 py-2">
+            <nav className="space-y-1">
+              <NavItem icon={Home} to="/dashboard" label="Dashboard" isOpen={isOpen} />
+              <NavItem icon={FileText} to="/cases" label="Cases" isOpen={isOpen} />
+              <NavItem icon={Users} to="/users" label="Users" isOpen={isOpen} />
+              <NavItem icon={FolderClosed} to="/categories" label="Categories" isOpen={isOpen} />
+              <NavItem icon={MessageSquare} to="/messages" label="Messages" isOpen={isOpen} />
+              <NavItem icon={CalendarCheck} to="/deadlines" label="Deadlines" isOpen={isOpen} />
+              <NavItem icon={BarChart} to="/reports" label="Reports" isOpen={isOpen} />
+              
+              {/* Admin section with only Roles & Permissions now */}
+              {isOpen && <div className="pt-4 pb-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Admin</div>}
+              <NavItem icon={ShieldCheck} to="/admin/permissions" label="Roles & Permissions" isOpen={isOpen} />
+              
+              <Separator className="my-4" />
+              
+              <NavItem icon={Settings} to="/settings" label="Settings" isOpen={isOpen} />
+            </nav>
+          </div>
+        </ScrollArea>
+      </div>
+    </div>
   );
 };
 
-const SidebarItem = ({
-  icon,
-  title,
-  path,
-  isActive,
-  children,
-  isSubmenuOpen,
-  toggleSubmenu,
-}: SidebarItemProps) => {
-  const CommonContent = (
-    <div className="flex items-center">
-      <span className="mr-3">{icon}</span>
-      <span>{title}</span>
-    </div>
-  );
+interface NavItemProps {
+  icon: React.ElementType;
+  to: string;
+  label: string;
+  isOpen: boolean;
+}
 
-  const classes = cn(
-    "flex w-full justify-between items-center px-2 py-2 rounded-md transition-colors",
-    {
-      "bg-caseMgmt-primary text-caseMgmt-primary-foreground": isActive,
-      "text-caseMgmt-foreground hover:bg-caseMgmt-muted": !isActive,
-    }
-  );
-
-  // If it's a submenu toggle
-  if (toggleSubmenu) {
-    return (
-      <button className={classes} onClick={toggleSubmenu}>
-        {CommonContent}
-        {isSubmenuOpen ? (
-          <ChevronUp className="h-4 w-4" />
-        ) : (
-          <ChevronDown className="h-4 w-4" />
-        )}
-      </button>
-    );
-  }
-
-  // If it's a link
-  if (path) {
-    return (
-      <Link to={path} className={classes}>
-        {CommonContent}
-        {children}
-      </Link>
-    );
-  }
-
-  // Default fallback
+const NavItem = ({ icon: Icon, to, label, isOpen }: NavItemProps) => {
   return (
-    <div className={classes}>
-      {CommonContent}
-      {children}
-    </div>
+    <NavLink
+      to={to}
+      className={({ isActive }) =>
+        cn(
+          "flex items-center py-2 px-3 rounded-md transition-colors",
+          isActive
+            ? "bg-caseMgmt-primary text-white"
+            : "hover:bg-gray-100 text-gray-700"
+        )
+      }
+    >
+      <Icon className="w-5 h-5" />
+      {isOpen && <span className="ml-3">{label}</span>}
+    </NavLink>
   );
 };
 
