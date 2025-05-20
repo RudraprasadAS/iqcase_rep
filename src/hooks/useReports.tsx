@@ -279,8 +279,15 @@ export const useReports = () => {
       const baseTableName = report.module; // Use module as base_table
       const fields = Array.isArray(report.selected_fields) ? report.selected_fields as string[] : [];
       
+      // This part needs to be fixed to handle dynamic tables
+      // We should verify that the table exists before querying it
+      if (!baseTableName) {
+        throw new Error('No base table specified in the report');
+      }
+      
+      // Use type assertion to handle the dynamic table name
       let query = supabase
-        .from(baseTableName)
+        .from(baseTableName as any)
         .select(fields.join(','));
       
       // Parse filters if they're stored as string
