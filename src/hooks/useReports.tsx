@@ -324,10 +324,10 @@ export const useReports = () => {
         
         console.log(`Running report on table: ${baseTableName} with fields:`, selectedFields);
         
-        // Use a dynamic approach that's TypeScript safe
-        // Fix for the infinite type error by using type assertions and simplifying
+        // Use a type assertion to handle dynamic table names safely
+        // This fixes the TypeScript error
         const query = supabase
-          .from(baseTableName as string)
+          .from(baseTableName as any)
           .select(selectedFields.join(','));
         
         // Parse filters if they're stored as string
@@ -342,36 +342,36 @@ export const useReports = () => {
             
             switch (operator) {
               case 'eq':
-                query.eq(field, value);
+                (query as any).eq(field, value);
                 break;
               case 'neq':
-                query.neq(field, value);
+                (query as any).neq(field, value);
                 break;
               case 'gt':
-                query.gt(field, value);
+                (query as any).gt(field, value);
                 break;
               case 'gte':
-                query.gte(field, value);
+                (query as any).gte(field, value);
                 break;
               case 'lt':
-                query.lt(field, value);
+                (query as any).lt(field, value);
                 break;
               case 'lte':
-                query.lte(field, value);
+                (query as any).lte(field, value);
                 break;
               case 'like':
-                query.like(field, `%${value}%`);
+                (query as any).like(field, `%${value}%`);
                 break;
               case 'ilike':
-                query.ilike(field, `%${value}%`);
+                (query as any).ilike(field, `%${value}%`);
                 break;
               case 'in':
                 if (Array.isArray(value)) {
-                  query.in(field, value);
+                  (query as any).in(field, value);
                 }
                 break;
               case 'is':
-                query.is(field, value);
+                (query as any).is(field, value);
                 break;
               default:
                 break;
