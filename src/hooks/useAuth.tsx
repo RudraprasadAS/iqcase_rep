@@ -1,55 +1,35 @@
 
 import { useState, useEffect } from 'react';
 
-// Simple auth hook for demo purposes
-// Will be replaced with actual Supabase auth implementation later
+// Simple mock authentication hook for development purposes
+// This should be replaced with actual authentication logic
 export const useAuth = () => {
-  const [user, setUser] = useState<{ id: string; email: string } | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
+  const [user, setUser] = useState<{ id: string; email: string } | null>({
+    id: '123456', // Mock user ID for testing
+    email: 'test@example.com'
+  });
+  
+  // In a real application, you would fetch the user from your auth provider
   useEffect(() => {
-    // Check if user is logged in from localStorage (temporary)
-    const checkAuth = () => {
-      const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
-      if (isAuthenticated) {
-        // Mock user data - replace with actual user data later
-        setUser({
-          id: 'mock-user-id',
-          email: 'user@example.com'
-        });
-      } else {
-        setUser(null);
-      }
-      setIsLoading(false);
-    };
-
-    checkAuth();
+    // For now, we're just using a mock user
+    // Later we can implement Supabase auth here
   }, []);
-
-  const login = (email: string, password: string) => {
-    // Mock login - will be replaced with actual auth logic
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        localStorage.setItem('isAuthenticated', 'true');
-        setUser({
-          id: 'mock-user-id',
-          email: email
-        });
-        resolve(true);
-      }, 1000);
-    });
+  
+  const login = async (email: string, password: string) => {
+    // Mock login function
+    setUser({ id: '123456', email });
+    return { user: { id: '123456', email }, session: {} };
   };
-
-  const logout = () => {
-    // Mock logout - will be replaced with actual auth logic
-    localStorage.removeItem('isAuthenticated');
+  
+  const logout = async () => {
+    // Mock logout function
     setUser(null);
   };
-
+  
   return {
     user,
-    isLoading,
     login,
-    logout
+    logout,
+    isAuthenticated: !!user
   };
 };

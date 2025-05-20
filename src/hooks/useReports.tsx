@@ -33,7 +33,7 @@ export const useReports = () => {
         const processedFilters = Array.isArray(parsedFilters) 
           ? parsedFilters.map((filter: any) => ({
               field: filter.field,
-              operator: filter.operator as ReportFilter['operator'],
+              operator: filter.operator,
               value: filter.value
             })) as ReportFilter[]
           : [];
@@ -58,6 +58,8 @@ export const useReports = () => {
       // Convert filters for Supabase DB structure
       const filtersForDb = report.filters as unknown as Json;
       
+      console.log("Creating report with data:", report);
+      
       // Convert for Supabase DB structure
       const { data, error } = await supabase
         .from('reports')
@@ -76,7 +78,12 @@ export const useReports = () => {
         .select()
         .single();
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error creating report:", error);
+        throw error;
+      }
+      
+      console.log("Created report:", data);
       
       // Parse filters if they're stored as string
       const parsedFilters = typeof data.filters === 'string' 
@@ -87,7 +94,7 @@ export const useReports = () => {
       const processedFilters = Array.isArray(parsedFilters) 
         ? parsedFilters.map((filter: any) => ({
             field: filter.field,
-            operator: filter.operator as ReportFilter['operator'],
+            operator: filter.operator,
             value: filter.value
           })) as ReportFilter[]
         : [];
@@ -141,7 +148,7 @@ export const useReports = () => {
       const processedFilters = Array.isArray(parsedFilters) 
         ? parsedFilters.map((filter: any) => ({
             field: filter.field,
-            operator: filter.operator as ReportFilter['operator'],
+            operator: filter.operator,
             value: filter.value
           })) as ReportFilter[]
         : [];
@@ -194,7 +201,7 @@ export const useReports = () => {
       const processedFilters = Array.isArray(parsedFilters) 
         ? parsedFilters.map((filter: any) => ({
             field: filter.field,
-            operator: filter.operator as ReportFilter['operator'],
+            operator: filter.operator,
             value: filter.value
           })) as ReportFilter[]
         : [];
@@ -263,6 +270,7 @@ export const useReports = () => {
       const { data, error } = await supabase.rpc('get_tables_info');
       
       if (error) throw error;
+      console.log("Tables info from Supabase:", data);
       return data as TableInfo[];
     }
   });
@@ -288,9 +296,11 @@ export const useReports = () => {
         throw new Error('No base table specified in the report');
       }
       
-      // Use type assertion to handle the dynamic table name
-      let query = supabase
-        .from(baseTableName as any)
+      console.log(`Running report on table: ${baseTableName} with fields:`, selectedFields);
+      
+      // Use type casting for the dynamic table name
+      const query = supabase
+        .from(baseTableName)
         .select(selectedFields.join(','));
       
       // Parse filters if they're stored as string
@@ -303,38 +313,39 @@ export const useReports = () => {
         parsedFilters.forEach((filter: any) => {
           const { field, operator, value } = filter;
           
+          // Apply filter based on operator
           switch (operator) {
             case 'eq':
-              query = query.eq(field, value);
+              query.eq(field, value);
               break;
             case 'neq':
-              query = query.neq(field, value);
+              query.neq(field, value);
               break;
             case 'gt':
-              query = query.gt(field, value);
+              query.gt(field, value);
               break;
             case 'gte':
-              query = query.gte(field, value);
+              query.gte(field, value);
               break;
             case 'lt':
-              query = query.lt(field, value);
+              query.lt(field, value);
               break;
             case 'lte':
-              query = query.lte(field, value);
+              query.lte(field, value);
               break;
             case 'like':
-              query = query.like(field, `%${value}%`);
+              query.like(field, `%${value}%`);
               break;
             case 'ilike':
-              query = query.ilike(field, `%${value}%`);
+              query.ilike(field, `%${value}%`);
               break;
             case 'in':
               if (Array.isArray(value)) {
-                query = query.in(field, value);
+                query.in(field, value);
               }
               break;
             case 'is':
-              query = query.is(field, value);
+              query.is(field, value);
               break;
             default:
               break;
@@ -344,7 +355,12 @@ export const useReports = () => {
       
       const { data, error, count } = await query.limit(1000);
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error running report query:", error);
+        throw error;
+      }
+      
+      console.log("Report query results:", data, "Count:", count);
       
       return {
         columns: selectedFields,
