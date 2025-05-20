@@ -1,5 +1,5 @@
 
-import { useEffect, useState, ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { useReports } from '@/hooks/useReports';
@@ -13,65 +13,22 @@ import {
   CardFooter
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-} from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { useForm } from 'react-hook-form';
-import { ReportFilter, FilterOperator, Report, ReportData } from '@/types/reports';
-import { Loader2, Play, Save, ArrowLeft, X, Plus, Download } from 'lucide-react';
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
-} from '@/components/ui/dropdown-menu';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
-  ChartTooltip,
-  ChartTooltipContent 
-} from '@/components/ui/chart';
-import {
-  Bar,
-  BarChart,
-  Line,
-  LineChart,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-  CartesianGrid
-} from 'recharts';
+import { ReportFilter, Report, ReportData } from '@/types/reports';
+import { Loader2, Play, Save, ArrowLeft } from 'lucide-react';
+import { FieldSelector } from '@/components/reports/FieldSelector';
+import { FilterBuilder } from '@/components/reports/FilterBuilder';
+import { VisualizationSelector } from '@/components/reports/VisualizationSelector';
+import { ReportPreview } from '@/components/reports/ReportPreview';
+import { ReportSettings } from '@/components/reports/ReportSettings';
+import { Json } from '@/integrations/supabase/types';
 
 interface ReportForm {
   name: string;
@@ -80,18 +37,6 @@ interface ReportForm {
   fields: string[];
   is_public: boolean;
 }
-
-const FILTER_OPERATORS: { value: FilterOperator; label: string }[] = [
-  { value: 'eq', label: 'Equals' },
-  { value: 'neq', label: 'Not Equals' },
-  { value: 'gt', label: 'Greater Than' },
-  { value: 'gte', label: 'Greater Than or Equal' },
-  { value: 'lt', label: 'Less Than' },
-  { value: 'lte', label: 'Less Than or Equal' },
-  { value: 'like', label: 'Contains' },
-  { value: 'ilike', label: 'Contains (Case Insensitive)' },
-  { value: 'is', label: 'Is (Null/Not Null)' }
-];
 
 const ReportBuilder = () => {
   const { id } = useParams<{ id: string }>();
@@ -147,17 +92,28 @@ const ReportBuilder = () => {
         return;
       }
       
+      // Parse filters if they're stored as string
+      const parsedFilters = typeof data.filters === 'string' 
+        ? JSON.parse(data.filters) 
+        : data.filters;
+
+      // Process filters to ensure they match ReportFilter type
+      const processedFilters = Array.isArray(parsedFilters) 
+        ? parsedFilters.map((filter: any) => ({
+            field: filter.field,
+            operator: filter.operator as ReportFilter['operator'],
+            value: filter.value
+          })) as ReportFilter[]
+        : [];
+      
       // Map the DB structure to our interface
       const reportData = {
         ...data,
         fields: Array.isArray(data.selected_fields) ? data.selected_fields as string[] : [],
+        selected_fields: data.selected_fields,
         base_table: data.module,
-        filters: data.filters ? (Array.isArray(data.filters) ? data.filters : [])
-          .map((filter: any) => ({
-            field: filter.field,
-            operator: filter.operator,
-            value: filter.value
-          })) as ReportFilter[] : []
+        module: data.module,
+        filters: processedFilters
       } as Report;
       
       setReport(reportData);
@@ -175,7 +131,7 @@ const ReportBuilder = () => {
       
       // Handle filters if present
       if (reportData.filters && Array.isArray(reportData.filters)) {
-        setFilters(reportData.filters);
+        setFilters(reportData.filters as ReportFilter[]);
       }
       
       // Set visualization type if present
@@ -254,11 +210,11 @@ const ReportBuilder = () => {
       id,
       name: formValues.name,
       description: formValues.description,
-      module: formValues.base_table, // Use module for database
-      base_table: formValues.base_table, // Keep for client-side reference
-      selected_fields: selectedFields, // Use selected_fields for database
-      fields: selectedFields, // Keep for client-side reference
-      filters,
+      module: formValues.base_table,
+      base_table: formValues.base_table,
+      selected_fields: selectedFields,
+      fields: selectedFields,
+      filters: filters as unknown as Json,
       is_public: formValues.is_public,
       chart_type: visualizationType
     });
@@ -304,15 +260,6 @@ const ReportBuilder = () => {
     link.click();
     document.body.removeChild(link);
   };
-
-  // Define chart colors for proper typing
-  const chartColors = [
-    { color: '#3b82f6' }, // blue-500
-    { color: '#ef4444' }, // red-500
-    { color: '#10b981' }, // emerald-500
-    { color: '#f59e0b' }, // amber-500
-    { color: '#6366f1' }  // indigo-500
-  ];
 
   return (
     <>
@@ -365,69 +312,13 @@ const ReportBuilder = () => {
               <CardDescription>Configure your report details</CardDescription>
             </CardHeader>
             <CardContent>
-              <Form {...form}>
-                <div className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Report Name</FormLabel>
-                        <FormControl>
-                          <Input {...field} />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="description"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Description</FormLabel>
-                        <FormControl>
-                          <Input {...field} />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="base_table"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Base Table</FormLabel>
-                        <Select
-                          disabled={!!id}
-                          value={field.value}
-                          onValueChange={handleBaseTableChange}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select a table" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {isLoadingTables ? (
-                              <div className="flex justify-center p-2">
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              </div>
-                            ) : (
-                              tables?.map((table) => (
-                                <SelectItem key={table.name} value={table.name}>
-                                  {table.name}
-                                </SelectItem>
-                              ))
-                            )}
-                          </SelectContent>
-                        </Select>
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </Form>
+              <ReportSettings 
+                form={form} 
+                tables={tables} 
+                isLoadingTables={isLoadingTables} 
+                isEditMode={!!id}
+                onBaseTableChange={handleBaseTableChange}
+              />
             </CardContent>
           </Card>
           
@@ -446,375 +337,37 @@ const ReportBuilder = () => {
                 
                 <TabsContent value="fields">
                   <div className="space-y-4">
-                    <div className="grid gap-2">
-                      <h3 className="text-sm font-medium">Available Fields</h3>
-                      <div className="border rounded-md p-2 max-h-60 overflow-y-auto">
-                        {availableFields.length === 0 ? (
-                          <div className="text-center py-4 text-sm text-muted-foreground">
-                            No fields available
-                          </div>
-                        ) : (
-                          <div className="grid grid-cols-2 gap-2">
-                            {availableFields.map((field) => (
-                              <Button
-                                key={field}
-                                variant={selectedFields.includes(field) ? "default" : "outline"}
-                                size="sm"
-                                className="justify-start overflow-hidden text-ellipsis"
-                                onClick={() => handleFieldToggle(field)}
-                              >
-                                {field}
-                              </Button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                    <FieldSelector
+                      availableFields={availableFields}
+                      selectedFields={selectedFields}
+                      onFieldToggle={handleFieldToggle}
+                    />
                     
-                    <div className="grid gap-2">
-                      <h3 className="text-sm font-medium">Selected Fields</h3>
-                      <div className="border rounded-md p-2 min-h-20">
-                        {selectedFields.length === 0 ? (
-                          <div className="text-center py-4 text-sm text-muted-foreground">
-                            No fields selected
-                          </div>
-                        ) : (
-                          <div className="flex flex-wrap gap-2">
-                            {selectedFields.map((field) => (
-                              <div
-                                key={field}
-                                className="bg-secondary text-secondary-foreground px-3 py-1 rounded-full text-sm flex items-center"
-                              >
-                                {field}
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-4 w-4 p-0 ml-2 hover:bg-transparent"
-                                  onClick={() => handleFieldToggle(field)}
-                                >
-                                  <X className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <div className="grid gap-2">
-                      <h3 className="text-sm font-medium">Visualization Type</h3>
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          variant={visualizationType === 'table' ? 'default' : 'outline'}
-                          size="sm"
-                          onClick={() => setVisualizationType('table')}
-                        >
-                          Table
-                        </Button>
-                        <Button
-                          variant={visualizationType === 'bar' ? 'default' : 'outline'}
-                          size="sm"
-                          onClick={() => setVisualizationType('bar')}
-                        >
-                          Bar Chart
-                        </Button>
-                        <Button
-                          variant={visualizationType === 'line' ? 'default' : 'outline'}
-                          size="sm"
-                          onClick={() => setVisualizationType('line')}
-                        >
-                          Line Chart
-                        </Button>
-                        <Button
-                          variant={visualizationType === 'pie' ? 'default' : 'outline'}
-                          size="sm"
-                          onClick={() => setVisualizationType('pie')}
-                        >
-                          Pie Chart
-                        </Button>
-                      </div>
-                    </div>
+                    <VisualizationSelector 
+                      visualizationType={visualizationType}
+                      onVisualizationChange={setVisualizationType}
+                    />
                   </div>
                 </TabsContent>
                 
                 <TabsContent value="filters">
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <h3 className="text-sm font-medium">Applied Filters</h3>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={addFilter}
-                        disabled={selectedFields.length === 0}
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Filter
-                      </Button>
-                    </div>
-                    
-                    {filters.length === 0 ? (
-                      <div className="text-center py-8 text-sm text-muted-foreground border rounded-md">
-                        No filters applied
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {filters.map((filter, index) => (
-                          <div 
-                            key={index}
-                            className="grid grid-cols-12 gap-2 items-center p-2 border rounded-md"
-                          >
-                            <div className="col-span-4">
-                              <Select
-                                value={filter.field}
-                                onValueChange={(value) => updateFilter(index, 'field', value)}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Field" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {selectedFields.map((field) => (
-                                    <SelectItem key={field} value={field}>
-                                      {field}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            
-                            <div className="col-span-3">
-                              <Select
-                                value={filter.operator}
-                                onValueChange={(value) => updateFilter(index, 'operator', value)}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Operator" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {FILTER_OPERATORS.map((op) => (
-                                    <SelectItem key={op.value} value={op.value}>
-                                      {op.label}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            
-                            <div className="col-span-4">
-                              <Input
-                                value={filter.value as string}
-                                onChange={(e) => updateFilter(index, 'value', e.target.value)}
-                                placeholder="Value"
-                              />
-                            </div>
-                            
-                            <div className="col-span-1">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => removeFilter(index)}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                  <FilterBuilder
+                    selectedFields={selectedFields}
+                    filters={filters}
+                    onAddFilter={addFilter}
+                    onRemoveFilter={removeFilter}
+                    onUpdateFilter={updateFilter}
+                  />
                 </TabsContent>
                 
                 <TabsContent value="results">
-                  {!reportData ? (
-                    <div className="text-center py-16 border rounded-md">
-                      <p className="text-muted-foreground">
-                        Run the report to see results
-                      </p>
-                      <Button
-                        variant="outline"
-                        className="mt-4"
-                        onClick={handleRunReport}
-                        disabled={isRunning || !selectedFields.length}
-                      >
-                        {isRunning ? (
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        ) : (
-                          <Play className="h-4 w-4 mr-2" />
-                        )}
-                        Run Report
-                      </Button>
-                    </div>
-                  ) : reportData.rows.length === 0 ? (
-                    <div className="text-center py-16 border rounded-md">
-                      <p className="text-muted-foreground">No results found</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <p className="text-sm text-muted-foreground">
-                            Showing {reportData.rows.length} of {reportData.total} results
-                          </p>
-                        </div>
-                        <div>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="outline" size="sm">
-                                <Download className="h-4 w-4 mr-2" />
-                                Export
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent>
-                              <DropdownMenuItem onClick={exportToCsv}>
-                                CSV
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                      </div>
-                      
-                      {visualizationType === 'table' && (
-                        <div className="border rounded-md overflow-auto max-h-96">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                {reportData.columns.map((column) => (
-                                  <TableHead key={column}>
-                                    {column}
-                                  </TableHead>
-                                ))}
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {reportData.rows.map((row, rowIndex) => (
-                                <TableRow key={rowIndex}>
-                                  {reportData.columns.map((column) => (
-                                    <TableCell key={`${rowIndex}-${column}`}>
-                                      {row[column]?.toString() || ''}
-                                    </TableCell>
-                                  ))}
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </div>
-                      )}
-                      
-                      {visualizationType === 'bar' && (
-                        <div className="h-96 border rounded-md p-4">
-                          <ChartContainer 
-                            className="w-full"
-                            config={{ 
-                              data: "var(--chart-data)", 
-                              grid: "var(--chart-grid)"
-                            }}
-                          >
-                            <BarChart
-                              data={reportData.rows}
-                              margin={{
-                                top: 20,
-                                right: 30,
-                                left: 20,
-                                bottom: 60,
-                              }}
-                            >
-                              <CartesianGrid strokeDasharray="3 3" />
-                              <XAxis 
-                                dataKey={reportData.columns[0]}
-                                angle={-45}
-                                textAnchor="end"
-                                height={70}
-                              />
-                              <YAxis />
-                              <ChartTooltip
-                                content={<ChartTooltipContent />}
-                              />
-                              {reportData.columns.slice(1).map((column, i) => (
-                                <Bar
-                                  key={column}
-                                  dataKey={column}
-                                  fill={chartColors[i % chartColors.length].color}
-                                />
-                              ))}
-                              <ChartLegend content={<ChartLegendContent />} />
-                            </BarChart>
-                          </ChartContainer>
-                        </div>
-                      )}
-                      
-                      {visualizationType === 'line' && (
-                        <div className="h-96 border rounded-md p-4">
-                          <ChartContainer 
-                            className="w-full"
-                            config={{ 
-                              data: "var(--chart-data)", 
-                              grid: "var(--chart-grid)"
-                            }}
-                          >
-                            <LineChart
-                              data={reportData.rows}
-                              margin={{
-                                top: 20,
-                                right: 30,
-                                left: 20,
-                                bottom: 60,
-                              }}
-                            >
-                              <CartesianGrid strokeDasharray="3 3" />
-                              <XAxis 
-                                dataKey={reportData.columns[0]}
-                                angle={-45}
-                                textAnchor="end"
-                                height={70}
-                              />
-                              <YAxis />
-                              <ChartTooltip
-                                content={<ChartTooltipContent />}
-                              />
-                              {reportData.columns.slice(1).map((column, i) => (
-                                <Line
-                                  key={column}
-                                  type="monotone"
-                                  dataKey={column}
-                                  stroke={chartColors[i % chartColors.length].color}
-                                  activeDot={{ r: 8 }}
-                                />
-                              ))}
-                              <ChartLegend content={<ChartLegendContent />} />
-                            </LineChart>
-                          </ChartContainer>
-                        </div>
-                      )}
-                      
-                      {visualizationType === 'pie' && (
-                        <div className="h-96 border rounded-md p-4">
-                          <ChartContainer 
-                            className="w-full"
-                            config={{ 
-                              data: "var(--chart-data)", 
-                              grid: "var(--chart-grid)"
-                            }}
-                          >
-                            <PieChart>
-                              <Pie
-                                data={reportData.rows}
-                                dataKey={reportData.columns[1]}
-                                nameKey={reportData.columns[0]}
-                                cx="50%"
-                                cy="50%"
-                                outerRadius={100}
-                                fill={chartColors[0].color}
-                                label
-                              />
-                              <ChartTooltip
-                                content={<ChartTooltipContent />}
-                              />
-                              <ChartLegend content={<ChartLegendContent />} />
-                            </PieChart>
-                          </ChartContainer>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                  <ReportPreview
+                    reportData={reportData}
+                    visualizationType={visualizationType}
+                    isRunning={isRunning}
+                    onRunReport={handleRunReport}
+                    onExportCsv={exportToCsv}
+                  />
                 </TabsContent>
               </Tabs>
             </CardContent>

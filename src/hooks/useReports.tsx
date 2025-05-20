@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Report, ReportFilter, TableInfo, ReportData } from '@/types/reports';
 import { useToast } from '@/hooks/use-toast';
+import { Json } from '@/integrations/supabase/types';
 
 export const useReports = () => {
   const queryClient = useQueryClient();
@@ -22,17 +23,32 @@ export const useReports = () => {
       if (error) throw error;
       
       // Map DB structure to our interface
-      return data.map(report => ({
-        ...report,
-        fields: Array.isArray(report.selected_fields) ? report.selected_fields as string[] : [],
-        base_table: report.module, // Map module to base_table for client usage
-        filters: report.filters ? (Array.isArray(report.filters) ? report.filters : [])
-          .map((filter: any) => ({
-            field: filter.field,
-            operator: filter.operator,
-            value: filter.value
-          })) as ReportFilter[] : []
-      })) as Report[];
+      return data.map(report => {
+        // Parse filters if they're stored as string
+        const parsedFilters = typeof report.filters === 'string' 
+          ? JSON.parse(report.filters) 
+          : report.filters;
+
+        // Process filters to ensure they match ReportFilter type
+        const processedFilters = Array.isArray(parsedFilters) 
+          ? parsedFilters.map((filter: any) => ({
+              field: filter.field,
+              operator: filter.operator as ReportFilter['operator'],
+              value: filter.value
+            })) as ReportFilter[]
+          : [];
+
+        return {
+          ...report,
+          fields: Array.isArray(report.selected_fields) 
+            ? report.selected_fields as string[] 
+            : [],
+          selected_fields: report.selected_fields,
+          base_table: report.module,
+          module: report.module,
+          filters: processedFilters
+        } as Report;
+      });
     }
   });
 
@@ -48,7 +64,7 @@ export const useReports = () => {
           created_by: report.created_by,
           module: report.base_table || report.module, // Support both field names
           selected_fields: report.fields || report.selected_fields, // Support both field names
-          filters: JSON.stringify(report.filters || []),
+          filters: report.filters as Json,
           aggregation: report.aggregation || null,
           chart_type: report.chart_type || 'table',
           group_by: report.group_by || null,
@@ -59,17 +75,28 @@ export const useReports = () => {
       
       if (error) throw error;
       
+      // Parse filters if they're stored as string
+      const parsedFilters = typeof data.filters === 'string' 
+        ? JSON.parse(data.filters) 
+        : data.filters;
+
+      // Process filters to ensure they match ReportFilter type
+      const processedFilters = Array.isArray(parsedFilters) 
+        ? parsedFilters.map((filter: any) => ({
+            field: filter.field,
+            operator: filter.operator as ReportFilter['operator'],
+            value: filter.value
+          })) as ReportFilter[]
+        : [];
+      
       // Map back to our interface
       return {
         ...data,
         fields: Array.isArray(data.selected_fields) ? data.selected_fields as string[] : [],
+        selected_fields: data.selected_fields,
         base_table: data.module,
-        filters: data.filters ? (Array.isArray(data.filters) ? data.filters : [])
-          .map((filter: any) => ({
-            field: filter.field,
-            operator: filter.operator,
-            value: filter.value
-          })) as ReportFilter[] : []
+        module: data.module,
+        filters: processedFilters
       } as Report;
     },
     onSuccess: () => {
@@ -102,17 +129,28 @@ export const useReports = () => {
       
       if (error) throw error;
       
+      // Parse filters if they're stored as string
+      const parsedFilters = typeof data.filters === 'string' 
+        ? JSON.parse(data.filters) 
+        : data.filters;
+
+      // Process filters to ensure they match ReportFilter type
+      const processedFilters = Array.isArray(parsedFilters) 
+        ? parsedFilters.map((filter: any) => ({
+            field: filter.field,
+            operator: filter.operator as ReportFilter['operator'],
+            value: filter.value
+          })) as ReportFilter[]
+        : [];
+      
       // Map DB structure to our interface
       return {
         ...data,
         fields: Array.isArray(data.selected_fields) ? data.selected_fields as string[] : [],
+        selected_fields: data.selected_fields,
         base_table: data.module,
-        filters: data.filters ? (Array.isArray(data.filters) ? data.filters : [])
-          .map((filter: any) => ({
-            field: filter.field,
-            operator: filter.operator,
-            value: filter.value
-          })) as ReportFilter[] : []
+        module: data.module,
+        filters: processedFilters
       } as Report;
     },
     enabled: !!selectedReportId
@@ -121,6 +159,9 @@ export const useReports = () => {
   // Update a report
   const updateReport = useMutation({
     mutationFn: async ({ id, ...report }: Partial<Report> & { id: string }) => {
+      // Convert filters to the format expected by the database
+      const filtersForDb = report.filters as Json;
+      
       // Convert for Supabase DB structure
       const { data, error } = await supabase
         .from('reports')
@@ -129,7 +170,7 @@ export const useReports = () => {
           description: report.description,
           module: report.base_table || report.module, // Support both field names
           selected_fields: report.fields || report.selected_fields, // Support both field names
-          filters: report.filters ? JSON.stringify(report.filters) : undefined,
+          filters: filtersForDb,
           aggregation: report.aggregation || null,
           chart_type: report.chart_type || 'table',
           group_by: report.group_by || null,
@@ -141,17 +182,28 @@ export const useReports = () => {
       
       if (error) throw error;
       
+      // Parse filters if they're stored as string
+      const parsedFilters = typeof data.filters === 'string' 
+        ? JSON.parse(data.filters) 
+        : data.filters;
+
+      // Process filters to ensure they match ReportFilter type
+      const processedFilters = Array.isArray(parsedFilters) 
+        ? parsedFilters.map((filter: any) => ({
+            field: filter.field,
+            operator: filter.operator as ReportFilter['operator'],
+            value: filter.value
+          })) as ReportFilter[]
+        : [];
+      
       // Map back to our interface
       return {
         ...data,
         fields: Array.isArray(data.selected_fields) ? data.selected_fields as string[] : [],
+        selected_fields: data.selected_fields,
         base_table: data.module,
-        filters: data.filters ? (Array.isArray(data.filters) ? data.filters : [])
-          .map((filter: any) => ({
-            field: filter.field,
-            operator: filter.operator,
-            value: filter.value
-          })) as ReportFilter[] : []
+        module: data.module,
+        filters: processedFilters
       } as Report;
     },
     onSuccess: (_, variables) => {
@@ -231,9 +283,14 @@ export const useReports = () => {
         .from(baseTableName)
         .select(fields.join(','));
       
+      // Parse filters if they're stored as string
+      const parsedFilters = typeof report.filters === 'string' 
+        ? JSON.parse(report.filters) 
+        : report.filters;
+      
       // Apply filters if present
-      if (report.filters && Array.isArray(report.filters)) {
-        (report.filters as any[]).forEach((filter: any) => {
+      if (parsedFilters && Array.isArray(parsedFilters)) {
+        parsedFilters.forEach((filter: any) => {
           const { field, operator, value } = filter;
           
           switch (operator) {

@@ -62,15 +62,21 @@ export interface ScheduleConfig {
   exportFormat: 'csv' | 'pdf' | 'excel';
 }
 
-// Updated to match the database structure
+// Updated to match both interface needs - client side and database
 export interface Report {
   id: string;
   name: string;
   description?: string | null;
   created_by: string;
-  module: string; // This corresponds to base_table in the interface
-  selected_fields: Json; // Array of field names
-  filters?: Json;
+  // DB field
+  module: string;
+  // Client-side alias for module
+  base_table?: string;
+  // DB field
+  selected_fields: Json;
+  // Client-side alias for selected_fields
+  fields?: string[];
+  filters?: ReportFilter[] | Json;
   calculated_fields?: CalculatedField[];
   group_by?: string | null;
   aggregation?: string | null;
@@ -82,10 +88,6 @@ export interface Report {
   is_public?: boolean;
   created_at?: string | null;
   updated_at?: string | null;
-  
-  // Virtual properties for client-side use
-  fields?: string[];
-  base_table?: string;
 }
 
 export interface ReportTemplate {
