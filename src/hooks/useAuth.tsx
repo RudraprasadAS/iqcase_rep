@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 // This should be replaced with actual authentication logic
 export const useAuth = () => {
   const [user, setUser] = useState<{ id: string; email: string } | null>({
-    id: '123456', // Mock user ID for testing
+    id: '68a999c3-6bf7-4722-a7bc-b7e16ecd8daf', // Mock UUID format user ID for testing
     email: 'test@example.com'
   });
   
@@ -17,8 +17,8 @@ export const useAuth = () => {
   
   const login = async (email: string, password: string) => {
     // Mock login function
-    setUser({ id: '123456', email });
-    return { user: { id: '123456', email }, session: {} };
+    setUser({ id: '68a999c3-6bf7-4722-a7bc-b7e16ecd8daf', email });
+    return { user: { id: '68a999c3-6bf7-4722-a7bc-b7e16ecd8daf', email }, session: {} };
   };
   
   const logout = async () => {
