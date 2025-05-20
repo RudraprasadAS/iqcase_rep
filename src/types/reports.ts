@@ -62,24 +62,30 @@ export interface ScheduleConfig {
   exportFormat: 'csv' | 'pdf' | 'excel';
 }
 
+// Updated to match the database structure
 export interface Report {
   id: string;
   name: string;
-  description?: string;
+  description?: string | null;
   created_by: string;
-  base_table: string;
-  fields: string[];
-  filters?: ReportFilter[];
+  module: string; // This corresponds to base_table in the interface
+  selected_fields: Json; // Array of field names
+  filters?: Json;
   calculated_fields?: CalculatedField[];
-  group_by?: GroupByConfig[];
-  aggregation?: AggregationConfig[];
+  group_by?: string | null;
+  aggregation?: string | null;
+  chart_type?: string | null;
   visualization?: VisualizationConfig;
   schedule?: ScheduleConfig;
   export_config?: ExportConfig;
   template_id?: string;
   is_public?: boolean;
-  created_at?: string;
-  updated_at?: string;
+  created_at?: string | null;
+  updated_at?: string | null;
+  
+  // Virtual properties for client-side use
+  fields?: string[];
+  base_table?: string;
 }
 
 export interface ReportTemplate {

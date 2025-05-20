@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, ReactNode } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { useReports } from '@/hooks/useReports';
@@ -147,41 +147,45 @@ const ReportBuilder = () => {
         return;
       }
       
-      const reportData = data as Report;
+      // Map the DB structure to our interface
+      const reportData = {
+        ...data,
+        fields: Array.isArray(data.selected_fields) ? data.selected_fields as string[] : [],
+        base_table: data.module,
+        filters: data.filters ? (Array.isArray(data.filters) ? data.filters : [])
+          .map((filter: any) => ({
+            field: filter.field,
+            operator: filter.operator,
+            value: filter.value
+          })) as ReportFilter[] : []
+      } as Report;
+      
       setReport(reportData);
       
       // Set form values
       form.reset({
         name: reportData.name,
         description: reportData.description || '',
-        base_table: reportData.base_table,
-        fields: Array.isArray(reportData.selected_fields) 
-          ? reportData.selected_fields as string[] 
-          : [],
+        base_table: reportData.base_table || reportData.module || '',
+        fields: reportData.fields || [],
         is_public: reportData.is_public || false
       });
       
-      setSelectedFields(Array.isArray(reportData.selected_fields) 
-        ? reportData.selected_fields as string[] 
-        : []);
+      setSelectedFields(reportData.fields || []);
       
       // Handle filters if present
       if (reportData.filters && Array.isArray(reportData.filters)) {
-        setFilters(reportData.filters.map((filter: any) => ({
-          field: filter.field,
-          operator: filter.operator,
-          value: filter.value
-        })));
+        setFilters(reportData.filters);
       }
       
       // Set visualization type if present
-      if (reportData.visualization && reportData.visualization.type) {
-        setVisualizationType(reportData.visualization.type as any);
+      if (reportData.chart_type) {
+        setVisualizationType(reportData.chart_type as any);
       }
       
       // Load available fields for the base table
-      if (reportData.base_table) {
-        loadAvailableFields(reportData.base_table);
+      if (reportData.base_table || reportData.module) {
+        loadAvailableFields(reportData.base_table || reportData.module);
       }
     };
     
@@ -250,13 +254,13 @@ const ReportBuilder = () => {
       id,
       name: formValues.name,
       description: formValues.description,
-      base_table: formValues.base_table,
-      fields: selectedFields,
+      module: formValues.base_table, // Use module for database
+      base_table: formValues.base_table, // Keep for client-side reference
+      selected_fields: selectedFields, // Use selected_fields for database
+      fields: selectedFields, // Keep for client-side reference
       filters,
       is_public: formValues.is_public,
-      visualization: {
-        type: visualizationType
-      }
+      chart_type: visualizationType
     });
   };
 
@@ -300,6 +304,15 @@ const ReportBuilder = () => {
     link.click();
     document.body.removeChild(link);
   };
+
+  // Define chart colors for proper typing
+  const chartColors = [
+    { color: '#3b82f6' }, // blue-500
+    { color: '#ef4444' }, // red-500
+    { color: '#10b981' }, // emerald-500
+    { color: '#f59e0b' }, // amber-500
+    { color: '#6366f1' }  // indigo-500
+  ];
 
   return (
     <>
@@ -719,7 +732,7 @@ const ReportBuilder = () => {
                                 <Bar
                                   key={column}
                                   dataKey={column}
-                                  fill={`hsl(${i * 40}, 70%, 50%)`}
+                                  fill={chartColors[i % chartColors.length].color}
                                 />
                               ))}
                               <ChartLegend content={<ChartLegendContent />} />
@@ -762,7 +775,7 @@ const ReportBuilder = () => {
                                   key={column}
                                   type="monotone"
                                   dataKey={column}
-                                  stroke={`hsl(${i * 40}, 70%, 50%)`}
+                                  stroke={chartColors[i % chartColors.length].color}
                                   activeDot={{ r: 8 }}
                                 />
                               ))}
@@ -789,7 +802,7 @@ const ReportBuilder = () => {
                                 cx="50%"
                                 cy="50%"
                                 outerRadius={100}
-                                fill="#8884d8"
+                                fill={chartColors[0].color}
                                 label
                               />
                               <ChartTooltip

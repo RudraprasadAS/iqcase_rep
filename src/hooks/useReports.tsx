@@ -21,10 +21,12 @@ export const useReports = () => {
       
       if (error) throw error;
       
+      // Map DB structure to our interface
       return data.map(report => ({
         ...report,
-        fields: Array.isArray(report.selected_fields) ? report.selected_fields : [],
-        filters: report.filters ? (report.filters as any[])
+        fields: Array.isArray(report.selected_fields) ? report.selected_fields as string[] : [],
+        base_table: report.module, // Map module to base_table for client usage
+        filters: report.filters ? (Array.isArray(report.filters) ? report.filters : [])
           .map((filter: any) => ({
             field: filter.field,
             operator: filter.operator,
@@ -37,30 +39,38 @@ export const useReports = () => {
   // Create a new report
   const createReport = useMutation({
     mutationFn: async (report: Omit<Report, 'id' | 'created_at' | 'updated_at'>) => {
-      // Convert types for Supabase
+      // Convert for Supabase DB structure
       const { data, error } = await supabase
         .from('reports')
         .insert({
           name: report.name,
           description: report.description,
           created_by: report.created_by,
-          base_table: report.base_table,
-          selected_fields: report.fields,
+          module: report.base_table || report.module, // Support both field names
+          selected_fields: report.fields || report.selected_fields, // Support both field names
           filters: JSON.stringify(report.filters || []),
-          calculated_fields: JSON.stringify(report.calculated_fields || []),
-          group_by: report.group_by ? JSON.stringify(report.group_by) : null,
-          aggregation: report.aggregation ? JSON.stringify(report.aggregation) : null,
-          visualization: report.visualization ? JSON.stringify(report.visualization) : null,
-          schedule: report.schedule ? JSON.stringify(report.schedule) : null,
-          export_config: report.export_config ? JSON.stringify(report.export_config) : null,
-          template_id: report.template_id || null,
+          aggregation: report.aggregation || null,
+          chart_type: report.chart_type || 'table',
+          group_by: report.group_by || null,
           is_public: report.is_public || false
         })
         .select()
         .single();
       
       if (error) throw error;
-      return data as Report;
+      
+      // Map back to our interface
+      return {
+        ...data,
+        fields: Array.isArray(data.selected_fields) ? data.selected_fields as string[] : [],
+        base_table: data.module,
+        filters: data.filters ? (Array.isArray(data.filters) ? data.filters : [])
+          .map((filter: any) => ({
+            field: filter.field,
+            operator: filter.operator,
+            value: filter.value
+          })) as ReportFilter[] : []
+      } as Report;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reports'] });
@@ -92,10 +102,12 @@ export const useReports = () => {
       
       if (error) throw error;
       
+      // Map DB structure to our interface
       return {
         ...data,
-        fields: Array.isArray(data.selected_fields) ? data.selected_fields : [],
-        filters: data.filters ? (data.filters as any[])
+        fields: Array.isArray(data.selected_fields) ? data.selected_fields as string[] : [],
+        base_table: data.module,
+        filters: data.filters ? (Array.isArray(data.filters) ? data.filters : [])
           .map((filter: any) => ({
             field: filter.field,
             operator: filter.operator,
@@ -109,21 +121,18 @@ export const useReports = () => {
   // Update a report
   const updateReport = useMutation({
     mutationFn: async ({ id, ...report }: Partial<Report> & { id: string }) => {
+      // Convert for Supabase DB structure
       const { data, error } = await supabase
         .from('reports')
         .update({
           name: report.name,
           description: report.description,
-          base_table: report.base_table,
-          selected_fields: report.fields,
+          module: report.base_table || report.module, // Support both field names
+          selected_fields: report.fields || report.selected_fields, // Support both field names
           filters: report.filters ? JSON.stringify(report.filters) : undefined,
-          calculated_fields: report.calculated_fields ? JSON.stringify(report.calculated_fields) : undefined,
-          group_by: report.group_by ? JSON.stringify(report.group_by) : null,
-          aggregation: report.aggregation ? JSON.stringify(report.aggregation) : null,
-          visualization: report.visualization ? JSON.stringify(report.visualization) : null,
-          schedule: report.schedule ? JSON.stringify(report.schedule) : null,
-          export_config: report.export_config ? JSON.stringify(report.export_config) : null,
-          template_id: report.template_id,
+          aggregation: report.aggregation || null,
+          chart_type: report.chart_type || 'table',
+          group_by: report.group_by || null,
           is_public: report.is_public
         })
         .eq('id', id)
@@ -131,7 +140,19 @@ export const useReports = () => {
         .single();
       
       if (error) throw error;
-      return data;
+      
+      // Map back to our interface
+      return {
+        ...data,
+        fields: Array.isArray(data.selected_fields) ? data.selected_fields as string[] : [],
+        base_table: data.module,
+        filters: data.filters ? (Array.isArray(data.filters) ? data.filters : [])
+          .map((filter: any) => ({
+            field: filter.field,
+            operator: filter.operator,
+            value: filter.value
+          })) as ReportFilter[] : []
+      } as Report;
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['reports'] });
@@ -203,8 +224,8 @@ export const useReports = () => {
       if (reportError) throw reportError;
       
       // Run the query based on report configuration
-      const baseTableName = report.base_table;
-      const fields = report.selected_fields as string[];
+      const baseTableName = report.module; // Use module as base_table
+      const fields = Array.isArray(report.selected_fields) ? report.selected_fields as string[] : [];
       
       let query = supabase
         .from(baseTableName)
