@@ -14,29 +14,18 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/components/ui/tabs';
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useForm } from 'react-hook-form';
-import { ReportFilter, Report, ReportData } from '@/types/reports';
-import { Loader2, Play, Save, ArrowLeft } from 'lucide-react';
-import { FieldSelector } from '@/components/reports/FieldSelector';
-import { FilterBuilder } from '@/components/reports/FilterBuilder';
-import { VisualizationSelector } from '@/components/reports/VisualizationSelector';
-import { ReportPreview } from '@/components/reports/ReportPreview';
-import { ReportSettings } from '@/components/reports/ReportSettings';
-import { Json } from '@/integrations/supabase/types';
-
-interface ReportForm {
-  name: string;
-  description: string;
-  base_table: string;
-  fields: string[];
-  is_public: boolean;
-}
+import { ArrowLeft, Loader2, Play, Save } from 'lucide-react';
 
 const ReportBuilder = () => {
   const { id } = useParams<{ id: string }>();
@@ -46,189 +35,136 @@ const ReportBuilder = () => {
   const { 
     tables, 
     isLoadingTables,
+    selectedReport,
     updateReport, 
     runReport, 
     setSelectedReportId
   } = useReports();
   
-  const [activeTab, setActiveTab] = useState('fields');
-  const [selectedFields, setSelectedFields] = useState<string[]>([]);
+  const [reportName, setReportName] = useState('');
+  const [description, setDescription] = useState('');
+  const [baseTable, setBaseTable] = useState('');
   const [availableFields, setAvailableFields] = useState<string[]>([]);
-  const [filters, setFilters] = useState<ReportFilter[]>([]);
-  const [reportData, setReportData] = useState<ReportData | null>(null);
-  const [isRunning, setIsRunning] = useState(false);
-  const [report, setReport] = useState<Report | null>(null);
-  const [visualizationType, setVisualizationType] = useState<'table' | 'bar' | 'line' | 'pie'>('table');
-
-  const form = useForm<ReportForm>({
-    defaultValues: {
-      name: '',
-      description: '',
-      base_table: '',
-      fields: [],
-      is_public: false
-    }
-  });
-
-  // Load report details
+  const [selectedFields, setSelectedFields] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  
+  // Load report if ID is provided
   useEffect(() => {
     if (!id) return;
+    setSelectedReportId(id);
+  }, [id, setSelectedReportId]);
+  
+  // When selected report changes, update form
+  useEffect(() => {
+    if (!selectedReport) return;
     
-    const fetchReport = async () => {
-      setSelectedReportId(id);
+    setReportName(selectedReport.name);
+    setDescription(selectedReport.description || '');
+    setBaseTable(selectedReport.base_table || selectedReport.module || '');
+    
+    if (Array.isArray(selectedReport.fields)) {
+      setSelectedFields(selectedReport.fields);
+    } else if (Array.isArray(selectedReport.selected_fields)) {
+      setSelectedFields(selectedReport.selected_fields as string[]);
+    }
+    
+  }, [selectedReport]);
+  
+  // When base table changes, fetch fields
+  useEffect(() => {
+    if (!baseTable) {
+      setAvailableFields([]);
+      return;
+    }
+    
+    const loadFields = async () => {
+      if (!tables) return;
       
-      const { data, error } = await supabase
-        .from('reports')
-        .select('*')
-        .eq('id', id)
-        .single();
-        
-      if (error) {
-        toast({
-          variant: 'destructive',
-          title: 'Error',
-          description: `Failed to load report: ${error.message}`
-        });
-        return;
-      }
-      
-      // Parse filters if they're stored as string
-      const parsedFilters = typeof data.filters === 'string' 
-        ? JSON.parse(data.filters) 
-        : data.filters;
-
-      // Process filters to ensure they match ReportFilter type
-      const processedFilters = Array.isArray(parsedFilters) 
-        ? parsedFilters.map((filter: any) => ({
-            field: filter.field,
-            operator: filter.operator as ReportFilter['operator'],
-            value: filter.value
-          })) as ReportFilter[]
-        : [];
-      
-      // Map the DB structure to our interface
-      const reportData = {
-        ...data,
-        fields: Array.isArray(data.selected_fields) ? data.selected_fields as string[] : [],
-        selected_fields: data.selected_fields,
-        base_table: data.module,
-        module: data.module,
-        filters: processedFilters
-      } as Report;
-      
-      setReport(reportData);
-      
-      // Set form values
-      form.reset({
-        name: reportData.name,
-        description: reportData.description || '',
-        base_table: reportData.base_table || reportData.module || '',
-        fields: reportData.fields || [],
-        is_public: reportData.is_public || false
-      });
-      
-      setSelectedFields(reportData.fields || []);
-      
-      // Handle filters if present
-      if (reportData.filters && Array.isArray(reportData.filters)) {
-        setFilters(reportData.filters as ReportFilter[]);
-      }
-      
-      // Set visualization type if present
-      if (reportData.chart_type) {
-        setVisualizationType(reportData.chart_type as any);
-      }
-      
-      // Load available fields for the base table
-      if (reportData.base_table || reportData.module) {
-        loadAvailableFields(reportData.base_table || reportData.module);
+      const tableInfo = tables.find(table => table.name === baseTable);
+      if (tableInfo && Array.isArray(tableInfo.fields)) {
+        setAvailableFields(tableInfo.fields);
       }
     };
     
-    fetchReport();
-  }, [id]);
-
-  const loadAvailableFields = (tableName: string) => {
-    if (!tables) return;
-    
-    const tableInfo = tables.find(table => table.name === tableName);
-    if (tableInfo) {
-      setAvailableFields(tableInfo.fields);
-    }
-  };
-
+    loadFields();
+  }, [baseTable, tables]);
+  
   const handleBaseTableChange = (value: string) => {
-    form.setValue('base_table', value);
-    setSelectedFields([]);
-    form.setValue('fields', []);
-    loadAvailableFields(value);
-  };
-
-  const handleFieldToggle = (field: string) => {
-    const isSelected = selectedFields.includes(field);
-    let updatedFields: string[];
+    if (value === baseTable) return;
     
-    if (isSelected) {
-      updatedFields = selectedFields.filter(f => f !== field);
+    setBaseTable(value);
+    setSelectedFields([]);
+  };
+  
+  const handleFieldToggle = (field: string) => {
+    if (selectedFields.includes(field)) {
+      setSelectedFields(selectedFields.filter(f => f !== field));
     } else {
-      updatedFields = [...selectedFields, field];
+      setSelectedFields([...selectedFields, field]);
+    }
+  };
+  
+  const handleSaveReport = async () => {
+    if (!id || !reportName || !baseTable) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Please complete all required fields'
+      });
+      return;
     }
     
-    setSelectedFields(updatedFields);
-    form.setValue('fields', updatedFields);
-  };
-
-  const addFilter = () => {
-    if (!selectedFields.length) return;
-    
-    setFilters([
-      ...filters,
-      {
-        field: selectedFields[0],
-        operator: 'eq',
-        value: ''
-      }
-    ]);
-  };
-
-  const updateFilter = (index: number, key: keyof ReportFilter, value: any) => {
-    const updatedFilters = [...filters];
-    updatedFilters[index] = { ...updatedFilters[index], [key]: value };
-    setFilters(updatedFilters);
-  };
-
-  const removeFilter = (index: number) => {
-    setFilters(filters.filter((_, i) => i !== index));
-  };
-
-  const handleSaveReport = async () => {
-    if (!id || !report) return;
-    
-    const formValues = form.getValues();
-    
-    updateReport.mutate({
-      id,
-      name: formValues.name,
-      description: formValues.description,
-      module: formValues.base_table,
-      base_table: formValues.base_table,
-      selected_fields: selectedFields,
-      fields: selectedFields,
-      filters: filters as unknown as Json,
-      is_public: formValues.is_public,
-      chart_type: visualizationType
-    });
-  };
-
-  const handleRunReport = async () => {
-    if (!id) return;
-    
-    setIsRunning(true);
+    setIsLoading(true);
     
     try {
+      await updateReport.mutateAsync({
+        id,
+        name: reportName,
+        description: description,
+        module: baseTable,
+        base_table: baseTable,
+        selected_fields: selectedFields,
+        fields: selectedFields,
+        filters: selectedReport?.filters || [],
+        is_public: selectedReport?.is_public || false,
+        chart_type: 'table'
+      });
+      
+      toast({
+        title: 'Report saved',
+        description: 'Your report configuration has been saved'
+      });
+    } catch (error) {
+      console.error('Error saving report:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const handleRunReport = async () => {
+    if (!id || selectedFields.length === 0) {
+      toast({
+        variant: 'destructive', 
+        title: 'Error',
+        description: 'Please select at least one field before running the report'
+      });
+      return;
+    }
+    
+    setIsLoading(true);
+    
+    try {
+      // First save the report
+      await handleSaveReport();
+      
+      // Then run it
       const result = await runReport.mutateAsync(id);
-      setReportData(result);
-      setActiveTab('results');
+      console.log('Report results:', result);
+      
+      toast({
+        title: 'Report executed',
+        description: `Found ${result.rows.length} results`
+      });
     } catch (error) {
       console.error('Error running report:', error);
       toast({
@@ -237,30 +173,10 @@ const ReportBuilder = () => {
         description: 'Failed to run report'
       });
     } finally {
-      setIsRunning(false);
+      setIsLoading(false);
     }
   };
-
-  const exportToCsv = () => {
-    if (!reportData) return;
-    
-    const headers = reportData.columns.join(',');
-    const rows = reportData.rows.map(row => 
-      reportData.columns.map(col => row[col]).join(',')
-    );
-    const csvContent = `${headers}\n${rows.join('\n')}`;
-    
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    
-    link.setAttribute('href', url);
-    link.setAttribute('download', `${report?.name || 'report'}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
+  
   return (
     <>
       <Helmet>
@@ -284,9 +200,9 @@ const ReportBuilder = () => {
             <Button
               variant="outline"
               onClick={handleRunReport}
-              disabled={isRunning || !selectedFields.length}
+              disabled={isLoading || !selectedFields.length}
             >
-              {isRunning ? (
+              {isLoading ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : (
                 <Play className="h-4 w-4 mr-2" />
@@ -294,8 +210,8 @@ const ReportBuilder = () => {
               Run Report
             </Button>
             
-            <Button onClick={handleSaveReport} disabled={updateReport.isPending}>
-              {updateReport.isPending ? (
+            <Button onClick={handleSaveReport} disabled={isLoading}>
+              {isLoading ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : (
                 <Save className="h-4 w-4 mr-2" />
@@ -306,84 +222,113 @@ const ReportBuilder = () => {
         </div>
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Report Settings Card */}
           <Card className="lg:col-span-1">
             <CardHeader>
               <CardTitle>Report Settings</CardTitle>
               <CardDescription>Configure your report details</CardDescription>
             </CardHeader>
-            <CardContent>
-              <ReportSettings 
-                form={form} 
-                tables={tables} 
-                isLoadingTables={isLoadingTables} 
-                isEditMode={!!id}
-                onBaseTableChange={handleBaseTableChange}
-              />
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Report Name</Label>
+                <Input 
+                  id="name" 
+                  value={reportName}
+                  onChange={(e) => setReportName(e.target.value)}
+                  placeholder="Enter a name for your report"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Input
+                  id="description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Optional description"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="baseTable">Base Table</Label>
+                <Select
+                  value={baseTable}
+                  onValueChange={handleBaseTableChange}
+                  disabled={!!id} // Cannot change base table after creation
+                >
+                  <SelectTrigger id="baseTable">
+                    <SelectValue placeholder="Select a table" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {isLoadingTables ? (
+                      <div className="flex justify-center p-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      </div>
+                    ) : (
+                      tables?.map((table) => (
+                        <SelectItem key={table.name} value={table.name}>
+                          {table.name}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
             </CardContent>
           </Card>
           
+          {/* Field Selector Card */}
           <Card className="lg:col-span-2">
             <CardHeader>
-              <CardTitle>Report Definition</CardTitle>
-              <CardDescription>Define fields, filters, and visualization</CardDescription>
+              <CardTitle>Select Fields</CardTitle>
+              <CardDescription>
+                Choose which fields to include in your report
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="grid grid-cols-3 mb-4">
-                  <TabsTrigger value="fields">Fields</TabsTrigger>
-                  <TabsTrigger value="filters">Filters</TabsTrigger>
-                  <TabsTrigger value="results">Results</TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="fields">
-                  <div className="space-y-4">
-                    <FieldSelector
-                      availableFields={availableFields}
-                      selectedFields={selectedFields}
-                      onFieldToggle={handleFieldToggle}
-                    />
-                    
-                    <VisualizationSelector 
-                      visualizationType={visualizationType}
-                      onVisualizationChange={setVisualizationType}
-                    />
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="filters">
-                  <FilterBuilder
-                    selectedFields={selectedFields}
-                    filters={filters}
-                    onAddFilter={addFilter}
-                    onRemoveFilter={removeFilter}
-                    onUpdateFilter={updateFilter}
-                  />
-                </TabsContent>
-                
-                <TabsContent value="results">
-                  <ReportPreview
-                    reportData={reportData}
-                    visualizationType={visualizationType}
-                    isRunning={isRunning}
-                    onRunReport={handleRunReport}
-                    onExportCsv={exportToCsv}
-                  />
-                </TabsContent>
-              </Tabs>
+              {!baseTable ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+                  <p className="mb-4">No fields to display.</p>
+                  <p>Please select a base table first.</p>
+                </div>
+              ) : availableFields.length === 0 ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {availableFields.map((field) => (
+                    <div key={field} className="flex items-center space-x-2">
+                      <Checkbox 
+                        id={`field-${field}`}
+                        checked={selectedFields.includes(field)}
+                        onCheckedChange={() => handleFieldToggle(field)}
+                      />
+                      <Label 
+                        htmlFor={`field-${field}`}
+                        className="text-sm font-medium cursor-pointer"
+                      >
+                        {field}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
-            <CardFooter className="flex justify-end">
-              <Button
-                variant="outline"
-                onClick={handleRunReport}
-                disabled={isRunning || !selectedFields.length}
-              >
-                {isRunning ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Play className="h-4 w-4 mr-2" />
-                )}
-                Run Report
-              </Button>
+            <CardFooter>
+              <div className="flex justify-between items-center w-full">
+                <div className="text-sm text-muted-foreground">
+                  {selectedFields.length} field{selectedFields.length !== 1 ? 's' : ''} selected
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSelectedFields([])}
+                  disabled={selectedFields.length === 0}
+                >
+                  Clear All
+                </Button>
+              </div>
             </CardFooter>
           </Card>
         </div>

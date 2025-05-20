@@ -55,6 +55,9 @@ export const useReports = () => {
   // Create a new report
   const createReport = useMutation({
     mutationFn: async (report: Omit<Report, 'id' | 'created_at' | 'updated_at'>) => {
+      // Convert filters for Supabase DB structure
+      const filtersForDb = report.filters as unknown as Json;
+      
       // Convert for Supabase DB structure
       const { data, error } = await supabase
         .from('reports')
@@ -64,7 +67,7 @@ export const useReports = () => {
           created_by: report.created_by,
           module: report.base_table || report.module, // Support both field names
           selected_fields: report.fields || report.selected_fields, // Support both field names
-          filters: report.filters as Json,
+          filters: filtersForDb,
           aggregation: report.aggregation || null,
           chart_type: report.chart_type || 'table',
           group_by: report.group_by || null,
@@ -160,7 +163,7 @@ export const useReports = () => {
   const updateReport = useMutation({
     mutationFn: async ({ id, ...report }: Partial<Report> & { id: string }) => {
       // Convert filters to the format expected by the database
-      const filtersForDb = report.filters as Json;
+      const filtersForDb = report.filters as unknown as Json;
       
       // Convert for Supabase DB structure
       const { data, error } = await supabase
@@ -277,7 +280,7 @@ export const useReports = () => {
       
       // Run the query based on report configuration
       const baseTableName = report.module; // Use module as base_table
-      const fields = Array.isArray(report.selected_fields) ? report.selected_fields as string[] : [];
+      const selectedFields = Array.isArray(report.selected_fields) ? report.selected_fields as string[] : [];
       
       // This part needs to be fixed to handle dynamic tables
       // We should verify that the table exists before querying it
@@ -288,7 +291,7 @@ export const useReports = () => {
       // Use type assertion to handle the dynamic table name
       let query = supabase
         .from(baseTableName as any)
-        .select(fields.join(','));
+        .select(selectedFields.join(','));
       
       // Parse filters if they're stored as string
       const parsedFilters = typeof report.filters === 'string' 
@@ -344,7 +347,7 @@ export const useReports = () => {
       if (error) throw error;
       
       return {
-        columns: fields,
+        columns: selectedFields,
         rows: data || [],
         total: count || 0
       } as ReportData;
