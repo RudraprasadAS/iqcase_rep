@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { useDashboard } from "@/hooks/useDashboard";
@@ -23,7 +22,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DashboardGrid } from "@/components/dashboard/DashboardGrid";
-import { useState } from "react";
 import { LayoutPanelTop, PlusCircle } from "lucide-react";
 import { Report } from "@/types/reports";
 

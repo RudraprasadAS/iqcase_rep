@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { useReports } from "@/hooks/useReports";
@@ -393,7 +392,7 @@ const Reports = () => {
                       <SelectValue placeholder="Select a field to group by" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
+                      <SelectItem value="none">None</SelectItem>
                       {selectedFields.map((field) => (
                         <SelectItem key={field} value={field}>
                           {field}
@@ -407,13 +406,13 @@ const Reports = () => {
                   <Select
                     value={aggregation}
                     onValueChange={(value) => setAggregation(value as AggregationType)}
-                    disabled={!groupByField}
+                    disabled={!groupByField || groupByField === "none"}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select aggregation method" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
+                      <SelectItem value="none">None</SelectItem>
                       <SelectItem value="count">Count</SelectItem>
                       <SelectItem value="sum">Sum</SelectItem>
                       <SelectItem value="avg">Average</SelectItem>

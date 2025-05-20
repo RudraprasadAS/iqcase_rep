@@ -21,7 +21,11 @@ export const useReports = () => {
         throw new Error(`Error fetching reports: ${error.message}`);
       }
 
-      return data as Report[];
+      return data.map(report => ({
+        ...report,
+        selected_fields: report.selected_fields as string[],
+        filters: (report.filters || []) as ReportFilter[]
+      })) as Report[];
     },
   });
 
@@ -43,7 +47,18 @@ export const useReports = () => {
     mutationFn: async (newReport: Omit<Report, "id" | "created_at" | "updated_at">) => {
       const { data, error } = await supabase
         .from("reports")
-        .insert(newReport)
+        .insert({
+          name: newReport.name,
+          description: newReport.description,
+          created_by: newReport.created_by,
+          module: newReport.module,
+          selected_fields: newReport.selected_fields,
+          filters: newReport.filters,
+          group_by: newReport.group_by,
+          aggregation: newReport.aggregation,
+          chart_type: newReport.chart_type,
+          is_public: newReport.is_public
+        })
         .select()
         .single();
 
@@ -52,7 +67,11 @@ export const useReports = () => {
         throw new Error(`Error creating report: ${error.message}`);
       }
 
-      return data as Report;
+      return {
+        ...data,
+        selected_fields: data.selected_fields as string[],
+        filters: (data.filters || []) as ReportFilter[]
+      } as Report;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["reports"] });
@@ -74,7 +93,17 @@ export const useReports = () => {
     mutationFn: async (updatedReport: Partial<Report> & { id: string }) => {
       const { data, error } = await supabase
         .from("reports")
-        .update(updatedReport)
+        .update({
+          name: updatedReport.name,
+          description: updatedReport.description,
+          module: updatedReport.module,
+          selected_fields: updatedReport.selected_fields,
+          filters: updatedReport.filters,
+          group_by: updatedReport.group_by,
+          aggregation: updatedReport.aggregation,
+          chart_type: updatedReport.chart_type,
+          is_public: updatedReport.is_public
+        })
         .eq("id", updatedReport.id)
         .select()
         .single();
@@ -84,7 +113,11 @@ export const useReports = () => {
         throw new Error(`Error updating report: ${error.message}`);
       }
 
-      return data as Report;
+      return {
+        ...data,
+        selected_fields: data.selected_fields as string[],
+        filters: (data.filters || []) as ReportFilter[]
+      } as Report;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["reports"] });

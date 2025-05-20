@@ -66,16 +66,34 @@ export const useDashboard = (dashboardId?: string) => {
         throw new Error(`Error fetching dashboard widgets: ${error.message}`);
       }
 
-      return data as DashboardWidget[];
+      return data.map(widget => ({
+        ...widget,
+        position: widget.position as { x: number; y: number; w: number; h: number },
+        report: widget.report ? {
+          ...widget.report,
+          selected_fields: widget.report.selected_fields as string[],
+          filters: (widget.report.filters || []) as any[]
+        } : undefined
+      })) as DashboardWidget[];
     },
     enabled: !!currentDashboardId,
   });
 
   const createDashboard = useMutation({
     mutationFn: async (newDashboard: Omit<Dashboard, "id" | "user_id" | "created_at" | "updated_at">) => {
+      // Get the current user
+      const { data: authData } = await supabase.auth.getUser();
+      
+      if (!authData?.user) {
+        throw new Error("User must be authenticated to create a dashboard");
+      }
+      
       const { data, error } = await supabase
         .from("dashboards")
-        .insert(newDashboard)
+        .insert({
+          ...newDashboard,
+          user_id: authData.user.id
+        })
         .select()
         .single();
 
