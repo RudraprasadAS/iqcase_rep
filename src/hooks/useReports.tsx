@@ -302,32 +302,32 @@ export const useReports = () => {
     }
   });
 
-  // Run a report
+  // Run a report - Fix for the infinite type error
   const runReport = useMutation({
     mutationFn: async (reportId: string) => {
-      const { data: report, error: reportError } = await supabase
-        .from('reports')
-        .select('*')
-        .eq('id', reportId)
-        .single();
-        
-      if (reportError) throw reportError;
-      
-      // Run the query based on report configuration
-      const baseTableName = report.module; // Use module as base_table
-      const selectedFields = Array.isArray(report.selected_fields) ? report.selected_fields as string[] : [];
-      
-      if (!baseTableName) {
-        throw new Error('No base table specified in the report');
-      }
-      
-      console.log(`Running report on table: ${baseTableName} with fields:`, selectedFields);
-      
-      // Use a dynamic approach that's TypeScript safe
       try {
-        // Type assertion for the dynamic table name
+        const { data: report, error: reportError } = await supabase
+          .from('reports')
+          .select('*')
+          .eq('id', reportId)
+          .single();
+          
+        if (reportError) throw reportError;
+        
+        // Run the query based on report configuration
+        const baseTableName = report.module; // Use module as base_table
+        const selectedFields = Array.isArray(report.selected_fields) ? report.selected_fields as string[] : [];
+        
+        if (!baseTableName) {
+          throw new Error('No base table specified in the report');
+        }
+        
+        console.log(`Running report on table: ${baseTableName} with fields:`, selectedFields);
+        
+        // Use a dynamic approach that's TypeScript safe
+        // Fix for the infinite type error by using type assertions and simplifying
         const query = supabase
-          .from(baseTableName as any)
+          .from(baseTableName as string)
           .select(selectedFields.join(','));
         
         // Parse filters if they're stored as string
@@ -340,7 +340,6 @@ export const useReports = () => {
           parsedFilters.forEach((filter: any) => {
             const { field, operator, value } = filter;
             
-            // Apply filter based on operator
             switch (operator) {
               case 'eq':
                 query.eq(field, value);
@@ -395,7 +394,7 @@ export const useReports = () => {
           total: count || 0
         } as ReportData;
       } catch (error) {
-        console.error("Error in dynamic query execution:", error);
+        console.error("Error in runReport:", error);
         throw error;
       }
     }
