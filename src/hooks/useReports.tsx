@@ -15,40 +15,51 @@ export const useReports = () => {
   const { data: reports, isLoading: isLoadingReports } = useQuery({
     queryKey: ['reports'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('reports')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
-      if (error) throw error;
-      
-      // Map DB structure to our interface
-      return data.map(report => {
-        // Parse filters if they're stored as string
-        const parsedFilters = typeof report.filters === 'string' 
-          ? JSON.parse(report.filters) 
-          : report.filters;
+      try {
+        console.log('Fetching reports...');
+        const { data, error } = await supabase
+          .from('reports')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        if (error) {
+          console.error('Error fetching reports:', error);
+          throw error;
+        }
+        
+        console.log('Reports fetched:', data);
+        
+        // Map DB structure to our interface
+        return data.map(report => {
+          // Parse filters if they're stored as string
+          const parsedFilters = typeof report.filters === 'string' 
+            ? JSON.parse(report.filters) 
+            : report.filters;
 
-        // Process filters to ensure they match ReportFilter type
-        const processedFilters = Array.isArray(parsedFilters) 
-          ? parsedFilters.map((filter: any) => ({
-              field: filter.field,
-              operator: filter.operator,
-              value: filter.value
-            })) as ReportFilter[]
-          : [];
+          // Process filters to ensure they match ReportFilter type
+          const processedFilters = Array.isArray(parsedFilters) 
+            ? parsedFilters.map((filter: any) => ({
+                field: filter.field,
+                operator: filter.operator as any,
+                value: filter.value
+              }))
+            : [];
 
-        return {
-          ...report,
-          fields: Array.isArray(report.selected_fields) 
-            ? report.selected_fields as string[] 
-            : [],
-          selected_fields: report.selected_fields,
-          base_table: report.module,
-          module: report.module,
-          filters: processedFilters
-        } as Report;
-      });
+          return {
+            ...report,
+            fields: Array.isArray(report.selected_fields) 
+              ? report.selected_fields as string[] 
+              : [],
+            selected_fields: report.selected_fields,
+            base_table: report.module,
+            module: report.module,
+            filters: processedFilters
+          } as Report;
+        });
+      } catch (error) {
+        console.error('Error in fetchReports:', error);
+        throw error;
+      }
     }
   });
 
@@ -59,6 +70,7 @@ export const useReports = () => {
       const filtersForDb = report.filters as unknown as Json;
       
       console.log("Creating report with data:", report);
+      console.log("User ID being used:", report.created_by);
       
       try {
         // Convert for Supabase DB structure
@@ -95,9 +107,9 @@ export const useReports = () => {
         const processedFilters = Array.isArray(parsedFilters) 
           ? parsedFilters.map((filter: any) => ({
               field: filter.field,
-              operator: filter.operator,
+              operator: filter.operator as any,
               value: filter.value
-            })) as ReportFilter[]
+            }))
           : [];
         
         // Map back to our interface
@@ -272,11 +284,21 @@ export const useReports = () => {
   const { data: tables, isLoading: isLoadingTables } = useQuery({
     queryKey: ['tables'],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_tables_info');
-      
-      if (error) throw error;
-      console.log("Tables info from Supabase:", data);
-      return data as TableInfo[];
+      try {
+        console.log('Fetching tables info...');
+        const { data, error } = await supabase.rpc('get_tables_info');
+        
+        if (error) {
+          console.error('Error fetching tables:', error);
+          throw error;
+        }
+        
+        console.log("Tables info from Supabase:", data);
+        return data as TableInfo[];
+      } catch (error) {
+        console.error('Error in fetchTables:', error);
+        throw error;
+      }
     }
   });
 
