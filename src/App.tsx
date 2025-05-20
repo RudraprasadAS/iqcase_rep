@@ -1,63 +1,59 @@
 
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { HelmetProvider } from "react-helmet-async";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { HelmetProvider } from 'react-helmet-async';
+
+import Layout from "./components/layout/Layout";
+import AuthLayout from "./components/layout/AuthLayout";
+import RequireAuth from "./components/auth/RequireAuth";
+
+import Dashboard from "./pages/Dashboard";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 import ForgotPassword from "./pages/auth/ForgotPassword";
 import ResetPassword from "./pages/auth/ResetPassword";
-import Dashboard from "./pages/Dashboard";
-import Layout from "./components/layout/Layout";
-import AuthLayout from "./components/layout/AuthLayout";
-import RequireAuth from "./components/auth/RequireAuth";
-import Permissions from "./pages/admin/Permissions";
+import Roles from "./pages/admin/Roles";
 import Users from "./pages/admin/Users";
+import Permissions from "./pages/admin/Permissions";
+import Reports from "./pages/Reports";  // Add import for Reports page
 
+import "./App.css";
+import { Toaster } from "./components/ui/toaster";
+
+// Create a client
 const queryClient = new QueryClient();
-const helmetContext = {}; // Create an empty object for the context
 
-const App = () => (
-  <HelmetProvider context={helmetContext}>
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
+function App() {
+  return (
+    <HelmetProvider>
+      <QueryClientProvider client={queryClient}>
+        <Router>
           <Routes>
-            {/* Public routes */}
-            <Route path="/" element={<Index />} />
-            
-            {/* Auth routes */}
-            <Route element={<AuthLayout />}>
-              <Route path="/auth/login" element={<Login />} />
-              <Route path="/auth/register" element={<Register />} />
-              <Route path="/auth/forgot-password" element={<ForgotPassword />} />
-              <Route path="/auth/reset-password" element={<ResetPassword />} />
+            <Route path="/auth" element={<AuthLayout />}>
+              <Route path="login" element={<Login />} />
+              <Route path="register" element={<Register />} />
+              <Route path="forgot-password" element={<ForgotPassword />} />
+              <Route path="reset-password" element={<ResetPassword />} />
             </Route>
-            
-            {/* Protected routes */}
             <Route element={<RequireAuth />}>
               <Route element={<Layout />}>
+                <Route path="/" element={<Index />} />
                 <Route path="/dashboard" element={<Dashboard />} />
-                
-                {/* Admin routes */}
-                <Route path="/admin/permissions" element={<Permissions />} />
+                <Route path="/reports" element={<Reports />} />  {/* Add route for Reports page */}
+                <Route path="/admin/roles" element={<Roles />} />
                 <Route path="/admin/users" element={<Users />} />
+                <Route path="/admin/permissions" element={<Permissions />} />
               </Route>
             </Route>
-            
-            {/* Catch-all route */}
             <Route path="*" element={<NotFound />} />
           </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </QueryClientProvider>
-  </HelmetProvider>
-);
+          <Toaster />
+        </Router>
+      </QueryClientProvider>
+    </HelmetProvider>
+  );
+}
 
 export default App;
