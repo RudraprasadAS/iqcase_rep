@@ -5,10 +5,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { Report, ReportFilter, TableInfo, ReportData } from '@/types/reports';
 import { useToast } from '@/hooks/use-toast';
 import { Json } from '@/integrations/supabase/types';
+import { useAuth } from '@/hooks/useAuth';
 
 export const useReports = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { user } = useAuth(); // Add the user from useAuth
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
 
   // Fetch all reports
@@ -73,13 +75,22 @@ export const useReports = () => {
       console.log("User ID being used:", report.created_by);
       
       try {
+        // Get the current user's ID from Auth
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        
+        if (!authUser) {
+          throw new Error("Authentication required. Please sign in.");
+        }
+        
+        console.log("Auth user ID:", authUser.id);
+        
         // Convert for Supabase DB structure
         const { data, error } = await supabase
           .from('reports')
           .insert({
             name: report.name,
             description: report.description,
-            created_by: report.created_by,
+            created_by: authUser.id, // Use the authenticated user ID
             module: report.base_table || report.module, // Support both field names
             selected_fields: report.fields || report.selected_fields, // Support both field names
             filters: filtersForDb,
@@ -119,7 +130,13 @@ export const useReports = () => {
           selected_fields: data.selected_fields,
           base_table: data.module,
           module: data.module,
-          filters: processedFilters
+          filters: Array.isArray(data.filters) 
+            ? data.filters.map((filter: any) => ({
+                field: filter.field,
+                operator: filter.operator as any,
+                value: filter.value
+              }))
+            : []
         } as Report;
       } catch (error) {
         console.error("Error in createReport mutation:", error);

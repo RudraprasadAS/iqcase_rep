@@ -27,14 +27,14 @@ const Reports = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const handleCreateReport = async () => {
-    if (!reportName || !selectedTable || !user?.id) return;
+    if (!reportName || !selectedTable) return;
     
     setIsSubmitting(true);
     try {
       const newReport = await createReport.mutateAsync({
         name: reportName,
         description: reportDescription,
-        created_by: user.id,
+        created_by: user?.id || '', // Use user ID from useAuth, but provide fallback 
         module: selectedTable,
         base_table: selectedTable,
         selected_fields: [],
@@ -45,6 +45,8 @@ const Reports = () => {
       
       setShowNewDialog(false);
       navigate(`/reports/${newReport.id}`);
+    } catch (error) {
+      console.error("Error creating report:", error);
     } finally {
       setIsSubmitting(false);
     }
@@ -122,7 +124,7 @@ const Reports = () => {
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={(e) => {
                               e.stopPropagation();
-                              handleDeleteReport(report.id);
+                              deleteReport.mutate(report.id);
                             }}>
                               Delete
                             </DropdownMenuItem>
