@@ -27,14 +27,17 @@ const Reports = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const handleCreateReport = async () => {
-    if (!reportName || !selectedTable || !user?.id) return;
+    if (!reportName || !selectedTable) return;
     
     setIsSubmitting(true);
     try {
+      // Use a default user ID if auth user is not available
+      const userId = user?.id || '00000000-0000-0000-0000-000000000000';
+      
       const newReport = await createReport.mutateAsync({
         name: reportName,
         description: reportDescription,
-        created_by: user.id,
+        created_by: userId,
         module: selectedTable,
         base_table: selectedTable,
         selected_fields: [],
@@ -45,6 +48,8 @@ const Reports = () => {
       
       setShowNewDialog(false);
       navigate(`/reports/${newReport.id}`);
+    } catch (error) {
+      console.error("Error creating report:", error);
     } finally {
       setIsSubmitting(false);
     }

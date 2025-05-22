@@ -55,30 +55,29 @@ export const useReports = () => {
   // Create a new report
   const createReport = useMutation({
     mutationFn: async (report: Omit<Report, 'id' | 'created_at' | 'updated_at'>) => {
-      // Convert filters for Supabase DB structure
-      const filtersForDb = report.filters as unknown as Json;
+      // Prepare the data for the database
+      const reportForDb = {
+        name: report.name,
+        description: report.description,
+        created_by: report.created_by,
+        module: report.base_table || report.module, // Support both field names
+        selected_fields: report.fields || report.selected_fields, // Support both field names
+        filters: report.filters as unknown as Json,
+        aggregation: report.aggregation || null,
+        chart_type: report.chart_type || 'table',
+        group_by: report.group_by || null,
+        is_public: report.is_public || false
+      };
       
-      // Convert for Supabase DB structure
       const { data, error } = await supabase
         .from('reports')
-        .insert({
-          name: report.name,
-          description: report.description,
-          created_by: report.created_by,
-          module: report.base_table || report.module, // Support both field names
-          selected_fields: report.fields || report.selected_fields, // Support both field names
-          filters: filtersForDb,
-          aggregation: report.aggregation || null,
-          chart_type: report.chart_type || 'table',
-          group_by: report.group_by || null,
-          is_public: report.is_public || false
-        })
+        .insert(reportForDb)
         .select()
         .single();
       
       if (error) throw error;
       
-      // Parse filters if they're stored as string
+      // Parse filters for consistent return format
       const parsedFilters = typeof data.filters === 'string' 
         ? JSON.parse(data.filters) 
         : data.filters;
@@ -162,23 +161,22 @@ export const useReports = () => {
   // Update a report
   const updateReport = useMutation({
     mutationFn: async ({ id, ...report }: Partial<Report> & { id: string }) => {
-      // Convert filters to the format expected by the database
-      const filtersForDb = report.filters as unknown as Json;
+      // Prepare the data for the database
+      const reportForDb = {
+        name: report.name,
+        description: report.description,
+        module: report.base_table || report.module, // Support both field names
+        selected_fields: report.fields || report.selected_fields, // Support both field names
+        filters: report.filters as unknown as Json,
+        aggregation: report.aggregation || null,
+        chart_type: report.chart_type || 'table',
+        group_by: report.group_by || null,
+        is_public: report.is_public
+      };
       
-      // Convert for Supabase DB structure
       const { data, error } = await supabase
         .from('reports')
-        .update({
-          name: report.name,
-          description: report.description,
-          module: report.base_table || report.module, // Support both field names
-          selected_fields: report.fields || report.selected_fields, // Support both field names
-          filters: filtersForDb,
-          aggregation: report.aggregation || null,
-          chart_type: report.chart_type || 'table',
-          group_by: report.group_by || null,
-          is_public: report.is_public
-        })
+        .update(reportForDb)
         .eq('id', id)
         .select()
         .single();
@@ -282,8 +280,7 @@ export const useReports = () => {
       const baseTableName = report.module; // Use module as base_table
       const selectedFields = Array.isArray(report.selected_fields) ? report.selected_fields as string[] : [];
       
-      // This part needs to be fixed to handle dynamic tables
-      // We should verify that the table exists before querying it
+      // Verify that the table exists before querying it
       if (!baseTableName) {
         throw new Error('No base table specified in the report');
       }

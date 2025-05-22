@@ -10,7 +10,7 @@ export interface Report {
   updated_at?: string;
   module: string;
   base_table: string;
-  selected_fields: Json;
+  selected_fields: string[] | Json;
   fields: string[];
   filters: ReportFilter[];
   aggregation?: string;
@@ -29,6 +29,7 @@ export interface ReportFilter {
 
 export interface TableInfo {
   name: string;
+  schema?: string;
   fields: string[];
   description?: string;
 }
