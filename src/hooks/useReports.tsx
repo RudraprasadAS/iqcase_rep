@@ -11,6 +11,37 @@ export const useReports = () => {
   const { toast } = useToast();
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
 
+  // Helper function to process filters
+  const processFilters = (filters: any): ReportFilter[] => {
+    if (!filters) return [];
+    
+    const parsedFilters = typeof filters === 'string' 
+      ? JSON.parse(filters) 
+      : filters;
+    
+    if (!Array.isArray(parsedFilters)) return [];
+    
+    return parsedFilters.map((filter: any) => ({
+      field: filter.field,
+      operator: filter.operator as FilterOperator,
+      value: filter.value
+    }));
+  };
+
+  // Helper function to map DB report to our interface
+  const mapDbReportToInterface = (report: any): Report => {
+    return {
+      ...report,
+      fields: Array.isArray(report.selected_fields) 
+        ? report.selected_fields as string[] 
+        : [],
+      selected_fields: report.selected_fields,
+      base_table: report.module,
+      module: report.module,
+      filters: processFilters(report.filters)
+    } as Report;
+  };
+
   // Fetch all reports
   const { data: reports, isLoading: isLoadingReports } = useQuery({
     queryKey: ['reports'],
@@ -23,32 +54,7 @@ export const useReports = () => {
       if (error) throw error;
       
       // Map DB structure to our interface
-      return data.map(report => {
-        // Parse filters if they're stored as string
-        const parsedFilters = typeof report.filters === 'string' 
-          ? JSON.parse(report.filters) 
-          : report.filters;
-
-        // Process filters to ensure they match ReportFilter type
-        const processedFilters = Array.isArray(parsedFilters) 
-          ? parsedFilters.map((filter: any) => ({
-              field: filter.field,
-              operator: filter.operator as FilterOperator,
-              value: filter.value
-            }))
-          : [];
-
-        return {
-          ...report,
-          fields: Array.isArray(report.selected_fields) 
-            ? report.selected_fields as string[] 
-            : [],
-          selected_fields: report.selected_fields,
-          base_table: report.module,
-          module: report.module,
-          filters: processedFilters
-        } as Report;
-      });
+      return data.map(report => mapDbReportToInterface(report));
     }
   });
 
@@ -77,29 +83,8 @@ export const useReports = () => {
       
       if (error) throw error;
       
-      // Parse filters for consistent return format
-      const parsedFilters = typeof data.filters === 'string' 
-        ? JSON.parse(data.filters) 
-        : data.filters;
-
-      // Process filters to ensure they match ReportFilter type
-      const processedFilters = Array.isArray(parsedFilters) 
-        ? parsedFilters.map((filter: any) => ({
-            field: filter.field,
-            operator: filter.operator as FilterOperator,
-            value: filter.value
-          }))
-        : [];
-      
       // Map back to our interface
-      return {
-        ...data,
-        fields: Array.isArray(data.selected_fields) ? data.selected_fields as string[] : [],
-        selected_fields: data.selected_fields,
-        base_table: data.module,
-        module: data.module,
-        filters: processedFilters
-      } as Report;
+      return mapDbReportToInterface(data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reports'] });
@@ -131,29 +116,8 @@ export const useReports = () => {
       
       if (error) throw error;
       
-      // Parse filters if they're stored as string
-      const parsedFilters = typeof data.filters === 'string' 
-        ? JSON.parse(data.filters) 
-        : data.filters;
-
-      // Process filters to ensure they match ReportFilter type
-      const processedFilters = Array.isArray(parsedFilters) 
-        ? parsedFilters.map((filter: any) => ({
-            field: filter.field,
-            operator: filter.operator as FilterOperator,
-            value: filter.value
-          }))
-        : [];
-      
       // Map DB structure to our interface
-      return {
-        ...data,
-        fields: Array.isArray(data.selected_fields) ? data.selected_fields as string[] : [],
-        selected_fields: data.selected_fields,
-        base_table: data.module,
-        module: data.module,
-        filters: processedFilters
-      } as Report;
+      return mapDbReportToInterface(data);
     },
     enabled: !!selectedReportId
   });
@@ -183,29 +147,8 @@ export const useReports = () => {
       
       if (error) throw error;
       
-      // Parse filters if they're stored as string
-      const parsedFilters = typeof data.filters === 'string' 
-        ? JSON.parse(data.filters) 
-        : data.filters;
-
-      // Process filters to ensure they match ReportFilter type
-      const processedFilters = Array.isArray(parsedFilters) 
-        ? parsedFilters.map((filter: any) => ({
-            field: filter.field,
-            operator: filter.operator as FilterOperator,
-            value: filter.value
-          }))
-        : [];
-      
       // Map back to our interface
-      return {
-        ...data,
-        fields: Array.isArray(data.selected_fields) ? data.selected_fields as string[] : [],
-        selected_fields: data.selected_fields,
-        base_table: data.module,
-        module: data.module,
-        filters: processedFilters
-      } as Report;
+      return mapDbReportToInterface(data);
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['reports'] });
@@ -290,14 +233,11 @@ export const useReports = () => {
         .from(baseTableName as any)
         .select(selectedFields.join(','));
       
-      // Parse filters if they're stored as string
-      const parsedFilters = typeof report.filters === 'string' 
-        ? JSON.parse(report.filters) 
-        : report.filters;
-      
       // Apply filters if present
-      if (parsedFilters && Array.isArray(parsedFilters)) {
-        parsedFilters.forEach((filter: any) => {
+      const filters = processFilters(report.filters);
+      
+      if (filters.length > 0) {
+        filters.forEach((filter) => {
           const { field, operator, value } = filter;
           
           switch (operator) {

@@ -14,9 +14,11 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, MoreHorizontal, Plus } from 'lucide-react';
 import { format } from 'date-fns';
+import { useToast } from '@/hooks/use-toast';
 
 const Reports = () => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const navigate = useNavigate();
   const { reports, tables, createReport, deleteReport, isLoadingReports, isLoadingTables } = useReports();
   
@@ -31,13 +33,21 @@ const Reports = () => {
     
     setIsSubmitting(true);
     try {
-      // Use a default user ID if auth user is not available
-      const userId = user?.id || '00000000-0000-0000-0000-000000000000';
+      // Check if user is logged in
+      if (!user?.id) {
+        toast({
+          variant: 'destructive',
+          title: 'Authentication Required',
+          description: 'You must be logged in to create reports'
+        });
+        setIsSubmitting(false);
+        return;
+      }
       
       const newReport = await createReport.mutateAsync({
         name: reportName,
         description: reportDescription,
-        created_by: userId,
+        created_by: user.id,
         module: selectedTable,
         base_table: selectedTable,
         selected_fields: [],
@@ -50,6 +60,11 @@ const Reports = () => {
       navigate(`/reports/${newReport.id}`);
     } catch (error) {
       console.error("Error creating report:", error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to create report. Please try again.'
+      });
     } finally {
       setIsSubmitting(false);
     }
