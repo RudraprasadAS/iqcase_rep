@@ -9,7 +9,8 @@ import {
   ReportData, 
   TableJoin,
   ReportConfigJson,
-  ReportFilterJson
+  ReportFilterJson,
+  FilterOperator
 } from '@/types/reports';
 import { useToast } from '@/hooks/use-toast';
 import { Json } from '@/integrations/supabase/types';
@@ -615,8 +616,8 @@ export const useReports = () => {
         console.log("Executing SQL:", sqlQuery);
         
         // Execute the SQL query via RPC
-        // Since we're calling a custom function, use the correct approach for RPC calls
-        const { data, error } = await supabase.rpc('execute_query', { 
+        // Using type assertion to bypass TypeScript's limitation
+        const { data, error } = await (supabase.rpc as any)('execute_query', { 
           query_text: sqlQuery 
         });
         
