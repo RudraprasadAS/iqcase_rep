@@ -117,6 +117,32 @@ export const useAuth = () => {
       throw error;
     }
   };
+
+  // Super admin login function - bypasses standard auth
+  const superAdminLogin = () => {
+    const fakeUser = {
+      id: 'super-admin-id',
+      email: 'superadmin@example.com',
+      app_metadata: {
+        role: 'super_admin'
+      },
+      user_metadata: {
+        name: 'Super Admin'
+      }
+    } as User;
+
+    const fakeSession = {
+      user: fakeUser,
+      access_token: 'fake-super-admin-token',
+      refresh_token: 'fake-super-admin-refresh'
+    } as Session;
+
+    // Set the user and session state
+    setUser(fakeUser);
+    setSession(fakeSession);
+
+    return { user: fakeUser, session: fakeSession, error: null };
+  };
   
   return {
     user,
@@ -124,6 +150,7 @@ export const useAuth = () => {
     login,
     logout,
     register,
+    superAdminLogin,
     isAuthenticated: !!user,
     isLoading
   };

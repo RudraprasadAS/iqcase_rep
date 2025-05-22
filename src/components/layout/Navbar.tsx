@@ -12,7 +12,7 @@ interface NavbarProps {
 const Navbar = ({ toggleSidebar }: NavbarProps) => {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { logout, user } = useAuth();
+  const { logout, user, superAdminLogin } = useAuth();
 
   const handleLogout = async () => {
     try {
@@ -29,6 +29,14 @@ const Navbar = ({ toggleSidebar }: NavbarProps) => {
         variant: "destructive",
       });
     }
+  };
+
+  const handleSuperAdminLogin = () => {
+    superAdminLogin();
+    toast({
+      title: "Super Admin Login",
+      description: "You are now logged in as Super Admin",
+    });
   };
 
   return (
@@ -58,16 +66,29 @@ const Navbar = ({ toggleSidebar }: NavbarProps) => {
           <Bell className="h-5 w-5" />
         </Button>
         <div className="flex items-center space-x-2">
-          <Button
-            variant="ghost"
-            className="flex items-center space-x-2"
-            onClick={handleLogout}
-          >
-            <User className="h-5 w-5" />
-            <span className="hidden md:inline-block">
-              {user ? `Logout (${user.email})` : 'Login'}
-            </span>
-          </Button>
+          {user ? (
+            <Button
+              variant="ghost"
+              className="flex items-center space-x-2"
+              onClick={handleLogout}
+            >
+              <User className="h-5 w-5" />
+              <span className="hidden md:inline-block">
+                {user.email === 'superadmin@example.com' 
+                  ? 'Logout (Super Admin)' 
+                  : `Logout (${user.email})`}
+              </span>
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              className="flex items-center space-x-2"
+              onClick={handleSuperAdminLogin}
+            >
+              <User className="h-5 w-5" />
+              <span className="hidden md:inline-block">Login as Super Admin</span>
+            </Button>
+          )}
         </div>
       </div>
     </header>
