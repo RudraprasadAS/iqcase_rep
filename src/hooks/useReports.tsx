@@ -2,7 +2,15 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Report, ReportFilter, TableInfo, ReportData, TableJoin } from '@/types/reports';
+import { 
+  Report, 
+  ReportFilter, 
+  TableInfo, 
+  ReportData, 
+  TableJoin,
+  ReportConfigJson,
+  ReportFilterJson
+} from '@/types/reports';
 import { useToast } from '@/hooks/use-toast';
 import { Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
@@ -200,6 +208,17 @@ export const useReports = () => {
           throw new Error("Authentication required. Please sign in.");
         }
         
+        // Convert ReportFilter to format compatible with Json type
+        const configJson: ReportConfigJson = {
+          baseReportId: view.baseReportId,
+          columns: view.columns,
+          filters: view.filters.map(filter => ({
+            field: filter.field,
+            operator: filter.operator,
+            value: filter.value
+          }))
+        };
+        
         const { data, error } = await supabase
           .from('report_configs')
           .insert({
@@ -207,11 +226,7 @@ export const useReports = () => {
             description: view.description,
             created_by: authUser.id,
             target_module: 'report',
-            config: {
-              baseReportId: view.baseReportId,
-              columns: view.columns,
-              filters: view.filters
-            },
+            config: configJson as unknown as Json,
             is_public: false
           })
           .select()
@@ -256,16 +271,23 @@ export const useReports = () => {
           
         if (error) throw error;
         
-        return data.map((view) => ({
-          id: view.id,
-          name: view.name,
-          description: view.description,
-          baseReport: view.config.baseReportId,
-          columns: view.config.columns || [],
-          filters: view.config.filters || [],
-          created_by: view.created_by,
-          created_at: view.created_at
-        }));
+        return data.map((view) => {
+          const config = view.config as unknown as ReportConfigJson;
+          return {
+            id: view.id,
+            name: view.name,
+            description: view.description,
+            baseReport: config.baseReportId,
+            columns: config.columns || [],
+            filters: (config.filters || []).map(f => ({
+              field: f.field,
+              operator: f.operator as FilterOperator,
+              value: f.value
+            })),
+            created_by: view.created_by,
+            created_at: view.created_at
+          };
+        });
         
       } catch (error) {
         console.error('Error fetching saved views:', error);
@@ -593,7 +615,10 @@ export const useReports = () => {
         console.log("Executing SQL:", sqlQuery);
         
         // Execute the SQL query via RPC
-        const { data, error } = await supabase.rpc('execute_query', { query_text: sqlQuery });
+        // Since we're calling a custom function, use the correct approach for RPC calls
+        const { data, error } = await supabase.rpc('execute_query', { 
+          query_text: sqlQuery 
+        });
         
         if (error) {
           console.error("Error running SQL query:", error);
