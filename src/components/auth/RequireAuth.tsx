@@ -1,74 +1,14 @@
 
-import { useState } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
 
 const RequireAuth = () => {
-  const { isAuthenticated, user, superAdminLogin } = useAuth();
+  const { isAuthenticated } = useAuth();
   const location = useLocation();
-  const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
-
-  const handleSuperAdminLogin = async () => {
-    setIsLoading(true);
-    try {
-      const { error } = await superAdminLogin();
-      
-      if (error) {
-        toast({
-          variant: "destructive",
-          title: "Login failed",
-          description: error.message
-        });
-      } else {
-        toast({
-          title: "Logged in as Super Admin",
-          description: "You now have full access to the system."
-        });
-      }
-    } catch (err) {
-      toast({
-        variant: "destructive",
-        title: "Login error",
-        description: "An unexpected error occurred. Please try again."
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   // Redirect to login if not authenticated
   if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4">
-        <div className="w-full max-w-md bg-white p-8 rounded-lg shadow-lg">
-          <h1 className="text-2xl font-bold text-center mb-6">Authentication Required</h1>
-          <p className="mb-6 text-center">
-            You need to be logged in to access this page.
-          </p>
-          <div className="space-y-4">
-            <Button 
-              className="w-full"
-              onClick={handleSuperAdminLogin}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Logging in...
-                </>
-              ) : "Login as Super Admin"}
-            </Button>
-            <div className="text-center">
-              <Navigate to="/auth/login" state={{ from: location }} replace />
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    return <Navigate to="/auth/login" state={{ from: location }} replace />;
   }
 
   return <Outlet />;

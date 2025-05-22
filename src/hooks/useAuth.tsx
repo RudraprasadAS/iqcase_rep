@@ -117,28 +117,6 @@ export const useAuth = () => {
       throw error;
     }
   };
-
-  // Super admin login function - uses actual credentials
-  const superAdminLogin = async (password: string = "admin123") => {
-    try {
-      const email = "superadmin@example.com";
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
-      
-      if (error) {
-        console.error('Super admin login error:', error);
-        return { user: null, session: null, error };
-      }
-      
-      console.log('Super admin login successful:', data.user?.id);
-      return { user: data.user, session: data.session, error: null };
-    } catch (error) {
-      console.error('Super admin login exception:', error);
-      return { user: null, session: null, error: error as AuthError };
-    }
-  };
   
   return {
     user,
@@ -146,7 +124,6 @@ export const useAuth = () => {
     login,
     logout,
     register,
-    superAdminLogin,
     isAuthenticated: !!user,
     isLoading
   };
