@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useNavigate } from 'react-router-dom';
@@ -30,30 +31,42 @@ const StandardReports = () => {
   const { data, isLoading, error } = useQuery({
     queryKey: ['standardReport', activeTab, sortField, sortDirection, search],
     queryFn: async () => {
-      // Use type assertion directly with any to make TypeScript happy
-      let query = supabase.from(activeTab) as any;
-      
-      // Add search filter if provided
-      if (search) {
-        if (activeTab === 'cases') {
-          query = query.ilike('title', `%${search}%`);
-        } else if (activeTab === 'users') {
-          query = query.ilike('name', `%${search}%`);
-        } else if (activeTab === 'case_activities') {
-          query = query.ilike('description', `%${search}%`);
-        } else if (activeTab === 'case_messages') {
-          query = query.ilike('message', `%${search}%`);
+      try {
+        console.log(`Fetching data from ${activeTab} table with sort: ${sortField} ${sortDirection}, search: ${search}`);
+        
+        // Use type assertion directly with any to make TypeScript happy
+        let query = supabase.from(activeTab) as any;
+        
+        // Add search filter if provided
+        if (search) {
+          if (activeTab === 'cases') {
+            query = query.ilike('title', `%${search}%`);
+          } else if (activeTab === 'users') {
+            query = query.ilike('name', `%${search}%`);
+          } else if (activeTab === 'case_activities') {
+            query = query.ilike('description', `%${search}%`);
+          } else if (activeTab === 'case_messages') {
+            query = query.ilike('message', `%${search}%`);
+          }
         }
+        
+        // Add sorting
+        query = query.order(sortField, { ascending: sortDirection === 'asc' });
+        
+        // Limit to 50 rows for performance
+        const { data, error } = await query.limit(50);
+        
+        if (error) {
+          console.error('Error fetching data:', error);
+          throw error;
+        }
+        
+        console.log('Data fetched successfully:', data);
+        return data || [];
+      } catch (err) {
+        console.error('Error in query function:', err);
+        throw err;
       }
-      
-      // Add sorting
-      query = query.order(sortField, { ascending: sortDirection === 'asc' });
-      
-      // Limit to 50 rows for performance
-      const { data, error } = await query.limit(50);
-      
-      if (error) throw error;
-      return data || [];
     },
     placeholderData: [],
   });
@@ -222,7 +235,7 @@ const StandardReports = () => {
                 </div>
               ) : error ? (
                 <div className="text-center p-8 text-red-500">
-                  Error loading data. Please try again.
+                  Error loading data. Please try again. {error instanceof Error ? error.message : 'Unknown error'}
                 </div>
               ) : data && data.length > 0 ? (
                 <Table>
