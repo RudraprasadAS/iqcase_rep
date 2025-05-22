@@ -1,4 +1,5 @@
 
+import React from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -20,48 +21,51 @@ import Users from "./pages/admin/Users";
 import Reports from "./pages/Reports";
 import ReportBuilder from "./pages/ReportBuilder";
 
+// Create a client
 const queryClient = new QueryClient();
 const helmetContext = {}; // Create an empty object for the context
 
-const App = () => (
-  <HelmetProvider context={helmetContext}>
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            {/* Public routes */}
-            <Route path="/" element={<Index />} />
-            
-            {/* Auth routes */}
-            <Route element={<AuthLayout />}>
-              <Route path="/auth/login" element={<Login />} />
-              <Route path="/auth/register" element={<Register />} />
-              <Route path="/auth/forgot-password" element={<ForgotPassword />} />
-              <Route path="/auth/reset-password" element={<ResetPassword />} />
-            </Route>
-            
-            {/* Protected routes */}
-            <Route element={<RequireAuth />}>
-              <Route element={<Layout />}>
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/reports" element={<Reports />} />
-                <Route path="/reports/:id" element={<ReportBuilder />} />
-                
-                {/* Admin routes */}
-                <Route path="/admin/permissions" element={<Permissions />} />
-                <Route path="/admin/users" element={<Users />} />
+const App: React.FC = () => {
+  return (
+    <HelmetProvider context={helmetContext}>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              {/* Public routes */}
+              <Route path="/" element={<Index />} />
+              
+              {/* Auth routes */}
+              <Route element={<AuthLayout />}>
+                <Route path="/auth/login" element={<Login />} />
+                <Route path="/auth/register" element={<Register />} />
+                <Route path="/auth/forgot-password" element={<ForgotPassword />} />
+                <Route path="/auth/reset-password" element={<ResetPassword />} />
               </Route>
-            </Route>
-            
-            {/* Catch-all route */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </QueryClientProvider>
-  </HelmetProvider>
-);
+              
+              {/* Protected routes */}
+              <Route element={<RequireAuth />}>
+                <Route element={<Layout />}>
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/reports" element={<Reports />} />
+                  <Route path="/reports/:id" element={<ReportBuilder />} />
+                  
+                  {/* Admin routes */}
+                  <Route path="/admin/permissions" element={<Permissions />} />
+                  <Route path="/admin/users" element={<Users />} />
+                </Route>
+              </Route>
+              
+              {/* Catch-all route */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </HelmetProvider>
+  );
+};
 
 export default App;

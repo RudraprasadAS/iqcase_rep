@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Report, ReportFilter, TableInfo, ReportData } from '@/types/reports';
+import { Report, ReportFilter, TableInfo, ReportData, FilterOperator } from '@/types/reports';
 import { useToast } from '@/hooks/use-toast';
 import { Json } from '@/integrations/supabase/types';
 
@@ -33,9 +33,9 @@ export const useReports = () => {
         const processedFilters = Array.isArray(parsedFilters) 
           ? parsedFilters.map((filter: any) => ({
               field: filter.field,
-              operator: filter.operator as ReportFilter['operator'],
+              operator: filter.operator as FilterOperator,
               value: filter.value
-            })) as ReportFilter[]
+            }))
           : [];
 
         return {
@@ -87,9 +87,9 @@ export const useReports = () => {
       const processedFilters = Array.isArray(parsedFilters) 
         ? parsedFilters.map((filter: any) => ({
             field: filter.field,
-            operator: filter.operator as ReportFilter['operator'],
+            operator: filter.operator as FilterOperator,
             value: filter.value
-          })) as ReportFilter[]
+          }))
         : [];
       
       // Map back to our interface
@@ -141,9 +141,9 @@ export const useReports = () => {
       const processedFilters = Array.isArray(parsedFilters) 
         ? parsedFilters.map((filter: any) => ({
             field: filter.field,
-            operator: filter.operator as ReportFilter['operator'],
+            operator: filter.operator as FilterOperator,
             value: filter.value
-          })) as ReportFilter[]
+          }))
         : [];
       
       // Map DB structure to our interface
@@ -194,9 +194,9 @@ export const useReports = () => {
       const processedFilters = Array.isArray(parsedFilters) 
         ? parsedFilters.map((filter: any) => ({
             field: filter.field,
-            operator: filter.operator as ReportFilter['operator'],
+            operator: filter.operator as FilterOperator,
             value: filter.value
-          })) as ReportFilter[]
+          }))
         : [];
       
       // Map back to our interface
