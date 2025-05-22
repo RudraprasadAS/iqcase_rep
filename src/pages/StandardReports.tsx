@@ -16,10 +16,14 @@ import {
 } from "@/components/ui/tabs";
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { Database } from '@/integrations/supabase/types';
+
+// Define allowed table names as a type for type safety
+type AllowedTableName = 'cases' | 'users' | 'case_activities' | 'case_messages';
 
 const StandardReports = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('cases');
+  const [activeTab, setActiveTab] = useState<AllowedTableName>('cases');
   const [search, setSearch] = useState('');
   const [sortField, setSortField] = useState('created_at');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
@@ -27,6 +31,7 @@ const StandardReports = () => {
   const { data, isLoading, error } = useQuery({
     queryKey: ['standardReport', activeTab, sortField, sortDirection, search],
     queryFn: async () => {
+      // We need to use type assertion here to make TypeScript happy
       let query = supabase.from(activeTab);
       
       // Add search filter if provided
@@ -97,7 +102,7 @@ const StandardReports = () => {
   };
   
   // Define column mappings for each table
-  const columnMappings: Record<string, { label: string, key: string }[]> = {
+  const columnMappings: Record<AllowedTableName, { label: string, key: string }[]> = {
     cases: [
       { label: 'Title', key: 'title' },
       { label: 'Status', key: 'status' },
@@ -158,7 +163,7 @@ const StandardReports = () => {
           </div>
         </div>
         
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as AllowedTableName)} className="space-y-4">
           <div className="flex justify-between">
             <TabsList>
               <TabsTrigger value="cases" className="flex items-center gap-2">
