@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useNavigate } from 'react-router-dom';
@@ -5,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Separator } from '@/components/ui/separator';
-import { Download, Filter, Search, SortAsc, SortDesc, Users, FileText, Calendar, MessageSquare, Activity } from 'lucide-react';
+import { Download, Filter, Search, SortAsc, SortDesc, Users, FileText, Calendar, MessageSquare, Activity, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
   Tabs,
@@ -16,6 +17,28 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Database } from '@/integrations/supabase/types';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { FilterBuilder } from '@/components/reports/FilterBuilder';
+import { ReportFilter } from '@/types/reports';
+import { Form, FormField, FormItem, FormLabel, FormControl } from '@/components/ui/form';
+import { useForm } from 'react-hook-form';
 
 // Define allowed table names as a type for type safety
 type AllowedTableName = 'cases' | 'users' | 'case_activities' | 'case_messages';
@@ -26,12 +49,15 @@ const StandardReports = () => {
   const [search, setSearch] = useState('');
   const [sortField, setSortField] = useState('created_at');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [filters, setFilters] = useState<ReportFilter[]>([]);
+  const [filterDialogOpen, setFilterDialogOpen] = useState(false);
   
   const { data, isLoading, error } = useQuery({
-    queryKey: ['standardReport', activeTab, sortField, sortDirection, search],
+    queryKey: ['standardReport', activeTab, sortField, sortDirection, search, filters],
     queryFn: async () => {
       try {
         console.log(`Fetching data from ${activeTab} table with sort: ${sortField} ${sortDirection}, search: ${search}`);
+        console.log('Applied filters:', filters);
         
         // Start building the query - get the table
         let query = supabase.from(activeTab);
@@ -50,6 +76,45 @@ const StandardReports = () => {
           } else if (activeTab === 'case_messages') {
             selectQuery = selectQuery.ilike('message', `%${search}%`);
           }
+        }
+        
+        // Apply custom filters
+        if (filters.length > 0) {
+          filters.forEach((filter) => {
+            const { field, operator, value } = filter;
+            
+            switch (operator) {
+              case 'eq':
+                selectQuery = selectQuery.eq(field, value);
+                break;
+              case 'neq':
+                selectQuery = selectQuery.neq(field, value);
+                break;
+              case 'gt':
+                selectQuery = selectQuery.gt(field, value);
+                break;
+              case 'gte':
+                selectQuery = selectQuery.gte(field, value);
+                break;
+              case 'lt':
+                selectQuery = selectQuery.lt(field, value);
+                break;
+              case 'lte':
+                selectQuery = selectQuery.lte(field, value);
+                break;
+              case 'like':
+                selectQuery = selectQuery.like(field, `%${value}%`);
+                break;
+              case 'ilike':
+                selectQuery = selectQuery.ilike(field, `%${value}%`);
+                break;
+              case 'is':
+                selectQuery = selectQuery.is(field, value);
+                break;
+              default:
+                break;
+            }
+          });
         }
         
         // Add sorting - make sure to use selectQuery for chaining
@@ -72,6 +137,58 @@ const StandardReports = () => {
     },
     placeholderData: [],
   });
+  
+  // Get field names from first row of data for the active table
+  const getFieldNames = (): string[] => {
+    if (data && data.length > 0) {
+      return Object.keys(data[0]);
+    }
+    
+    // Provide default fields based on table if no data is available
+    switch (activeTab) {
+      case 'cases':
+        return ['title', 'status', 'priority', 'location', 'created_at'];
+      case 'users':
+        return ['name', 'email', 'user_type', 'is_active', 'created_at'];
+      case 'case_activities':
+        return ['activity_type', 'description', 'duration_minutes', 'created_at'];
+      case 'case_messages':
+        return ['message', 'is_internal', 'is_pinned', 'created_at'];
+      default:
+        return [];
+    }
+  };
+  
+  const addFilter = () => {
+    const newFilter: ReportFilter = {
+      field: getFieldNames()[0] || '',
+      operator: 'eq',
+      value: ''
+    };
+    setFilters([...filters, newFilter]);
+  };
+  
+  const removeFilter = (index: number) => {
+    const updatedFilters = [...filters];
+    updatedFilters.splice(index, 1);
+    setFilters(updatedFilters);
+  };
+  
+  const updateFilter = (index: number, key: keyof ReportFilter, value: any) => {
+    const updatedFilters = [...filters];
+    updatedFilters[index] = { ...updatedFilters[index], [key]: value };
+    setFilters(updatedFilters);
+  };
+  
+  const clearFilters = () => {
+    setFilters([]);
+    setFilterDialogOpen(false);
+  };
+  
+  const applyFilters = () => {
+    // Close dialog and let the query re-run
+    setFilterDialogOpen(false);
+  };
   
   const toggleSort = (field: string) => {
     if (sortField === field) {
@@ -210,10 +327,42 @@ const StandardReports = () => {
               />
             </div>
             
-            <Button variant="outline" size="sm" className="gap-2">
-              <Filter className="h-4 w-4" />
-              Filter
-            </Button>
+            <Dialog open={filterDialogOpen} onOpenChange={setFilterDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Filter className="h-4 w-4" />
+                  Filter {filters.length > 0 && `(${filters.length})`}
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[600px]">
+                <DialogHeader>
+                  <DialogTitle>Filter Data</DialogTitle>
+                  <DialogDescription>
+                    Create filters to narrow down your results.
+                  </DialogDescription>
+                </DialogHeader>
+                
+                <div className="py-4">
+                  <FilterBuilder
+                    selectedFields={getFieldNames()}
+                    filters={filters}
+                    onAddFilter={addFilter}
+                    onRemoveFilter={removeFilter}
+                    onUpdateFilter={updateFilter}
+                  />
+                </div>
+                
+                <DialogFooter>
+                  <Button variant="outline" onClick={clearFilters}>
+                    Clear All
+                  </Button>
+                  <Button onClick={applyFilters}>
+                    Apply Filters
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            
             <Button 
               variant="outline" 
               size="sm" 
@@ -228,6 +377,32 @@ const StandardReports = () => {
               Sort
             </Button>
           </div>
+          
+          {filters.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-4">
+              {filters.map((filter, index) => (
+                <div key={index} className="flex items-center gap-2 bg-muted px-3 py-1 rounded-md text-sm">
+                  <span>{filter.field} {getOperatorLabel(filter.operator)} {filter.value}</span>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-5 w-5"
+                    onClick={() => removeFilter(index)}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
+              <Button 
+                variant="ghost" 
+                size="sm"
+                className="text-xs"
+                onClick={clearFilters}
+              >
+                Clear all
+              </Button>
+            </div>
+          )}
           
           <Card>
             <CardContent className="p-0">
@@ -285,6 +460,22 @@ const StandardReports = () => {
     </>
   );
 };
+
+// Helper function to get operator label
+function getOperatorLabel(operator: string): string {
+  switch (operator) {
+    case 'eq': return '=';
+    case 'neq': return '≠';
+    case 'gt': return '>';
+    case 'gte': return '≥';
+    case 'lt': return '<';
+    case 'lte': return '≤';
+    case 'like': return 'contains';
+    case 'ilike': return 'contains (i)';
+    case 'is': return 'is';
+    default: return operator;
+  }
+}
 
 // Helper function to render table cell content based on data type
 function renderTableCell(value: any, key: string) {
