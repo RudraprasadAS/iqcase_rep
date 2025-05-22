@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useNavigate } from 'react-router-dom';
@@ -17,7 +16,6 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Database } from '@/integrations/supabase/types';
-import { PostgrestQueryBuilder } from '@supabase/postgrest-js';
 
 // Define allowed table names as a type for type safety
 type AllowedTableName = 'cases' | 'users' | 'case_activities' | 'case_messages';
@@ -32,8 +30,8 @@ const StandardReports = () => {
   const { data, isLoading, error } = useQuery({
     queryKey: ['standardReport', activeTab, sortField, sortDirection, search],
     queryFn: async () => {
-      // Cast the query to PostgrestQueryBuilder to make TypeScript happy
-      let query = supabase.from(activeTab) as PostgrestQueryBuilder<any, any, any>;
+      // Use type assertion directly with any to make TypeScript happy
+      let query = supabase.from(activeTab) as any;
       
       // Add search filter if provided
       if (search) {
