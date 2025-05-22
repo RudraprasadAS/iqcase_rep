@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
@@ -15,10 +16,12 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useMobile } from "@/hooks/use-mobile";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface SidebarProps {
   className?: string;
+  isOpen?: boolean;
+  setIsOpen?: (isOpen: boolean) => void;
 }
 
 interface NavItemProps {
@@ -37,19 +40,20 @@ const NavItem = ({ to, icon, label, isCollapsed }: NavItemProps) => {
       <Tooltip delayDuration={0}>
         <TooltipTrigger asChild>
           <Button
-            as={Link}
-            to={to}
             variant="ghost"
             className={cn(
               "justify-start px-2 py-1.5 text-sm font-medium hover:bg-secondary",
               isActive ? "bg-secondary" : "transparent",
               isCollapsed ? "justify-center" : "justify-start"
             )}
+            asChild
           >
-            <div className="flex items-center gap-2">
-              {icon}
-              {!isCollapsed && <span>{label}</span>}
-            </div>
+            <Link to={to}>
+              <div className="flex items-center gap-2">
+                {icon}
+                {!isCollapsed && <span>{label}</span>}
+              </div>
+            </Link>
           </Button>
         </TooltipTrigger>
         <TooltipContent className="bg-popover text-popover-foreground">
@@ -60,12 +64,15 @@ const NavItem = ({ to, icon, label, isCollapsed }: NavItemProps) => {
   );
 };
 
-const Sidebar = ({ className }: SidebarProps) => {
-  const { isMobile } = useMobile();
+const Sidebar = ({ className, isOpen, setIsOpen }: SidebarProps) => {
+  const isMobile = useIsMobile();
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const toggleCollapse = () => {
     setIsCollapsed(!isCollapsed);
+    if (setIsOpen) {
+      setIsOpen(!isCollapsed);
+    }
   };
 
   return (
