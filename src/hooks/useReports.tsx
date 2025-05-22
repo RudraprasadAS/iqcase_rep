@@ -68,15 +68,11 @@ export const useReports = () => {
     mutationFn: async (report: Omit<Report, 'id' | 'created_at' | 'updated_at'>) => {
       console.log("Creating report with data:", report);
       
-      // Use a hardcoded UUID for demo purposes that works with your database
-      // This bypasses the need for authentication
-      const demoUserId = '00000000-0000-0000-0000-000000000000';
-      
       // Prepare the data for the database
       const reportForDb = {
         name: report.name,
         description: report.description,
-        created_by: demoUserId, // Use hardcoded UUID compatible with your DB
+        created_by: report.created_by,
         module: report.base_table || report.module,
         selected_fields: report.fields || report.selected_fields,
         filters: report.filters as unknown as Json,

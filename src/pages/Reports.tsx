@@ -26,15 +26,24 @@ const Reports = () => {
   const [selectedTable, setSelectedTable] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   
+  // Create a UUID in the format expected by Postgres
+  const generateDemoUuid = () => {
+    // This generates a proper UUID v4 format that Postgres will accept
+    return 'ffffffff-ffff-ffff-ffff-ffffffffffff';
+  };
+  
   const handleCreateReport = async () => {
     if (!reportName || !selectedTable) return;
     
     setIsSubmitting(true);
     try {
+      // Use hardcoded UUID for demo
+      const demoUserId = generateDemoUuid();
+      
       const newReport = await createReport.mutateAsync({
         name: reportName,
         description: reportDescription,
-        created_by: '00000000-0000-0000-0000-000000000000', // Hardcoded UUID for demo
+        created_by: demoUserId, // Use the generated UUID
         module: selectedTable,
         base_table: selectedTable,
         selected_fields: [],
