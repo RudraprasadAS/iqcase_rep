@@ -18,6 +18,7 @@ import RequireAuth from "./components/auth/RequireAuth";
 import Permissions from "./pages/admin/Permissions";
 import Users from "./pages/admin/Users";
 import Reports from "./pages/Reports";
+import StandardReports from "./pages/StandardReports";
 import ReportBuilder from "./pages/ReportBuilder";
 
 const queryClient = new QueryClient();
@@ -47,6 +48,7 @@ const App = () => (
               <Route element={<Layout />}>
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/reports" element={<Reports />} />
+                <Route path="/reports/standard" element={<StandardReports />} />
                 <Route path="/reports/:id" element={<ReportBuilder />} />
                 
                 {/* Admin routes */}
