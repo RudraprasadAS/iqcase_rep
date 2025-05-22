@@ -1,7 +1,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Menu, Bell, Search, User, Loader2 } from "lucide-react";
+import { Menu, Bell, Search, User, Loader2, ShieldAlert } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -13,11 +13,12 @@ interface NavbarProps {
 const Navbar = ({ toggleSidebar }: NavbarProps) => {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { logout, user } = useAuth();
+  const { logout, user, isSuperAdmin } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
 
   const handleLogout = async () => {
     try {
+      setIsLoading(true);
       await logout();
       toast({
         title: "Logged out successfully",
@@ -30,6 +31,8 @@ const Navbar = ({ toggleSidebar }: NavbarProps) => {
         description: "There was an error logging out. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -69,12 +72,21 @@ const Navbar = ({ toggleSidebar }: NavbarProps) => {
               variant="ghost"
               className="flex items-center space-x-2"
               onClick={handleLogout}
+              disabled={isLoading}
             >
-              <User className="h-5 w-5" />
+              {isSuperAdmin ? (
+                <ShieldAlert className="h-5 w-5 text-red-500" />
+              ) : (
+                <User className="h-5 w-5" />
+              )}
               <span className="hidden md:inline-block">
-                {user.email === 'superadmin@example.com' 
-                  ? 'Logout (Super Admin)' 
-                  : `Logout (${user.email})`}
+                {isLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : isSuperAdmin ? (
+                  'System Administrator'
+                ) : (
+                  `Logout (${user.email})`
+                )}
               </span>
             </Button>
           ) : (

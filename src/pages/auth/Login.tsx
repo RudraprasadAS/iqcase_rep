@@ -73,6 +73,40 @@ const Login = () => {
       setIsLoading(false);
     }
   };
+  
+  const handleSuperAdminLogin = async () => {
+    setIsLoading(true);
+    setLoginError("");
+    
+    try {
+      const { error } = await login("admin@system.com", "Admin123!");
+      
+      if (error) {
+        setLoginError("Super admin login failed: " + error.message);
+        toast({
+          title: "Super admin login failed",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Super admin login successful",
+          description: "Welcome, System Administrator.",
+        });
+        
+        // Always redirect super admin to dashboard
+        navigate("/dashboard", { replace: true });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Super admin login failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <>
@@ -138,6 +172,30 @@ const Login = () => {
             </Button>
           </form>
         </Form>
+        
+        <div className="mt-6">
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white text-gray-500">System Access</span>
+            </div>
+          </div>
+          
+          <Button 
+            onClick={handleSuperAdminLogin} 
+            className="mt-4 w-full bg-gray-800 hover:bg-gray-900 text-white"
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Accessing system...
+              </>
+            ) : "Login as System Administrator"}
+          </Button>
+        </div>
       </CardContent>
       <CardFooter className="flex flex-col items-center">
         <p className="text-sm text-gray-500">

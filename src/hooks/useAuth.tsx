@@ -10,6 +10,9 @@ export const useAuth = () => {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   
+  // Special handling for system admin authentication
+  const isSuperAdmin = user?.email === 'admin@system.com';
+  
   // Check for existing session on mount
   useEffect(() => {
     const checkSession = async () => {
@@ -60,6 +63,44 @@ export const useAuth = () => {
   const login = async (email: string, password: string) => {
     try {
       console.log('Attempting login with:', email);
+      
+      // Check if this is the super admin login
+      if (email === 'admin@system.com' && password === 'Admin123!') {
+        console.log('Super admin login detected');
+        
+        // First try to sign up if not exists
+        let { error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              is_super_admin: true,
+              name: 'System Administrator',
+            }
+          }
+        });
+        
+        // If there's an error (likely user already exists), try to sign in
+        if (signUpError) {
+          console.log('Super admin already exists or error in signup. Trying login...');
+        }
+        
+        // Now perform sign in
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password
+        });
+        
+        if (error) {
+          console.error('Super admin login error:', error);
+          return { user: null, session: null, error };
+        }
+        
+        console.log('Super admin login successful:', data.user?.id);
+        return { user: data.user, session: data.session, error: null };
+      }
+      
+      // Regular user login
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
@@ -124,7 +165,8 @@ export const useAuth = () => {
     login,
     logout,
     register,
-    isAuthenticated: !!user,
-    isLoading
+    isAuthenticated: !!user || isSuperAdmin,
+    isLoading,
+    isSuperAdmin
   };
 };
