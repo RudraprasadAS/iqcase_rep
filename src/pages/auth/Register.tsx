@@ -4,12 +4,15 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { Loader2 } from "lucide-react";
 
 const Register = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { register } = useAuth();
   
   const [formData, setFormData] = useState({
     name: "",
@@ -43,16 +46,19 @@ const Register = () => {
     setIsLoading(true);
 
     try {
-      // This is a placeholder - will be replaced with actual Supabase auth call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const { user, error } = await register(formData.email, formData.password);
       
-      toast({
-        title: "Registration successful",
-        description: "Your account has been created successfully.",
-      });
-      navigate("/auth/login");
-    } catch (err) {
-      setError("An error occurred during registration");
+      if (error) {
+        setError(error.message);
+      } else {
+        toast({
+          title: "Registration successful",
+          description: "Your account has been created successfully.",
+        });
+        navigate("/auth/login");
+      }
+    } catch (err: any) {
+      setError(err.message || "An error occurred during registration");
       console.error("Registration error:", err);
     } finally {
       setIsLoading(false);
@@ -83,7 +89,6 @@ const Register = () => {
             placeholder="John Doe"
             value={formData.name}
             onChange={handleChange}
-            required
             disabled={isLoading}
           />
         </div>
@@ -135,7 +140,12 @@ const Register = () => {
           className="w-full bg-caseMgmt-primary hover:bg-caseMgmt-primary/90"
           disabled={isLoading}
         >
-          {isLoading ? "Creating account..." : "Create account"}
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Creating account...
+            </>
+          ) : "Create account"}
         </Button>
       </form>
       

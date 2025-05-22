@@ -1,135 +1,90 @@
-import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
-import {
-  BarChart3,
-  LayoutDashboard,
-  Settings,
-  ShieldCheck,
-  Users2,
-} from "lucide-react";
+
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { useMobile } from "@/hooks/use-mobile";
+  Home,
+  FileText,
+  Users,
+  Settings,
+  BarChart,
+  MessageSquare,
+  FolderClosed,
+  CalendarCheck,
+  ShieldCheck,
+  UserCog,
+} from "lucide-react";
+import { NavLink } from "react-router-dom";
 
 interface SidebarProps {
-  className?: string;
+  isOpen: boolean;
+  setIsOpen: (open: boolean) => void;
 }
 
-interface NavItemProps {
-  to: string;
-  icon: React.ReactNode;
-  label: string;
-  isCollapsed: boolean;
-}
-
-const NavItem = ({ to, icon, label, isCollapsed }: NavItemProps) => {
-  const location = useLocation();
-  const isActive = location.pathname === to;
-
+const Sidebar = ({ isOpen, setIsOpen }: SidebarProps) => {
   return (
-    <TooltipProvider>
-      <Tooltip delayDuration={0}>
-        <TooltipTrigger asChild>
-          <Button
-            as={Link}
-            to={to}
-            variant="ghost"
-            className={cn(
-              "justify-start px-2 py-1.5 text-sm font-medium hover:bg-secondary",
-              isActive ? "bg-secondary" : "transparent",
-              isCollapsed ? "justify-center" : "justify-start"
-            )}
-          >
-            <div className="flex items-center gap-2">
-              {icon}
-              {!isCollapsed && <span>{label}</span>}
-            </div>
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent className="bg-popover text-popover-foreground">
-          {label}
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <div
+      className={cn(
+        "bg-white border-r border-caseMgmt-border h-screen transition-all duration-300 overflow-hidden",
+        isOpen ? "w-64" : "w-16"
+      )}
+    >
+      <div className="flex flex-col h-full">
+        <div className={cn("h-16 p-4", isOpen ? "justify-between" : "justify-center", "flex items-center")}>
+          {isOpen && <h1 className="font-semibold text-caseMgmt-primary text-lg">CaseManager</h1>}
+        </div>
+
+        <ScrollArea className="flex-1">
+          <div className="px-2 py-2">
+            <nav className="space-y-1">
+              <NavItem icon={Home} to="/dashboard" label="Dashboard" isOpen={isOpen} />
+              <NavItem icon={FileText} to="/cases" label="Cases" isOpen={isOpen} />
+              <NavItem icon={Users} to="/users" label="Users" isOpen={isOpen} />
+              <NavItem icon={FolderClosed} to="/categories" label="Categories" isOpen={isOpen} />
+              <NavItem icon={MessageSquare} to="/messages" label="Messages" isOpen={isOpen} />
+              <NavItem icon={CalendarCheck} to="/deadlines" label="Deadlines" isOpen={isOpen} />
+              <NavItem icon={BarChart} to="/reports" label="Reports" isOpen={isOpen} />
+              
+              {/* Admin section with Roles & Permissions and Users */}
+              {isOpen && <div className="pt-4 pb-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Admin</div>}
+              <NavItem icon={ShieldCheck} to="/admin/permissions" label="Roles & Permissions" isOpen={isOpen} />
+              <NavItem icon={UserCog} to="/admin/users" label="Users Management" isOpen={isOpen} />
+              
+              <Separator className="my-4" />
+              
+              <NavItem icon={Settings} to="/settings" label="Settings" isOpen={isOpen} />
+            </nav>
+          </div>
+        </ScrollArea>
+      </div>
+    </div>
   );
 };
 
-const Sidebar = ({ className }: SidebarProps) => {
-  const { isMobile } = useMobile();
-  const [isCollapsed, setIsCollapsed] = useState(false);
+interface NavItemProps {
+  icon: React.ElementType;
+  to: string;
+  label: string;
+  isOpen: boolean;
+}
 
-  const toggleCollapse = () => {
-    setIsCollapsed(!isCollapsed);
-  };
-
+const NavItem = ({ icon: Icon, to, label, isOpen }: NavItemProps) => {
   return (
-    <aside
-      className={cn(
-        "flex flex-col border-r bg-background",
-        isCollapsed ? "w-[72px]" : "w-[240px]",
-        className
-      )}
+    <NavLink
+      to={to}
+      className={({ isActive }) =>
+        cn(
+          "flex items-center py-2 px-3 rounded-md transition-colors",
+          isActive
+            ? "bg-caseMgmt-primary text-white"
+            : "hover:bg-gray-100 text-gray-700"
+        )
+      }
     >
-      <div className="flex-1 space-y-4 p-2">
-        <div className="flex items-center justify-between pl-3 pr-2">
-          <Link to="/dashboard" className="flex items-center gap-2 font-semibold">
-            <BarChart3 />
-            {!isCollapsed && <span>Case Management</span>}
-          </Link>
-          {isMobile && (
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={toggleCollapse}
-              className="h-8 w-8 rounded-md"
-            >
-              <Settings className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
-
-        <nav className="grid gap-1 px-2">
-          <NavItem
-            to="/dashboard"
-            icon={<LayoutDashboard size={20} />}
-            label="Dashboard"
-            isCollapsed={isCollapsed}
-          />
-          <NavItem
-            to="/admin/permissions"
-            icon={<ShieldCheck size={20} />}
-            label="Permissions"
-            isCollapsed={isCollapsed}
-          />
-          <NavItem
-            to="/admin/users"
-            icon={<Users2 size={20} />}
-            label="Users"
-            isCollapsed={isCollapsed}
-          />
-          <NavItem
-            to="/settings"
-            icon={<Settings size={20} />}
-            label="Settings"
-            isCollapsed={isCollapsed}
-          />
-        </nav>
-      </div>
-
-      <div className="flex items-center justify-center py-3">
-        {!isCollapsed && (
-          <Button variant="outline" size="sm" onClick={toggleCollapse}>
-            Collapse
-          </Button>
-        )}
-      </div>
-    </aside>
+      <Icon className="w-5 h-5" />
+      {isOpen && <span className="ml-3">{label}</span>}
+    </NavLink>
   );
 };
 

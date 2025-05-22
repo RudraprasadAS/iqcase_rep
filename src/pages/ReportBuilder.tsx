@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { useReports } from '@/hooks/useReports';
+import { supabase } from '@/integrations/supabase/client';
 import {
   Card,
   CardContent,
@@ -22,12 +23,9 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Loader2, Play, Save, FileSpreadsheet } from 'lucide-react';
-import { FilterBuilder } from '@/components/reports/FilterBuilder';
-import { ReportPreview } from '@/components/reports/ReportPreview';
-import { ReportFilter } from '@/types/reports';
+import { useForm } from 'react-hook-form';
+import { ArrowLeft, Loader2, Play, Save } from 'lucide-react';
 
 const ReportBuilder = () => {
   const { id } = useParams<{ id: string }>();
@@ -48,11 +46,7 @@ const ReportBuilder = () => {
   const [baseTable, setBaseTable] = useState('');
   const [availableFields, setAvailableFields] = useState<string[]>([]);
   const [selectedFields, setSelectedFields] = useState<string[]>([]);
-  const [filters, setFilters] = useState<ReportFilter[]>([]);
-  const [chartType, setChartType] = useState<'table' | 'bar' | 'line' | 'pie'>('table');
-  const [reportData, setReportData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [currentTab, setCurrentTab] = useState('fields');
   
   // Load report if ID is provided
   useEffect(() => {
@@ -67,7 +61,6 @@ const ReportBuilder = () => {
     setReportName(selectedReport.name);
     setDescription(selectedReport.description || '');
     setBaseTable(selectedReport.base_table || selectedReport.module || '');
-    setChartType(selectedReport.chart_type || 'table');
     
     if (Array.isArray(selectedReport.fields)) {
       setSelectedFields(selectedReport.fields);
@@ -75,9 +68,6 @@ const ReportBuilder = () => {
       setSelectedFields(selectedReport.selected_fields as string[]);
     }
     
-    if (Array.isArray(selectedReport.filters)) {
-      setFilters(selectedReport.filters);
-    }
   }, [selectedReport]);
   
   // When base table changes, fetch fields
@@ -104,7 +94,6 @@ const ReportBuilder = () => {
     
     setBaseTable(value);
     setSelectedFields([]);
-    setFilters([]);
   };
   
   const handleFieldToggle = (field: string) => {
@@ -113,32 +102,6 @@ const ReportBuilder = () => {
     } else {
       setSelectedFields([...selectedFields, field]);
     }
-  };
-
-  const handleAddFilter = () => {
-    if (selectedFields.length === 0) return;
-    
-    setFilters([
-      ...filters, 
-      { 
-        field: selectedFields[0], 
-        operator: 'eq', 
-        value: '' 
-      }
-    ]);
-  };
-  
-  const handleRemoveFilter = (index: number) => {
-    setFilters(filters.filter((_, i) => i !== index));
-  };
-  
-  const handleUpdateFilter = (index: number, key: keyof ReportFilter, value: any) => {
-    const updatedFilters = [...filters];
-    updatedFilters[index] = {
-      ...updatedFilters[index],
-      [key]: value
-    };
-    setFilters(updatedFilters);
   };
   
   const handleSaveReport = async () => {
@@ -162,9 +125,9 @@ const ReportBuilder = () => {
         base_table: baseTable,
         selected_fields: selectedFields,
         fields: selectedFields,
-        filters: filters,
+        filters: selectedReport?.filters || [],
         is_public: selectedReport?.is_public || false,
-        chart_type: chartType
+        chart_type: 'table'
       });
       
       toast({
@@ -196,15 +159,12 @@ const ReportBuilder = () => {
       
       // Then run it
       const result = await runReport.mutateAsync(id);
-      setReportData(result);
+      console.log('Report results:', result);
       
       toast({
         title: 'Report executed',
         description: `Found ${result.rows.length} results`
       });
-
-      // Auto-switch to preview tab
-      setCurrentTab('preview');
     } catch (error) {
       console.error('Error running report:', error);
       toast({
@@ -215,45 +175,6 @@ const ReportBuilder = () => {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleExportCsv = () => {
-    if (!reportData || !reportData.rows || reportData.rows.length === 0) {
-      return;
-    }
-    
-    const columns = reportData.columns;
-    const rows = reportData.rows;
-    
-    // Create CSV header
-    let csvContent = columns.join(',') + '\n';
-    
-    // Add data rows
-    rows.forEach(row => {
-      const rowValues = columns.map(col => {
-        const value = row[col];
-        // Handle different value types
-        if (value === null || value === undefined) {
-          return '';
-        } else if (typeof value === 'string') {
-          // Escape quotes and wrap in quotes
-          return `"${value.replace(/"/g, '""')}"`;
-        }
-        return value;
-      });
-      csvContent += rowValues.join(',') + '\n';
-    });
-    
-    // Create download link
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `${reportName || 'report'}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
   
   return (
@@ -276,15 +197,6 @@ const ReportBuilder = () => {
           </div>
           
           <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={handleExportCsv}
-              disabled={isLoading || !reportData}
-            >
-              <FileSpreadsheet className="h-4 w-4 mr-2" />
-              Export CSV
-            </Button>
-            
             <Button
               variant="outline"
               onClick={handleRunReport}
@@ -362,103 +274,62 @@ const ReportBuilder = () => {
                   </SelectContent>
                 </Select>
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="chartType">Visualization Type</Label>
-                <Select
-                  value={chartType}
-                  onValueChange={(value) => setChartType(value as 'table' | 'bar' | 'line' | 'pie')}
-                >
-                  <SelectTrigger id="chartType">
-                    <SelectValue placeholder="Select visualization type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="table">Table</SelectItem>
-                    <SelectItem value="bar">Bar Chart</SelectItem>
-                    <SelectItem value="line">Line Chart</SelectItem>
-                    <SelectItem value="pie">Pie Chart</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
             </CardContent>
           </Card>
           
-          {/* Configuration and Preview Tabs */}
+          {/* Field Selector Card */}
           <Card className="lg:col-span-2">
-            <Tabs value={currentTab} onValueChange={setCurrentTab}>
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="fields">Fields & Filters</TabsTrigger>
-                <TabsTrigger value="preview">Preview</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="fields" className="p-4 space-y-6">
-                {/* Field Selector */}
-                <div className="space-y-2">
-                  <h3 className="text-sm font-medium">Available Fields</h3>
-                  {!baseTable ? (
-                    <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground border rounded-md">
-                      <p className="mb-4">No fields to display.</p>
-                      <p>Please select a base table first.</p>
-                    </div>
-                  ) : availableFields.length === 0 ? (
-                    <div className="flex justify-center py-8 border rounded-md">
-                      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 border rounded-md p-4">
-                      {availableFields.map((field) => (
-                        <div key={field} className="flex items-center space-x-2">
-                          <Checkbox 
-                            id={`field-${field}`}
-                            checked={selectedFields.includes(field)}
-                            onCheckedChange={() => handleFieldToggle(field)}
-                          />
-                          <Label 
-                            htmlFor={`field-${field}`}
-                            className="text-sm font-medium cursor-pointer"
-                          >
-                            {field}
-                          </Label>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  
-                  <div className="flex justify-between items-center mt-2">
-                    <div className="text-sm text-muted-foreground">
-                      {selectedFields.length} field{selectedFields.length !== 1 ? 's' : ''} selected
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setSelectedFields([])}
-                      disabled={selectedFields.length === 0}
-                    >
-                      Clear All
-                    </Button>
-                  </div>
+            <CardHeader>
+              <CardTitle>Select Fields</CardTitle>
+              <CardDescription>
+                Choose which fields to include in your report
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {!baseTable ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+                  <p className="mb-4">No fields to display.</p>
+                  <p>Please select a base table first.</p>
                 </div>
-                
-                {/* Filter Builder */}
-                <FilterBuilder
-                  selectedFields={selectedFields}
-                  filters={filters}
-                  onAddFilter={handleAddFilter}
-                  onRemoveFilter={handleRemoveFilter}
-                  onUpdateFilter={handleUpdateFilter}
-                />
-              </TabsContent>
-              
-              <TabsContent value="preview" className="p-4">
-                <ReportPreview
-                  reportData={reportData}
-                  visualizationType={chartType}
-                  isRunning={isLoading}
-                  onRunReport={handleRunReport}
-                  onExportCsv={handleExportCsv}
-                />
-              </TabsContent>
-            </Tabs>
+              ) : availableFields.length === 0 ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {availableFields.map((field) => (
+                    <div key={field} className="flex items-center space-x-2">
+                      <Checkbox 
+                        id={`field-${field}`}
+                        checked={selectedFields.includes(field)}
+                        onCheckedChange={() => handleFieldToggle(field)}
+                      />
+                      <Label 
+                        htmlFor={`field-${field}`}
+                        className="text-sm font-medium cursor-pointer"
+                      >
+                        {field}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+            <CardFooter>
+              <div className="flex justify-between items-center w-full">
+                <div className="text-sm text-muted-foreground">
+                  {selectedFields.length} field{selectedFields.length !== 1 ? 's' : ''} selected
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSelectedFields([])}
+                  disabled={selectedFields.length === 0}
+                >
+                  Clear All
+                </Button>
+              </div>
+            </CardFooter>
           </Card>
         </div>
       </div>

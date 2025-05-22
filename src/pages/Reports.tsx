@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useNavigate } from 'react-router-dom';
 import { useReports } from '@/hooks/useReports';
+import { useAuth } from '@/hooks/useAuth';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -13,10 +14,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, MoreHorizontal, Plus } from 'lucide-react';
 import { format } from 'date-fns';
-import { useToast } from '@/hooks/use-toast';
 
 const Reports = () => {
-  const { toast } = useToast();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const { reports, tables, createReport, deleteReport, isLoadingReports, isLoadingTables } = useReports();
   
@@ -26,24 +26,15 @@ const Reports = () => {
   const [selectedTable, setSelectedTable] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // Create a UUID in the format expected by Postgres
-  const generateDemoUuid = () => {
-    // This generates a proper UUID v4 format that Postgres will accept
-    return 'ffffffff-ffff-ffff-ffff-ffffffffffff';
-  };
-  
   const handleCreateReport = async () => {
     if (!reportName || !selectedTable) return;
     
     setIsSubmitting(true);
     try {
-      // Use hardcoded UUID for demo
-      const demoUserId = generateDemoUuid();
-      
       const newReport = await createReport.mutateAsync({
         name: reportName,
         description: reportDescription,
-        created_by: demoUserId, // Use the generated UUID
+        created_by: user?.id || '', // Use user ID from useAuth, but provide fallback 
         module: selectedTable,
         base_table: selectedTable,
         selected_fields: [],
@@ -56,11 +47,6 @@ const Reports = () => {
       navigate(`/reports/${newReport.id}`);
     } catch (error) {
       console.error("Error creating report:", error);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to create report. Please try again.'
-      });
     } finally {
       setIsSubmitting(false);
     }
@@ -138,7 +124,7 @@ const Reports = () => {
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={(e) => {
                               e.stopPropagation();
-                              handleDeleteReport(report.id);
+                              deleteReport.mutate(report.id);
                             }}>
                               Delete
                             </DropdownMenuItem>
