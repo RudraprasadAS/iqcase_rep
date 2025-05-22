@@ -60,7 +60,7 @@ const StandardReports = () => {
       name: '',
       description: ''
     }
-  };
+  });
   
   // Effect to reset selected columns when tab changes
   useEffect(() => {
