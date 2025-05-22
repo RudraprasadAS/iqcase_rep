@@ -16,6 +16,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { UseFormReturn } from 'react-hook-form';
 import { TableInfo } from '@/types/reports';
+import { Switch } from '@/components/ui/switch';
 
 interface ReportSettingsProps {
   form: UseFormReturn<{
@@ -116,6 +117,27 @@ export const ReportSettings = ({
                   )}
                 </SelectContent>
               </Select>
+            </FormItem>
+          )}
+        />
+        
+        <FormField
+          control={form.control}
+          name="is_public"
+          render={({ field }) => (
+            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+              <div className="space-y-0.5">
+                <FormLabel>Public Report</FormLabel>
+                <p className="text-sm text-muted-foreground">
+                  Make this report accessible to all users
+                </p>
+              </div>
+              <FormControl>
+                <Switch
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                />
+              </FormControl>
             </FormItem>
           )}
         />

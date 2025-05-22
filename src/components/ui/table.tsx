@@ -76,8 +76,9 @@ const TableHead = React.forwardRef<
     sortable?: boolean;
     sorted?: boolean;
     direction?: 'asc' | 'desc';
+    table?: string; // Added property for displaying table name
   }
->(({ className, sortable, sorted, direction, ...props }, ref) => (
+>(({ className, sortable, sorted, direction, table, children, ...props }, ref) => (
   <th
     ref={ref}
     className={cn(
@@ -86,7 +87,23 @@ const TableHead = React.forwardRef<
       className
     )}
     {...props}
-  />
+  >
+    <div className="flex flex-col">
+      <div className="flex items-center">
+        {children}
+        {sorted && (
+          <span className="ml-2">
+            {direction === 'asc' ? '↑' : '↓'}
+          </span>
+        )}
+      </div>
+      {table && (
+        <span className="text-xs font-normal text-muted-foreground">
+          {table}
+        </span>
+      )}
+    </div>
+  </th>
 ))
 TableHead.displayName = "TableHead"
 

@@ -17,6 +17,7 @@ export interface Report {
   chart_type?: 'table' | 'bar' | 'line' | 'pie';
   group_by?: string;
   is_public: boolean;
+  joins?: TableJoin[];
 }
 
 export type FilterOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'like' | 'ilike' | 'in' | 'is';
@@ -31,10 +32,43 @@ export interface TableInfo {
   name: string;
   fields: string[];
   description?: string;
+  relations?: TableRelation[];
+}
+
+export interface TableRelation {
+  referencedTable: string;
+  sourceColumn: string;
+  targetColumn: string;
+}
+
+export interface TableJoin {
+  table: string;
+  alias?: string;
+  sourceColumn: string;
+  targetColumn: string;
+  joinType: 'inner' | 'left' | 'right';
 }
 
 export interface ReportData {
   columns: string[];
   rows: Record<string, any>[];
   total: number;
+}
+
+export interface ColumnDefinition {
+  key: string;
+  label: string;
+  table?: string;
+  sourceTable?: string;
+}
+
+export interface SavedView {
+  id: string;
+  name: string;
+  description?: string;
+  baseReport: string;
+  columns: string[];
+  filters: ReportFilter[];
+  created_by: string;
+  created_at?: string;
 }

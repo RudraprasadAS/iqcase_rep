@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Report, ReportFilter, TableInfo, ReportData } from '@/types/reports';
+import { Report, ReportFilter, TableInfo, ReportData, TableJoin } from '@/types/reports';
 import { useToast } from '@/hooks/use-toast';
 import { Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
@@ -10,8 +10,33 @@ import { useAuth } from '@/hooks/useAuth';
 export const useReports = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { user } = useAuth(); // Add the user from useAuth
+  const { user } = useAuth();
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
+
+  // Get table relationships
+  const { data: tableRelationships, isLoading: isLoadingRelationships } = useQuery({
+    queryKey: ['tableRelationships'],
+    queryFn: async () => {
+      try {
+        // This would typically be a function in your database to retrieve foreign key relationships
+        // For now, we'll define some common relationships manually
+        const relationships = [
+          { sourceTable: 'cases', sourceColumn: 'assigned_to', targetTable: 'users', targetColumn: 'id' },
+          { sourceTable: 'cases', sourceColumn: 'submitted_by', targetTable: 'users', targetColumn: 'id' },
+          { sourceTable: 'case_activities', sourceColumn: 'case_id', targetTable: 'cases', targetColumn: 'id' },
+          { sourceTable: 'case_activities', sourceColumn: 'performed_by', targetTable: 'users', targetColumn: 'id' },
+          { sourceTable: 'case_messages', sourceColumn: 'case_id', targetTable: 'cases', targetColumn: 'id' },
+          { sourceTable: 'case_messages', sourceColumn: 'sender_id', targetTable: 'users', targetColumn: 'id' },
+          { sourceTable: 'case_notes', sourceColumn: 'case_id', targetTable: 'cases', targetColumn: 'id' },
+          { sourceTable: 'case_notes', sourceColumn: 'author_id', targetTable: 'users', targetColumn: 'id' },
+        ];
+        return relationships;
+      } catch (error) {
+        console.error('Error fetching table relationships:', error);
+        throw error;
+      }
+    }
+  });
 
   // Fetch all reports
   const { data: reports, isLoading: isLoadingReports } = useQuery({
@@ -159,6 +184,96 @@ export const useReports = () => {
     }
   });
 
+  // Save a custom report view
+  const saveCustomView = useMutation({
+    mutationFn: async (view: {
+      name: string;
+      description?: string;
+      baseReportId: string;
+      columns: string[];
+      filters: ReportFilter[];
+    }) => {
+      try {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        
+        if (!authUser) {
+          throw new Error("Authentication required. Please sign in.");
+        }
+        
+        const { data, error } = await supabase
+          .from('report_configs')
+          .insert({
+            name: view.name,
+            description: view.description,
+            created_by: authUser.id,
+            target_module: 'report',
+            config: {
+              baseReportId: view.baseReportId,
+              columns: view.columns,
+              filters: view.filters
+            },
+            is_public: false
+          })
+          .select()
+          .single();
+          
+        if (error) {
+          throw error;
+        }
+        
+        return data;
+      } catch (error) {
+        console.error("Error saving custom view:", error);
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reportConfigs'] });
+      toast({
+        title: 'View saved',
+        description: 'Your custom view has been saved successfully'
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: `Failed to save custom view: ${error.message}`
+      });
+    }
+  });
+
+  // Get all saved report views
+  const { data: savedViews, isLoading: isLoadingSavedViews } = useQuery({
+    queryKey: ['reportConfigs'],
+    queryFn: async () => {
+      try {
+        const { data, error } = await supabase
+          .from('report_configs')
+          .select('*')
+          .eq('target_module', 'report')
+          .order('created_at', { ascending: false });
+          
+        if (error) throw error;
+        
+        return data.map((view) => ({
+          id: view.id,
+          name: view.name,
+          description: view.description,
+          baseReport: view.config.baseReportId,
+          columns: view.config.columns || [],
+          filters: view.config.filters || [],
+          created_by: view.created_by,
+          created_at: view.created_at
+        }));
+        
+      } catch (error) {
+        console.error('Error fetching saved views:', error);
+        throw error;
+      }
+    }
+  });
+
   // Get a single report
   const { data: selectedReport, isLoading: isLoadingReport } = useQuery({
     queryKey: ['reports', selectedReportId],
@@ -297,6 +412,33 @@ export const useReports = () => {
     }
   });
 
+  // Delete a saved view
+  const deleteSavedView = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('report_configs')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+      return id;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reportConfigs'] });
+      toast({
+        title: 'View deleted',
+        description: 'The custom view has been deleted successfully'
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: `Failed to delete view: ${error.message}`
+      });
+    }
+  });
+
   // Get available tables
   const { data: tables, isLoading: isLoadingTables } = useQuery({
     queryKey: ['tables'],
@@ -311,15 +453,173 @@ export const useReports = () => {
         }
         
         console.log("Tables info from Supabase:", data);
-        return data as TableInfo[];
+        
+        // Enhance table info with relationship data
+        return data.map((table: TableInfo) => {
+          if (tableRelationships) {
+            const relations = tableRelationships.filter(rel => rel.sourceTable === table.name);
+            if (relations.length > 0) {
+              return {
+                ...table,
+                relations: relations.map(rel => ({
+                  referencedTable: rel.targetTable,
+                  sourceColumn: rel.sourceColumn,
+                  targetColumn: rel.targetColumn
+                }))
+              };
+            }
+          }
+          return table;
+        }) as TableInfo[];
       } catch (error) {
         console.error('Error in fetchTables:', error);
+        throw error;
+      }
+    },
+    enabled: !isLoadingRelationships
+  });
+
+  // Function to get related tables for a given base table
+  const getRelatedTables = (baseTable: string) => {
+    if (!tableRelationships) return [];
+    
+    return tableRelationships
+      .filter(rel => rel.sourceTable === baseTable)
+      .map(rel => ({
+        name: rel.targetTable,
+        sourceColumn: rel.sourceColumn,
+        targetColumn: rel.targetColumn
+      }));
+  };
+
+  // Run a report with joined tables
+  const runReportWithJoins = useMutation({
+    mutationFn: async ({ 
+      baseTable, 
+      selectedColumns, 
+      filters, 
+      joins 
+    }: { 
+      baseTable: string; 
+      selectedColumns: string[]; 
+      filters: ReportFilter[]; 
+      joins?: TableJoin[] 
+    }) => {
+      try {
+        console.log(`Running report on table: ${baseTable} with joins:`, joins);
+        
+        // Start building the SQL query with selected columns
+        let columnsToSelect = selectedColumns.map(col => {
+          // Check if the column includes a table alias (e.g., 'users.name')
+          if (col.includes('.')) {
+            const [alias, field] = col.split('.');
+            return `${alias}.${field}`;
+          }
+          return `${baseTable}.${col}`;
+        }).join(', ');
+        
+        // If no columns were explicitly selected, select all from base table
+        if (!columnsToSelect) {
+          columnsToSelect = `${baseTable}.*`;
+        }
+        
+        let sqlQuery = `
+          SELECT ${columnsToSelect}
+          FROM ${baseTable}
+        `;
+        
+        // Add joins if specified
+        if (joins && joins.length > 0) {
+          joins.forEach(join => {
+            const joinType = join.joinType.toUpperCase();
+            const alias = join.alias || join.table;
+            
+            sqlQuery += `
+              ${joinType} JOIN ${join.table} AS ${alias}
+              ON ${baseTable}.${join.sourceColumn} = ${alias}.${join.targetColumn}
+            `;
+          });
+        }
+        
+        // Add WHERE clause for filters
+        if (filters && filters.length > 0) {
+          const whereConditions = filters.map(filter => {
+            const { field, operator, value } = filter;
+            
+            // Check if field includes a table prefix
+            const fullField = field.includes('.') ? field : `${baseTable}.${field}`;
+            
+            switch (operator) {
+              case 'eq':
+                return `${fullField} = '${value}'`;
+              case 'neq':
+                return `${fullField} <> '${value}'`;
+              case 'gt':
+                return `${fullField} > '${value}'`;
+              case 'gte':
+                return `${fullField} >= '${value}'`;
+              case 'lt':
+                return `${fullField} < '${value}'`;
+              case 'lte':
+                return `${fullField} <= '${value}'`;
+              case 'like':
+                return `${fullField} LIKE '%${value}%'`;
+              case 'ilike':
+                return `${fullField} ILIKE '%${value}%'`;
+              case 'is':
+                if (value === null || value === 'null') {
+                  return `${fullField} IS NULL`;
+                } else if (value === true || value === 'true') {
+                  return `${fullField} IS TRUE`;
+                } else {
+                  return `${fullField} IS FALSE`;
+                }
+              default:
+                return '';
+            }
+          }).filter(condition => condition !== '');
+          
+          if (whereConditions.length > 0) {
+            sqlQuery += `
+              WHERE ${whereConditions.join(' AND ')}
+            `;
+          }
+        }
+        
+        sqlQuery += `
+          LIMIT 1000
+        `;
+        
+        console.log("Executing SQL:", sqlQuery);
+        
+        // Execute the SQL query via RPC
+        const { data, error } = await supabase.rpc('execute_query', { query_text: sqlQuery });
+        
+        if (error) {
+          console.error("Error running SQL query:", error);
+          throw error;
+        }
+        
+        console.log("Query results:", data);
+        
+        // Extract column names from the first result
+        const columns = data && data.length > 0 
+          ? Object.keys(data[0])
+          : selectedColumns;
+        
+        return {
+          columns,
+          rows: data || [],
+          total: data?.length || 0
+        } as ReportData;
+      } catch (error) {
+        console.error("Error in runReportWithJoins:", error);
         throw error;
       }
     }
   });
 
-  // Run a report - Fix for the infinite type error
+  // Run a report - Fixed for the infinite type error
   const runReport = useMutation({
     mutationFn: async (reportId: string) => {
       try {
@@ -420,14 +720,20 @@ export const useReports = () => {
   return {
     reports,
     selectedReport,
+    savedViews,
     tables,
     isLoadingReports,
     isLoadingReport,
     isLoadingTables,
+    isLoadingSavedViews,
     setSelectedReportId,
     createReport,
     updateReport,
     deleteReport,
-    runReport
+    saveCustomView,
+    deleteSavedView,
+    runReport,
+    runReportWithJoins,
+    getRelatedTables
   };
 };
