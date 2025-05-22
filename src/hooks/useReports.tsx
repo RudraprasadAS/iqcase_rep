@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -682,7 +681,8 @@ export const useReports = () => {
         console.log(`Running report on table: ${baseTableName} with fields:`, selectedFields);
         
         // Use a type assertion to handle dynamic table names
-        const query = (supabase.from(baseTableName) as any)
+        // This addresses the TypeScript error by asserting the type
+        const query = (supabase.from(baseTableName as any) as any)
           .select(selectedFields.join(','));
         
         // Parse filters if they're stored as string
