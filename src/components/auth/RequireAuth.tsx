@@ -1,9 +1,18 @@
 
-import { Outlet } from "react-router-dom";
+import { useEffect } from "react";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 
-// Modified to bypass authentication checks for now
 const RequireAuth = () => {
-  // Always allow access to protected routes
+  const { isAuthenticated, user } = useAuth();
+  const location = useLocation();
+
+  // Redirect to login if not authenticated
+  if (!isAuthenticated) {
+    // Redirect to the login page with a return url
+    return <Navigate to="/auth/login" state={{ from: location }} replace />;
+  }
+
   return <Outlet />;
 };
 

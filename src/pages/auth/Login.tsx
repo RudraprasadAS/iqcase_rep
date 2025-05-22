@@ -8,14 +8,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CardFooter, CardHeader, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Loader2 } from "lucide-react";
 
 const formSchema = z.object({
   email: z.string().email({
     message: "Please enter a valid email address.",
   }),
-  password: z.string().min(8, {
-    message: "Password must be at least 8 characters.",
+  password: z.string().min(6, {
+    message: "Password must be at least 6 characters.",
   }),
 });
 
@@ -25,7 +27,9 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
+  const { login } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [loginError, setLoginError] = useState("");
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -37,13 +41,19 @@ const Login = () => {
 
   const onSubmit = async (data: FormValues) => {
     setIsLoading(true);
+    setLoginError("");
     
     try {
-      // Mock login - will be replaced with Supabase auth later
-      setTimeout(() => {
-        // Store authentication state in localStorage (temporary until Supabase integration)
-        localStorage.setItem("isAuthenticated", "true");
-        
+      const { error } = await login(data.email, data.password);
+      
+      if (error) {
+        setLoginError(error.message);
+        toast({
+          title: "Login failed",
+          description: error.message || "Please check your credentials and try again.",
+          variant: "destructive",
+        });
+      } else {
         toast({
           title: "Login successful",
           description: "Welcome to Case Management System.",
@@ -52,15 +62,14 @@ const Login = () => {
         // Redirect to the protected route the user was trying to access, or dashboard as default
         const from = location.state?.from?.pathname || "/dashboard";
         navigate(from, { replace: true });
-        
-        setIsLoading(false);
-      }, 1500);
-    } catch (error) {
+      }
+    } catch (error: any) {
       toast({
         title: "Login failed",
-        description: "Please check your credentials and try again.",
+        description: error.message || "Please check your credentials and try again.",
         variant: "destructive",
       });
+    } finally {
       setIsLoading(false);
     }
   };
@@ -76,6 +85,11 @@ const Login = () => {
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            {loginError && (
+              <div className="p-3 bg-red-50 border border-red-200 text-red-800 rounded-md text-sm">
+                {loginError}
+              </div>
+            )}
             <FormField
               control={form.control}
               name="email"
@@ -115,7 +129,12 @@ const Login = () => {
               className="w-full bg-caseMgmt-primary hover:bg-caseMgmt-primary/90"
               disabled={isLoading}
             >
-              {isLoading ? "Logging in..." : "Login"}
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Logging in...
+                </>
+              ) : "Login"}
             </Button>
           </form>
         </Form>

@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Menu, Bell, Search, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 
 interface NavbarProps {
   toggleSidebar: () => void;
@@ -11,15 +12,23 @@ interface NavbarProps {
 const Navbar = ({ toggleSidebar }: NavbarProps) => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { logout, user } = useAuth();
 
   const handleLogout = async () => {
-    // Will implement with Supabase later
-    localStorage.removeItem("isAuthenticated");
-    toast({
-      title: "Logged out successfully",
-      description: "You have been logged out of the system.",
-    });
-    navigate("/auth/login");
+    try {
+      await logout();
+      toast({
+        title: "Logged out successfully",
+        description: "You have been logged out of the system.",
+      });
+      navigate("/auth/login");
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "There was an error logging out. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -55,7 +64,9 @@ const Navbar = ({ toggleSidebar }: NavbarProps) => {
             onClick={handleLogout}
           >
             <User className="h-5 w-5" />
-            <span className="hidden md:inline-block">Logout</span>
+            <span className="hidden md:inline-block">
+              {user ? `Logout (${user.email})` : 'Login'}
+            </span>
           </Button>
         </div>
       </div>
