@@ -10,6 +10,9 @@ AS $$
 DECLARE
   result JSONB;
 BEGIN
+  -- Log the query for debugging purposes
+  RAISE NOTICE 'Executing query: %', query_text;
+  
   -- Execute the query and convert results to JSON
   EXECUTE 'SELECT to_jsonb(array_agg(row_to_json(t))) FROM (' || query_text || ') t' INTO result;
   

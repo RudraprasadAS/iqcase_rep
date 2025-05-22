@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useNavigate } from 'react-router-dom';
@@ -61,7 +60,7 @@ const StandardReports = () => {
       name: '',
       description: ''
     }
-  });
+  };
   
   // Effect to reset selected columns when tab changes
   useEffect(() => {
@@ -95,54 +94,62 @@ const StandardReports = () => {
   }, [activeTab, tables]);
   
   const loadRelatedTables = async (tableName: string) => {
+    console.log("Loading related tables for:", tableName);
     const related = getRelatedTables(tableName);
+    console.log("Found related tables:", related);
     
     if (!related.length || !tables) {
       setRelatedTables([]);
       return;
     }
     
-    // For each related table, get its fields
-    const relatedTablesData = await Promise.all(related.map(async (rel) => {
-      const tableInfo = tables.find(t => t.name === rel.name);
-      if (tableInfo && tableInfo.fields) {
-        const columns: ColumnDefinition[] = tableInfo.fields.map(field => ({
-          key: `${rel.name}.${field}`,
-          label: formatFieldName(field),
-          table: rel.name
+    try {
+      // For each related table, get its fields
+      const relatedTablesData = await Promise.all(related.map(async (rel) => {
+        const tableInfo = tables.find(t => t.name === rel.name);
+        if (tableInfo && tableInfo.fields) {
+          const columns: ColumnDefinition[] = tableInfo.fields.map(field => ({
+            key: `${rel.name}.${field}`,
+            label: formatFieldName(field),
+            table: rel.name
+          }));
+          
+          return {
+            name: rel.name,
+            columns,
+            sourceColumn: rel.sourceColumn,
+            targetColumn: rel.targetColumn
+          };
+        }
+        return null;
+      }));
+      
+      const filteredRelatedTables = relatedTablesData
+        .filter(Boolean)
+        .map(table => ({
+          name: table!.name,
+          columns: table!.columns,
         }));
-        
-        return {
-          name: rel.name,
-          columns,
-          sourceColumn: rel.sourceColumn,
-          targetColumn: rel.targetColumn
-        };
-      }
-      return null;
-    }));
-    
-    const filteredRelatedTables = relatedTablesData
-      .filter(Boolean)
-      .map(table => ({
-        name: table!.name,
-        columns: table!.columns,
-      }));
-    
-    setRelatedTables(filteredRelatedTables);
-    
-    // Create default joins for related tables but make sure we have unique aliases
-    const defaultJoins: TableJoin[] = relatedTablesData
-      .filter(Boolean)
-      .map((rel, index) => ({
-        table: rel!.name,
-        alias: `${rel!.name}_${index}`, // Add index to ensure unique aliases
-        sourceColumn: rel!.sourceColumn,
-        targetColumn: rel!.targetColumn,
-        joinType: 'left'
-      }));
-    
-    setJoins(defaultJoins);
+      
+      console.log("Processed related tables:", filteredRelatedTables);
+      setRelatedTables(filteredRelatedTables);
+      
+      // Create default joins for related tables
+      const defaultJoins: TableJoin[] = relatedTablesData
+        .filter(Boolean)
+        .map((rel) => ({
+          table: rel!.name,
+          alias: rel!.name, // Using table name as alias for simplicity
+          sourceColumn: rel!.sourceColumn,
+          targetColumn: rel!.targetColumn,
+          joinType: 'left'
+        }));
+      
+      console.log("Setting default joins:", defaultJoins);
+      setJoins(defaultJoins);
+    } catch (error) {
+      console.error("Error loading related tables:", error);
+    }
   };
   
   const formatFieldName = (fieldName: string): string => {
@@ -157,8 +164,12 @@ const StandardReports = () => {
     queryFn: async () => {
       try {
         console.log('Fetching data with joins:', joins.length > 0);
+        console.log('Selected columns:', selectedColumns);
         
-        if (joins.length > 0 && selectedColumns.length > 0) {
+        // Only use joins if we have selected at least one column from a related table
+        const hasRelatedTableColumns = selectedColumns.some(col => col.includes('.'));
+        
+        if (joins.length > 0 && hasRelatedTableColumns) {
           console.log('Using runReportWithJoins with joins:', joins);
           // Use the enhanced run report with joins function
           const result = await runReportWithJoins.mutateAsync({
@@ -176,12 +187,14 @@ const StandardReports = () => {
           console.log('Selected columns:', selectedColumns);
           
           // Make sure we have columns to select
-          const columnsToSelect = selectedColumns.length > 0 
-            ? selectedColumns.join(',') 
+          const columnsToSelect = selectedColumns.filter(col => !col.includes('.')).length > 0 
+            ? selectedColumns.filter(col => !col.includes('.')).join(',') 
             : '*';
           
+          console.log('Columns to select:', columnsToSelect);
+          
           // Use the any type to avoid TypeScript errors with dynamic tables
-          const query = (supabase.from(activeTab as any) as any).select(columnsToSelect);
+          const query = supabase.from(activeTab as any).select(columnsToSelect);
           
           // Add search filter if provided
           if (search) {

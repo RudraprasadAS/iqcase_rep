@@ -69,6 +69,7 @@ export const ColumnSelector = ({
       
       // Keep existing selections and add the new ones
       const existingOtherColumns = selectedColumns.filter(col => {
+        if (!col.includes('.')) return true;
         const tablePrefix = col.split('.')[0];
         return tablePrefix !== tabName;
       });
@@ -88,6 +89,7 @@ export const ColumnSelector = ({
     } else {
       // Deselect all columns from the specific related table
       onColumnChange(selectedColumns.filter(col => {
+        if (!col.includes('.')) return true;
         const tablePrefix = col.split('.')[0];
         return tablePrefix !== tabName;
       }));
@@ -108,9 +110,16 @@ export const ColumnSelector = ({
     if (tabName === 'main') {
       return selectedColumns.filter(col => !col.includes('.')).length;
     } else {
-      return selectedColumns.filter(col => col.startsWith(`${tabName}.`)).length;
+      return selectedColumns.filter(col => {
+        if (!col.includes('.')) return false;
+        const tablePrefix = col.split('.')[0];
+        return tablePrefix === tabName;
+      }).length;
     }
   };
+  
+  // Check if we have any related tables
+  const hasRelatedTables = relatedTables && relatedTables.length > 0;
   
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -143,7 +152,7 @@ export const ColumnSelector = ({
         </div>
         
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="w-full grid grid-cols-auto-fit-100 sticky top-0 bg-background z-10">
+          <TabsList className="w-full grid gap-1 p-1 overflow-x-auto max-w-full">
             <TabsTrigger value="main" className="text-xs flex justify-between items-center">
               <span>Main Table</span>
               {getSelectedCount('main') > 0 && (
@@ -153,7 +162,7 @@ export const ColumnSelector = ({
               )}
             </TabsTrigger>
             
-            {relatedTables.map(group => (
+            {hasRelatedTables && relatedTables.map(group => (
               <TabsTrigger 
                 key={`tab-${group.name}`}
                 value={group.name} 
@@ -204,7 +213,7 @@ export const ColumnSelector = ({
             </ScrollArea>
           </TabsContent>
           
-          {relatedTables.map(group => (
+          {hasRelatedTables && relatedTables.map(group => (
             <TabsContent key={`content-${group.name}`} value={group.name} className="mt-0">
               <div className="p-2 flex justify-between items-center border-b">
                 <span className="text-xs text-muted-foreground">
@@ -234,7 +243,7 @@ export const ColumnSelector = ({
                       >
                         {column.label || column.key.split('.')[1]}
                         <span className="text-xs text-muted-foreground ml-1">
-                          ({column.table || group.name})
+                          ({group.name})
                         </span>
                       </label>
                     </div>
@@ -243,6 +252,12 @@ export const ColumnSelector = ({
               </ScrollArea>
             </TabsContent>
           ))}
+          
+          {!hasRelatedTables && (
+            <div className="p-4 text-center text-sm text-muted-foreground">
+              No related tables available for this table.
+            </div>
+          )}
         </Tabs>
       </PopoverContent>
     </Popover>

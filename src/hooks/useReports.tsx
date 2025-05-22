@@ -521,13 +521,38 @@ export const useReports = () => {
   const getRelatedTables = (baseTable: string) => {
     if (!tableRelationships) return [];
     
-    return tableRelationships
+    // Find all relationships where this table is the source
+    const relatedTablesFromSource = tableRelationships
       .filter(rel => rel.sourceTable === baseTable)
       .map(rel => ({
         name: rel.targetTable,
         sourceColumn: rel.sourceColumn,
-        targetColumn: rel.targetColumn
+        targetColumn: rel.targetColumn,
+        direction: 'outgoing' as const
       }));
+    
+    // Find all relationships where this table is the target
+    const relatedTablesFromTarget = tableRelationships
+      .filter(rel => rel.targetTable === baseTable)
+      .map(rel => ({
+        name: rel.sourceTable,
+        sourceColumn: rel.targetColumn, // Reverse the direction
+        targetColumn: rel.sourceColumn, // Reverse the direction
+        direction: 'incoming' as const
+      }));
+    
+    // Combine both directions and ensure uniqueness by table name
+    const allRelated = [...relatedTablesFromSource, ...relatedTablesFromTarget];
+    
+    // Use a Map to deduplicate by table name
+    const uniqueRelated = new Map();
+    allRelated.forEach(rel => {
+      if (!uniqueRelated.has(rel.name)) {
+        uniqueRelated.set(rel.name, rel);
+      }
+    });
+    
+    return Array.from(uniqueRelated.values());
   };
 
   // Run a report with joined tables
@@ -545,19 +570,19 @@ export const useReports = () => {
     }) => {
       try {
         console.log(`Running report on table: ${baseTable} with joins:`, joins);
+        console.log(`Selected columns:`, selectedColumns);
         
         // Start building the SQL query with selected columns
-        let columnsToSelect = selectedColumns.map(col => {
-          // Check if the column includes a table alias (e.g., 'users.name')
-          if (col.includes('.')) {
-            const [alias, field] = col.split('.');
-            return `${alias}.${field}`;
-          }
-          return `${baseTable}.${col}`;
-        }).join(', ');
-        
-        // If no columns were explicitly selected, select all from base table
-        if (!columnsToSelect) {
+        let columnsToSelect;
+        if (selectedColumns && selectedColumns.length > 0) {
+          columnsToSelect = selectedColumns.map(col => {
+            // Check if the column includes a table alias (e.g., 'users.name')
+            if (col.includes('.')) {
+              return col; // Already fully qualified
+            }
+            return `${baseTable}.${col}`;
+          }).join(', ');
+        } else {
           columnsToSelect = `${baseTable}.*`;
         }
         
@@ -568,15 +593,23 @@ export const useReports = () => {
         
         // Add joins if specified, ensure unique aliases
         if (joins && joins.length > 0) {
+          const processedJoins = new Map(); // To track tables we've already joined
+          
           joins.forEach(join => {
+            // Skip if we've already joined this table (prevents duplicates)
+            if (processedJoins.has(join.table)) return;
+            
             const joinType = join.joinType.toUpperCase();
-            // Use the provided alias or generate a unique one
-            const alias = join.alias || `${join.table}_${Math.random().toString(36).substring(2, 7)}`;
+            // Use the provided alias or the table name if no alias provided
+            const alias = join.alias || join.table;
             
             sqlQuery += `
               ${joinType} JOIN ${join.table} AS ${alias}
               ON ${baseTable}.${join.sourceColumn} = ${alias}.${join.targetColumn}
             `;
+            
+            // Mark this table as processed
+            processedJoins.set(join.table, true);
           });
         }
         
@@ -631,8 +664,8 @@ export const useReports = () => {
         
         console.log("Executing SQL:", sqlQuery);
         
-        // Use type assertion to access the execute_query function
-        const { data, error } = await (supabase.rpc as any)('execute_query', { 
+        // Use execute_query function to run the query
+        const { data, error } = await supabase.rpc('execute_query', { 
           query_text: sqlQuery 
         });
         
