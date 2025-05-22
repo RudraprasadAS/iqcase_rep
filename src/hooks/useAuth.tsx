@@ -120,7 +120,8 @@ export const useAuth = () => {
 
   // Super admin login function - bypasses standard auth
   const superAdminLogin = () => {
-    const fakeUser = {
+    // Create a properly typed User object
+    const fakeUser: User = {
       id: 'super-admin-id',
       email: 'superadmin@example.com',
       app_metadata: {
@@ -128,14 +129,31 @@ export const useAuth = () => {
       },
       user_metadata: {
         name: 'Super Admin'
-      }
-    } as User;
+      },
+      aud: 'authenticated',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      confirmed_at: new Date().toISOString(),
+      last_sign_in_at: new Date().toISOString(),
+      role: '',
+      factors: null,
+      aal: null,
+      amr: [],
+      identities: [],
+      phone: '',
+    };
 
-    const fakeSession = {
-      user: fakeUser,
+    // Create a properly typed Session object
+    const fakeSession: Session = {
       access_token: 'fake-super-admin-token',
-      refresh_token: 'fake-super-admin-refresh'
-    } as Session;
+      refresh_token: 'fake-super-admin-refresh-token',
+      expires_in: 3600,
+      expires_at: Math.floor(Date.now() / 1000) + 3600,
+      token_type: 'bearer',
+      user: fakeUser,
+      provider_token: null,
+      provider_refresh_token: null
+    };
 
     // Set the user and session state
     setUser(fakeUser);
