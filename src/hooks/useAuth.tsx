@@ -60,29 +60,6 @@ export const useAuth = () => {
   const login = async (email: string, password: string) => {
     try {
       console.log('Attempting login with:', email);
-      
-      // Check if admin user exists, if not create it first (only for admin@example.com)
-      if (email === 'admin@example.com') {
-        const { data: userExists } = await supabase.auth.admin.getUserByEmail(email).catch(() => ({ data: null }));
-        
-        if (!userExists) {
-          console.log('Admin user does not exist, creating...');
-          await supabase.auth.signUp({
-            email,
-            password
-          });
-          
-          // Force confirm the email for admin user
-          try {
-            // Note: This would normally require admin privileges in Supabase
-            // For development purposes only
-            console.log('Created admin user');
-          } catch (err) {
-            console.log('Could not auto-confirm admin, will need to be done in Supabase dashboard');
-          }
-        }
-      }
-      
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
@@ -115,11 +92,6 @@ export const useAuth = () => {
       }
       
       console.log('Registration successful:', data);
-      toast({
-        title: "Registration successful",
-        description: "Check your email to confirm your account or login directly.",
-      });
-      
       return { user: data.user, error: null };
     } catch (error) {
       console.error('Registration exception:', error);

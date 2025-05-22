@@ -4,7 +4,6 @@ import { Menu, Bell, Search, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { Badge } from "@/components/ui/badge";
 
 interface NavbarProps {
   toggleSidebar: () => void;
@@ -13,7 +12,7 @@ interface NavbarProps {
 const Navbar = ({ toggleSidebar }: NavbarProps) => {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { logout, user, isAuthenticated } = useAuth();
+  const { logout, user } = useAuth();
 
   const handleLogout = async () => {
     try {
@@ -30,10 +29,6 @@ const Navbar = ({ toggleSidebar }: NavbarProps) => {
         variant: "destructive",
       });
     }
-  };
-
-  const handleLogin = () => {
-    navigate("/auth/login");
   };
 
   return (
@@ -63,30 +58,16 @@ const Navbar = ({ toggleSidebar }: NavbarProps) => {
           <Bell className="h-5 w-5" />
         </Button>
         <div className="flex items-center space-x-2">
-          {isAuthenticated ? (
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="bg-green-50 text-green-800">
-                {user?.email?.split('@')[0] || 'User'}
-              </Badge>
-              <Button
-                variant="ghost"
-                className="flex items-center space-x-2"
-                onClick={handleLogout}
-              >
-                <User className="h-5 w-5" />
-                <span className="hidden md:inline-block">Logout</span>
-              </Button>
-            </div>
-          ) : (
-            <Button
-              variant="ghost"
-              className="flex items-center space-x-2"
-              onClick={handleLogin}
-            >
-              <User className="h-5 w-5" />
-              <span className="hidden md:inline-block">Login</span>
-            </Button>
-          )}
+          <Button
+            variant="ghost"
+            className="flex items-center space-x-2"
+            onClick={handleLogout}
+          >
+            <User className="h-5 w-5" />
+            <span className="hidden md:inline-block">
+              {user ? `Logout (${user.email})` : 'Login'}
+            </span>
+          </Button>
         </div>
       </div>
     </header>
