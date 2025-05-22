@@ -2,10 +2,9 @@
 import { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Separator } from '@/components/ui/separator';
 import { Download, Filter, Search, SortAsc, SortDesc, Users, FileText, Calendar, MessageSquare, Activity, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
@@ -16,7 +15,6 @@ import {
 } from "@/components/ui/tabs";
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Database } from '@/integrations/supabase/types';
 import {
   Dialog,
   DialogContent,
@@ -26,19 +24,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { FilterBuilder } from '@/components/reports/FilterBuilder';
 import { ReportFilter } from '@/types/reports';
-import { Form, FormField, FormItem, FormLabel, FormControl } from '@/components/ui/form';
-import { useForm } from 'react-hook-form';
+import { PostgrestFilterBuilder } from '@supabase/supabase-js';
 
 // Define allowed table names as a type for type safety
 type AllowedTableName = 'cases' | 'users' | 'case_activities' | 'case_messages';
@@ -83,33 +71,40 @@ const StandardReports = () => {
           filters.forEach((filter) => {
             const { field, operator, value } = filter;
             
+            // Type cast the selectQuery to ensure TypeScript doesn't lose track of its methods
+            let typedQuery = selectQuery as PostgrestFilterBuilder<any, any, any>;
+            
             switch (operator) {
               case 'eq':
-                selectQuery = selectQuery.eq(field, value);
+                selectQuery = typedQuery.eq(field, value);
                 break;
               case 'neq':
-                selectQuery = selectQuery.neq(field, value);
+                selectQuery = typedQuery.neq(field, value);
                 break;
               case 'gt':
-                selectQuery = selectQuery.gt(field, value);
+                selectQuery = typedQuery.gt(field, value);
                 break;
               case 'gte':
-                selectQuery = selectQuery.gte(field, value);
+                selectQuery = typedQuery.gte(field, value);
                 break;
               case 'lt':
-                selectQuery = selectQuery.lt(field, value);
+                selectQuery = typedQuery.lt(field, value);
                 break;
               case 'lte':
-                selectQuery = selectQuery.lte(field, value);
+                selectQuery = typedQuery.lte(field, value);
                 break;
               case 'like':
-                selectQuery = selectQuery.like(field, `%${value}%`);
+                selectQuery = typedQuery.like(field, `%${value}%`);
                 break;
               case 'ilike':
-                selectQuery = selectQuery.ilike(field, `%${value}%`);
+                selectQuery = typedQuery.ilike(field, `%${value}%`);
                 break;
               case 'is':
-                selectQuery = selectQuery.is(field, value);
+                // Handle 'is' operator specifically as it expects boolean values
+                const boolValue = value === 'true' ? true : 
+                                 value === 'false' ? false : 
+                                 value === 'null' ? null : value;
+                selectQuery = typedQuery.is(field, boolValue);
                 break;
               default:
                 break;
@@ -117,19 +112,16 @@ const StandardReports = () => {
           });
         }
         
-        // Add sorting - make sure to use selectQuery for chaining
-        selectQuery = selectQuery.order(sortField, { ascending: sortDirection === 'asc' });
+        // Add sorting - use the casted query for type safety
+        const result = await selectQuery.order(sortField, { ascending: sortDirection === 'asc' }).limit(50);
         
-        // Limit to 50 rows for performance
-        const { data, error } = await selectQuery.limit(50);
-        
-        if (error) {
-          console.error('Error fetching data:', error);
-          throw error;
+        if (result.error) {
+          console.error('Error fetching data:', result.error);
+          throw result.error;
         }
         
-        console.log('Data fetched successfully:', data);
-        return data || [];
+        console.log('Data fetched successfully:', result.data);
+        return result.data || [];
       } catch (err) {
         console.error('Error in query function:', err);
         throw err;
@@ -260,6 +252,37 @@ const StandardReports = () => {
       { label: 'Pinned', key: 'is_pinned' },
       { label: 'Created', key: 'created_at' }
     ]
+  };
+  
+  const addFilter = () => {
+    const newFilter: ReportFilter = {
+      field: getFieldNames()[0] || '',
+      operator: 'eq',
+      value: ''
+    };
+    setFilters([...filters, newFilter]);
+  };
+  
+  const removeFilter = (index: number) => {
+    const updatedFilters = [...filters];
+    updatedFilters.splice(index, 1);
+    setFilters(updatedFilters);
+  };
+  
+  const updateFilter = (index: number, key: keyof ReportFilter, value: any) => {
+    const updatedFilters = [...filters];
+    updatedFilters[index] = { ...updatedFilters[index], [key]: value };
+    setFilters(updatedFilters);
+  };
+  
+  const clearFilters = () => {
+    setFilters([]);
+    setFilterDialogOpen(false);
+  };
+  
+  const applyFilters = () => {
+    // Close dialog and let the query re-run
+    setFilterDialogOpen(false);
   };
   
   return (
