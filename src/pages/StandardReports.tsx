@@ -26,7 +26,6 @@ import {
 } from "@/components/ui/dialog";
 import { FilterBuilder } from '@/components/reports/FilterBuilder';
 import { ReportFilter } from '@/types/reports';
-import { PostgrestFilterBuilder } from '@supabase/supabase-js';
 
 // Define allowed table names as a type for type safety
 type AllowedTableName = 'cases' | 'users' | 'case_activities' | 'case_messages';
@@ -71,8 +70,8 @@ const StandardReports = () => {
           filters.forEach((filter) => {
             const { field, operator, value } = filter;
             
-            // Type cast the selectQuery to ensure TypeScript doesn't lose track of its methods
-            let typedQuery = selectQuery as PostgrestFilterBuilder<any, any, any>;
+            // Use any type to avoid TypeScript errors with dynamic method calls
+            const typedQuery = selectQuery as any;
             
             switch (operator) {
               case 'eq':
@@ -252,37 +251,6 @@ const StandardReports = () => {
       { label: 'Pinned', key: 'is_pinned' },
       { label: 'Created', key: 'created_at' }
     ]
-  };
-  
-  const addFilter = () => {
-    const newFilter: ReportFilter = {
-      field: getFieldNames()[0] || '',
-      operator: 'eq',
-      value: ''
-    };
-    setFilters([...filters, newFilter]);
-  };
-  
-  const removeFilter = (index: number) => {
-    const updatedFilters = [...filters];
-    updatedFilters.splice(index, 1);
-    setFilters(updatedFilters);
-  };
-  
-  const updateFilter = (index: number, key: keyof ReportFilter, value: any) => {
-    const updatedFilters = [...filters];
-    updatedFilters[index] = { ...updatedFilters[index], [key]: value };
-    setFilters(updatedFilters);
-  };
-  
-  const clearFilters = () => {
-    setFilters([]);
-    setFilterDialogOpen(false);
-  };
-  
-  const applyFilters = () => {
-    // Close dialog and let the query re-run
-    setFilterDialogOpen(false);
   };
   
   return (
