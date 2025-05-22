@@ -983,6 +983,10 @@ export type Database = {
         Args: { role_name: string; role_description: string }
         Returns: string
       }
+      execute_query: {
+        Args: { query_text: string }
+        Returns: Json
+      }
       get_tables_info: {
         Args: Record<PropertyKey, never>
         Returns: {

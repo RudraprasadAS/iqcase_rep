@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -193,7 +192,7 @@ export const useReports = () => {
     }
   });
 
-  // Save a custom report view
+  // Save a custom report view - Fix the type issue with configJson
   const saveCustomView = useMutation({
     mutationFn: async (view: {
       name: string;
@@ -209,15 +208,18 @@ export const useReports = () => {
           throw new Error("Authentication required. Please sign in.");
         }
         
-        // Convert ReportFilter to format compatible with Json type
-        const configJson: ReportConfigJson = {
+        // Convert ReportFilter to ReportFilterJson for JSON compatibility
+        const filtersJson: ReportFilterJson[] = view.filters.map(filter => ({
+          field: filter.field,
+          operator: filter.operator,
+          value: filter.value
+        }));
+        
+        // Create the correct config object
+        const configJson = {
           baseReportId: view.baseReportId,
           columns: view.columns,
-          filters: view.filters.map(filter => ({
-            field: filter.field,
-            operator: filter.operator,
-            value: filter.value
-          }))
+          filters: filtersJson
         };
         
         const { data, error } = await supabase
@@ -259,7 +261,7 @@ export const useReports = () => {
     }
   });
 
-  // Get all saved report views
+  // Get all saved report views - Fix the typing issue when parsing JSON from DB
   const { data: savedViews, isLoading: isLoadingSavedViews } = useQuery({
     queryKey: ['reportConfigs'],
     queryFn: async () => {
@@ -273,18 +275,30 @@ export const useReports = () => {
         if (error) throw error;
         
         return data.map((view) => {
-          const config = view.config as unknown as ReportConfigJson;
+          // Handle possible string serialization in the database
+          const configData = typeof view.config === 'string' 
+            ? JSON.parse(view.config) 
+            : view.config;
+          
+          // Safely access properties with type checking
+          const baseReport = configData?.baseReportId || '';
+          const columns = Array.isArray(configData?.columns) ? configData.columns : [];
+          const filtersData = Array.isArray(configData?.filters) ? configData.filters : [];
+          
+          // Convert filter data to proper ReportFilter objects
+          const filters = filtersData.map((f: any) => ({
+            field: f.field || '',
+            operator: (f.operator as FilterOperator) || 'eq',
+            value: f.value
+          }));
+          
           return {
             id: view.id,
             name: view.name,
             description: view.description,
-            baseReport: config.baseReportId,
-            columns: config.columns || [],
-            filters: (config.filters || []).map(f => ({
-              field: f.field,
-              operator: f.operator as FilterOperator,
-              value: f.value
-            })),
+            baseReport,
+            columns,
+            filters,
             created_by: view.created_by,
             created_at: view.created_at
           };
@@ -515,7 +529,7 @@ export const useReports = () => {
       }));
   };
 
-  // Run a report with joined tables
+  // Run a report with joined tables - Fix the execute_query function call
   const runReportWithJoins = useMutation({
     mutationFn: async ({ 
       baseTable, 
