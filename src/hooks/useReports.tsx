@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -75,7 +76,7 @@ export const useReports = () => {
           const processedFilters = Array.isArray(parsedFilters) 
             ? parsedFilters.map((filter: any) => ({
                 field: filter.field,
-                operator: filter.operator as any,
+                operator: filter.operator as FilterOperator,
                 value: filter.value
               }))
             : [];
@@ -151,7 +152,7 @@ export const useReports = () => {
         const processedFilters = Array.isArray(parsedFilters) 
           ? parsedFilters.map((filter: any) => ({
               field: filter.field,
-              operator: filter.operator as any,
+              operator: filter.operator as FilterOperator,
               value: filter.value
             }))
           : [];
@@ -166,7 +167,7 @@ export const useReports = () => {
           filters: Array.isArray(data.filters) 
             ? data.filters.map((filter: any) => ({
                 field: filter.field,
-                operator: filter.operator as any,
+                operator: filter.operator as FilterOperator,
                 value: filter.value
               }))
             : []
@@ -192,7 +193,7 @@ export const useReports = () => {
     }
   });
 
-  // Save a custom report view - Fix the type issue with configJson
+  // Save a custom report view
   const saveCustomView = useMutation({
     mutationFn: async (view: {
       name: string;
@@ -216,7 +217,7 @@ export const useReports = () => {
         }));
         
         // Create the correct config object
-        const configJson = {
+        const configJson: ReportConfigJson = {
           baseReportId: view.baseReportId,
           columns: view.columns,
           filters: filtersJson
@@ -261,7 +262,7 @@ export const useReports = () => {
     }
   });
 
-  // Get all saved report views - Fix the typing issue when parsing JSON from DB
+  // Get all saved report views
   const { data: savedViews, isLoading: isLoadingSavedViews } = useQuery({
     queryKey: ['reportConfigs'],
     queryFn: async () => {
@@ -334,7 +335,7 @@ export const useReports = () => {
       const processedFilters = Array.isArray(parsedFilters) 
         ? parsedFilters.map((filter: any) => ({
             field: filter.field,
-            operator: filter.operator,
+            operator: filter.operator as FilterOperator,
             value: filter.value
           })) as ReportFilter[]
         : [];
@@ -387,7 +388,7 @@ export const useReports = () => {
       const processedFilters = Array.isArray(parsedFilters) 
         ? parsedFilters.map((filter: any) => ({
             field: filter.field,
-            operator: filter.operator,
+            operator: filter.operator as FilterOperator,
             value: filter.value
           })) as ReportFilter[]
         : [];
@@ -529,7 +530,7 @@ export const useReports = () => {
       }));
   };
 
-  // Run a report with joined tables - Fix the execute_query function call
+  // Run a report with joined tables
   const runReportWithJoins = useMutation({
     mutationFn: async ({ 
       baseTable, 
@@ -629,8 +630,7 @@ export const useReports = () => {
         
         console.log("Executing SQL:", sqlQuery);
         
-        // Execute the SQL query via RPC
-        // Using type assertion to bypass TypeScript's limitation
+        // Use type assertion to access the execute_query function
         const { data, error } = await (supabase.rpc as any)('execute_query', { 
           query_text: sqlQuery 
         });
@@ -659,7 +659,7 @@ export const useReports = () => {
     }
   });
 
-  // Run a report - Fixed for the infinite type error
+  // Run a report
   const runReport = useMutation({
     mutationFn: async (reportId: string) => {
       try {
@@ -681,10 +681,8 @@ export const useReports = () => {
         
         console.log(`Running report on table: ${baseTableName} with fields:`, selectedFields);
         
-        // Use a type assertion to handle dynamic table names safely
-        // This fixes the TypeScript error
-        const query = supabase
-          .from(baseTableName as any)
+        // Use a type assertion to handle dynamic table names
+        const query = (supabase.from(baseTableName) as any)
           .select(selectedFields.join(','));
         
         // Parse filters if they're stored as string
@@ -699,36 +697,36 @@ export const useReports = () => {
             
             switch (operator) {
               case 'eq':
-                (query as any).eq(field, value);
+                query.eq(field, value);
                 break;
               case 'neq':
-                (query as any).neq(field, value);
+                query.neq(field, value);
                 break;
               case 'gt':
-                (query as any).gt(field, value);
+                query.gt(field, value);
                 break;
               case 'gte':
-                (query as any).gte(field, value);
+                query.gte(field, value);
                 break;
               case 'lt':
-                (query as any).lt(field, value);
+                query.lt(field, value);
                 break;
               case 'lte':
-                (query as any).lte(field, value);
+                query.lte(field, value);
                 break;
               case 'like':
-                (query as any).like(field, `%${value}%`);
+                query.like(field, `%${value}%`);
                 break;
               case 'ilike':
-                (query as any).ilike(field, `%${value}%`);
+                query.ilike(field, `%${value}%`);
                 break;
               case 'in':
                 if (Array.isArray(value)) {
-                  (query as any).in(field, value);
+                  query.in(field, value);
                 }
                 break;
               case 'is':
-                (query as any).is(field, value);
+                query.is(field, value);
                 break;
               default:
                 break;

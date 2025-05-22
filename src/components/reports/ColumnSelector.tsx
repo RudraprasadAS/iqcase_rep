@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -153,7 +154,11 @@ export const ColumnSelector = ({
             </TabsTrigger>
             
             {relatedTables.map(group => (
-              <TabsTrigger key={group.name} value={group.name} className="text-xs flex justify-between items-center">
+              <TabsTrigger 
+                key={`tab-${group.name}`}
+                value={group.name} 
+                className="text-xs flex justify-between items-center"
+              >
                 <span>{group.name}</span>
                 {getSelectedCount(group.name) > 0 && (
                   <span className="ml-1 bg-primary text-primary-foreground rounded-full px-1.5 text-[10px]">
@@ -181,7 +186,7 @@ export const ColumnSelector = ({
             <ScrollArea className="h-64">
               <div className="p-2 space-y-1">
                 {filterColumns(availableColumns).map((column) => (
-                  <div key={column.key} className="flex items-center space-x-2">
+                  <div key={`main-${column.key}`} className="flex items-center space-x-2">
                     <Checkbox
                       id={`column-${column.key}`}
                       checked={selectedColumns.includes(column.key)}
@@ -200,7 +205,7 @@ export const ColumnSelector = ({
           </TabsContent>
           
           {relatedTables.map(group => (
-            <TabsContent key={group.name} value={group.name} className="mt-0">
+            <TabsContent key={`content-${group.name}`} value={group.name} className="mt-0">
               <div className="p-2 flex justify-between items-center border-b">
                 <span className="text-xs text-muted-foreground">
                   {filterColumns(group.columns).length} columns
@@ -217,7 +222,7 @@ export const ColumnSelector = ({
               <ScrollArea className="h-64">
                 <div className="p-2 space-y-1">
                   {filterColumns(group.columns).map((column) => (
-                    <div key={column.key} className="flex items-center space-x-2">
+                    <div key={`${group.name}-${column.key}`} className="flex items-center space-x-2">
                       <Checkbox
                         id={`column-${column.key}`}
                         checked={selectedColumns.includes(column.key)}

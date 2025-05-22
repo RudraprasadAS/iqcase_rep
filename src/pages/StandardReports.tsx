@@ -151,10 +151,13 @@ const StandardReports = () => {
   
   // Fetch data with support for related tables
   const { data, isLoading, error } = useQuery({
-    queryKey: ['standardReport', activeTab, sortField, sortDirection, search, filters, selectedColumns, joins],
+    queryKey: ['standardReport', activeTab, sortField, sortDirection, search, filters, selectedColumns, JSON.stringify(joins)],
     queryFn: async () => {
       try {
-        if (joins.length > 0) {
+        console.log('Fetching data with joins:', joins.length > 0);
+        
+        if (joins.length > 0 && selectedColumns.length > 0) {
+          console.log('Using runReportWithJoins with joins:', joins);
           // Use the enhanced run report with joins function
           const result = await runReportWithJoins.mutateAsync({
             baseTable: activeTab,
@@ -162,6 +165,7 @@ const StandardReports = () => {
             filters,
             joins
           });
+          console.log('Result from runReportWithJoins:', result);
           return result.rows;
         } else {
           // Use the standard Supabase query for single table
@@ -575,7 +579,6 @@ const StandardReports = () => {
               Sort
             </Button>
             
-            {/* Add column selector component */}
             <ColumnSelector
               availableColumns={availableColumns}
               selectedColumns={selectedColumns}
@@ -587,7 +590,7 @@ const StandardReports = () => {
           {filters.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-4">
               {filters.map((filter, index) => (
-                <div key={index} className="flex items-center gap-2 bg-muted px-3 py-1 rounded-md text-sm">
+                <div key={`filter-${index}`} className="flex items-center gap-2 bg-muted px-3 py-1 rounded-md text-sm">
                   <span>{filter.field} {getOperatorLabel(filter.operator)} {filter.value}</span>
                   <Button 
                     variant="ghost" 
@@ -614,7 +617,7 @@ const StandardReports = () => {
             <CardContent className="p-0">
               {isLoading ? (
                 <div className="flex items-center justify-center p-8">
-                  <div className="w-8 h-8 border-4 border-gray-300 border-t-caseMgmt-primary rounded-full animate-spin"></div>
+                  <div className="w-8 h-8 border-4 border-gray-300 border-t-primary rounded-full animate-spin"></div>
                 </div>
               ) : error ? (
                 <div className="text-center p-8 text-red-500">
@@ -629,7 +632,7 @@ const StandardReports = () => {
                           // Check if it's a joined column (contains a dot)
                           const isJoinedColumn = colKey.includes('.');
                           let displayName = colKey;
-                          let tableName: string | undefined;
+                          let tableName = undefined;
                           
                           if (isJoinedColumn) {
                             const [table, field] = colKey.split('.');
@@ -645,28 +648,31 @@ const StandardReports = () => {
                           
                           return (
                             <TableHead 
-                              key={colKey} 
+                              key={`header-${colKey}`} 
                               className="cursor-pointer hover:bg-gray-50"
                               onClick={() => toggleSort(colKey)}
-                              table={tableName}
-                              sortable
-                              sorted={sortField === colKey}
-                              direction={sortDirection}
                             >
                               {displayName}
+                              {sortField === colKey && (
+                                <span className="ml-2 inline-block">
+                                  {sortDirection === 'asc' ? '↑' : '↓'}
+                                </span>
+                              )}
                             </TableHead>
                           );
                         }) :
                         columnMappings[activeTab]?.map((col) => (
                           <TableHead 
-                            key={col.key} 
+                            key={`header-${col.key}`} 
                             className="cursor-pointer hover:bg-gray-50"
                             onClick={() => toggleSort(col.key)}
-                            sortable
-                            sorted={sortField === col.key}
-                            direction={sortDirection}
                           >
                             {col.label}
+                            {sortField === col.key && (
+                              <span className="ml-2 inline-block">
+                                {sortDirection === 'asc' ? '↑' : '↓'}
+                              </span>
+                            )}
                           </TableHead>
                         ))
                       }
@@ -674,15 +680,15 @@ const StandardReports = () => {
                   </TableHeader>
                   <TableBody>
                     {data.map((row, index) => (
-                      <TableRow key={index}>
+                      <TableRow key={`row-${index}`}>
                         {selectedColumns.length > 0 ? 
                           selectedColumns.map((colKey) => (
-                            <TableCell key={colKey} truncate>
+                            <TableCell key={`cell-${index}-${colKey}`}>
                               {renderTableCell(row[colKey], colKey)}
                             </TableCell>
                           )) :
                           columnMappings[activeTab]?.map((col) => (
-                            <TableCell key={col.key} truncate>
+                            <TableCell key={`cell-${index}-${col.key}`}>
                               {renderTableCell(row[col.key], col.key)}
                             </TableCell>
                           ))
