@@ -1,6 +1,7 @@
 
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Menu, Bell, Search, User } from "lucide-react";
+import { Menu, Bell, Search, User, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -13,6 +14,7 @@ const Navbar = ({ toggleSidebar }: NavbarProps) => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { logout, user, superAdminLogin } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleLogout = async () => {
     try {
@@ -31,12 +33,32 @@ const Navbar = ({ toggleSidebar }: NavbarProps) => {
     }
   };
 
-  const handleSuperAdminLogin = () => {
-    superAdminLogin();
-    toast({
-      title: "Super Admin Login",
-      description: "You are now logged in as Super Admin",
-    });
+  const handleSuperAdminLogin = async () => {
+    setIsLoading(true);
+    try {
+      const { error } = await superAdminLogin();
+      
+      if (error) {
+        toast({
+          variant: "destructive",
+          title: "Login failed",
+          description: error.message
+        });
+      } else {
+        toast({
+          title: "Super Admin Login",
+          description: "You are now logged in as Super Admin",
+        });
+      }
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Login error",
+        description: "An unexpected error occurred. Please try again."
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -84,9 +106,17 @@ const Navbar = ({ toggleSidebar }: NavbarProps) => {
               variant="ghost"
               className="flex items-center space-x-2"
               onClick={handleSuperAdminLogin}
+              disabled={isLoading}
             >
               <User className="h-5 w-5" />
-              <span className="hidden md:inline-block">Login as Super Admin</span>
+              {isLoading ? (
+                <span className="hidden md:flex items-center">
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Logging in...
+                </span>
+              ) : (
+                <span className="hidden md:inline-block">Login as Super Admin</span>
+              )}
             </Button>
           )}
         </div>

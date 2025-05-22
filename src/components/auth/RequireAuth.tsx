@@ -1,12 +1,44 @@
 
-import { useEffect } from "react";
+import { useState } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2 } from "lucide-react";
 
 const RequireAuth = () => {
   const { isAuthenticated, user, superAdminLogin } = useAuth();
   const location = useLocation();
+  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSuperAdminLogin = async () => {
+    setIsLoading(true);
+    try {
+      const { error } = await superAdminLogin();
+      
+      if (error) {
+        toast({
+          variant: "destructive",
+          title: "Login failed",
+          description: error.message
+        });
+      } else {
+        toast({
+          title: "Logged in as Super Admin",
+          description: "You now have full access to the system."
+        });
+      }
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Login error",
+        description: "An unexpected error occurred. Please try again."
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Redirect to login if not authenticated
   if (!isAuthenticated) {
@@ -20,9 +52,15 @@ const RequireAuth = () => {
           <div className="space-y-4">
             <Button 
               className="w-full"
-              onClick={() => superAdminLogin()}
+              onClick={handleSuperAdminLogin}
+              disabled={isLoading}
             >
-              Login as Super Admin
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Logging in...
+                </>
+              ) : "Login as Super Admin"}
             </Button>
             <div className="text-center">
               <Navigate to="/auth/login" state={{ from: location }} replace />

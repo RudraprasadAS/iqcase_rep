@@ -118,48 +118,26 @@ export const useAuth = () => {
     }
   };
 
-  // Super admin login function - bypasses standard auth
-  const superAdminLogin = () => {
-    // Create a properly typed User object
-    const fakeUser: User = {
-      id: 'super-admin-id',
-      email: 'superadmin@example.com',
-      app_metadata: {
-        role: 'super_admin'
-      },
-      user_metadata: {
-        name: 'Super Admin'
-      },
-      aud: 'authenticated',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      confirmed_at: new Date().toISOString(),
-      last_sign_in_at: new Date().toISOString(),
-      role: '',
-      factors: null,
-      aal: null,
-      amr: [],
-      identities: [],
-      phone: '',
-    };
-
-    // Create a properly typed Session object
-    const fakeSession: Session = {
-      access_token: 'fake-super-admin-token',
-      refresh_token: 'fake-super-admin-refresh-token',
-      expires_in: 3600,
-      expires_at: Math.floor(Date.now() / 1000) + 3600,
-      token_type: 'bearer',
-      user: fakeUser,
-      provider_token: null,
-      provider_refresh_token: null
-    };
-
-    // Set the user and session state
-    setUser(fakeUser);
-    setSession(fakeSession);
-
-    return { user: fakeUser, session: fakeSession, error: null };
+  // Super admin login function - uses actual credentials
+  const superAdminLogin = async (password: string = "admin123") => {
+    try {
+      const email = "superadmin@example.com";
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+      
+      if (error) {
+        console.error('Super admin login error:', error);
+        return { user: null, session: null, error };
+      }
+      
+      console.log('Super admin login successful:', data.user?.id);
+      return { user: data.user, session: data.session, error: null };
+    } catch (error) {
+      console.error('Super admin login exception:', error);
+      return { user: null, session: null, error: error as AuthError };
+    }
   };
   
   return {
