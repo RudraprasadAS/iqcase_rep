@@ -5,63 +5,50 @@ import { supabase } from '@/integrations/supabase/client';
 import { Report, ReportFilter, TableInfo, ReportData } from '@/types/reports';
 import { useToast } from '@/hooks/use-toast';
 import { Json } from '@/integrations/supabase/types';
-import { useAuth } from '@/hooks/useAuth';
 
 export const useReports = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { user } = useAuth(); // Add the user from useAuth
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
 
   // Fetch all reports
   const { data: reports, isLoading: isLoadingReports } = useQuery({
     queryKey: ['reports'],
     queryFn: async () => {
-      try {
-        console.log('Fetching reports...');
-        const { data, error } = await supabase
-          .from('reports')
-          .select('*')
-          .order('created_at', { ascending: false });
-        
-        if (error) {
-          console.error('Error fetching reports:', error);
-          throw error;
-        }
-        
-        console.log('Reports fetched:', data);
-        
-        // Map DB structure to our interface
-        return data.map(report => {
-          // Parse filters if they're stored as string
-          const parsedFilters = typeof report.filters === 'string' 
-            ? JSON.parse(report.filters) 
-            : report.filters;
+      const { data, error } = await supabase
+        .from('reports')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      
+      // Map DB structure to our interface
+      return data.map(report => {
+        // Parse filters if they're stored as string
+        const parsedFilters = typeof report.filters === 'string' 
+          ? JSON.parse(report.filters) 
+          : report.filters;
 
-          // Process filters to ensure they match ReportFilter type
-          const processedFilters = Array.isArray(parsedFilters) 
-            ? parsedFilters.map((filter: any) => ({
-                field: filter.field,
-                operator: filter.operator as any,
-                value: filter.value
-              }))
-            : [];
+        // Process filters to ensure they match ReportFilter type
+        const processedFilters = Array.isArray(parsedFilters) 
+          ? parsedFilters.map((filter: any) => ({
+              field: filter.field,
+              operator: filter.operator as ReportFilter['operator'],
+              value: filter.value
+            })) as ReportFilter[]
+          : [];
 
-          return {
-            ...report,
-            fields: Array.isArray(report.selected_fields) 
-              ? report.selected_fields as string[] 
-              : [],
-            selected_fields: report.selected_fields,
-            base_table: report.module,
-            module: report.module,
-            filters: processedFilters
-          } as Report;
-        });
-      } catch (error) {
-        console.error('Error in fetchReports:', error);
-        throw error;
-      }
+        return {
+          ...report,
+          fields: Array.isArray(report.selected_fields) 
+            ? report.selected_fields as string[] 
+            : [],
+          selected_fields: report.selected_fields,
+          base_table: report.module,
+          module: report.module,
+          filters: processedFilters
+        } as Report;
+      });
     }
   });
 
@@ -71,77 +58,49 @@ export const useReports = () => {
       // Convert filters for Supabase DB structure
       const filtersForDb = report.filters as unknown as Json;
       
-      console.log("Creating report with data:", report);
-      console.log("User ID being used:", report.created_by);
+      // Convert for Supabase DB structure
+      const { data, error } = await supabase
+        .from('reports')
+        .insert({
+          name: report.name,
+          description: report.description,
+          created_by: report.created_by,
+          module: report.base_table || report.module, // Support both field names
+          selected_fields: report.fields || report.selected_fields, // Support both field names
+          filters: filtersForDb,
+          aggregation: report.aggregation || null,
+          chart_type: report.chart_type || 'table',
+          group_by: report.group_by || null,
+          is_public: report.is_public || false
+        })
+        .select()
+        .single();
       
-      try {
-        // Get the current user's ID from Auth
-        const { data: { user: authUser } } = await supabase.auth.getUser();
-        
-        if (!authUser) {
-          throw new Error("Authentication required. Please sign in.");
-        }
-        
-        console.log("Auth user ID:", authUser.id);
-        
-        // Convert for Supabase DB structure
-        const { data, error } = await supabase
-          .from('reports')
-          .insert({
-            name: report.name,
-            description: report.description,
-            created_by: authUser.id, // Use the authenticated user ID
-            module: report.base_table || report.module, // Support both field names
-            selected_fields: report.fields || report.selected_fields, // Support both field names
-            filters: filtersForDb,
-            aggregation: report.aggregation || null,
-            chart_type: report.chart_type || 'table',
-            group_by: report.group_by || null,
-            is_public: report.is_public || false
-          })
-          .select()
-          .single();
-        
-        if (error) {
-          console.error("Error creating report:", error);
-          throw error;
-        }
-        
-        console.log("Created report:", data);
-        
-        // Parse filters if they're stored as string
-        const parsedFilters = typeof data.filters === 'string' 
-          ? JSON.parse(data.filters) 
-          : data.filters;
+      if (error) throw error;
+      
+      // Parse filters if they're stored as string
+      const parsedFilters = typeof data.filters === 'string' 
+        ? JSON.parse(data.filters) 
+        : data.filters;
 
-        // Process filters to ensure they match ReportFilter type
-        const processedFilters = Array.isArray(parsedFilters) 
-          ? parsedFilters.map((filter: any) => ({
-              field: filter.field,
-              operator: filter.operator as any,
-              value: filter.value
-            }))
-          : [];
-        
-        // Map back to our interface
-        return {
-          ...data,
-          fields: Array.isArray(data.selected_fields) ? data.selected_fields as string[] : [],
-          selected_fields: data.selected_fields,
-          base_table: data.module,
-          module: data.module,
-          filters: Array.isArray(data.filters) 
-            ? data.filters.map((filter: any) => ({
-                field: filter.field,
-                operator: filter.operator as any,
-                value: filter.value
-              }))
-            : []
-        } as Report;
-      } catch (error) {
-        console.error("Error in createReport mutation:", error);
-        throw error;
-      }
+      // Process filters to ensure they match ReportFilter type
+      const processedFilters = Array.isArray(parsedFilters) 
+        ? parsedFilters.map((filter: any) => ({
+            field: filter.field,
+            operator: filter.operator as ReportFilter['operator'],
+            value: filter.value
+          })) as ReportFilter[]
+        : [];
+      
+      // Map back to our interface
+      return {
+        ...data,
+        fields: Array.isArray(data.selected_fields) ? data.selected_fields as string[] : [],
+        selected_fields: data.selected_fields,
+        base_table: data.module,
+        module: data.module,
+        filters: processedFilters
+      } as Report;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reports'] });
@@ -182,7 +141,7 @@ export const useReports = () => {
       const processedFilters = Array.isArray(parsedFilters) 
         ? parsedFilters.map((filter: any) => ({
             field: filter.field,
-            operator: filter.operator,
+            operator: filter.operator as ReportFilter['operator'],
             value: filter.value
           })) as ReportFilter[]
         : [];
@@ -235,7 +194,7 @@ export const useReports = () => {
       const processedFilters = Array.isArray(parsedFilters) 
         ? parsedFilters.map((filter: any) => ({
             field: filter.field,
-            operator: filter.operator,
+            operator: filter.operator as ReportFilter['operator'],
             value: filter.value
           })) as ReportFilter[]
         : [];
@@ -301,119 +260,97 @@ export const useReports = () => {
   const { data: tables, isLoading: isLoadingTables } = useQuery({
     queryKey: ['tables'],
     queryFn: async () => {
-      try {
-        console.log('Fetching tables info...');
-        const { data, error } = await supabase.rpc('get_tables_info');
-        
-        if (error) {
-          console.error('Error fetching tables:', error);
-          throw error;
-        }
-        
-        console.log("Tables info from Supabase:", data);
-        return data as TableInfo[];
-      } catch (error) {
-        console.error('Error in fetchTables:', error);
-        throw error;
-      }
+      const { data, error } = await supabase.rpc('get_tables_info');
+      
+      if (error) throw error;
+      return data as TableInfo[];
     }
   });
 
-  // Run a report - Fix for the infinite type error
+  // Run a report
   const runReport = useMutation({
     mutationFn: async (reportId: string) => {
-      try {
-        const { data: report, error: reportError } = await supabase
-          .from('reports')
-          .select('*')
-          .eq('id', reportId)
-          .single();
-          
-        if (reportError) throw reportError;
+      const { data: report, error: reportError } = await supabase
+        .from('reports')
+        .select('*')
+        .eq('id', reportId)
+        .single();
         
-        // Run the query based on report configuration
-        const baseTableName = report.module; // Use module as base_table
-        const selectedFields = Array.isArray(report.selected_fields) ? report.selected_fields as string[] : [];
-        
-        if (!baseTableName) {
-          throw new Error('No base table specified in the report');
-        }
-        
-        console.log(`Running report on table: ${baseTableName} with fields:`, selectedFields);
-        
-        // Use a type assertion to handle dynamic table names safely
-        // This fixes the TypeScript error
-        const query = supabase
-          .from(baseTableName as any)
-          .select(selectedFields.join(','));
-        
-        // Parse filters if they're stored as string
-        const parsedFilters = typeof report.filters === 'string' 
-          ? JSON.parse(report.filters) 
-          : report.filters;
-        
-        // Apply filters if present
-        if (parsedFilters && Array.isArray(parsedFilters)) {
-          parsedFilters.forEach((filter: any) => {
-            const { field, operator, value } = filter;
-            
-            switch (operator) {
-              case 'eq':
-                (query as any).eq(field, value);
-                break;
-              case 'neq':
-                (query as any).neq(field, value);
-                break;
-              case 'gt':
-                (query as any).gt(field, value);
-                break;
-              case 'gte':
-                (query as any).gte(field, value);
-                break;
-              case 'lt':
-                (query as any).lt(field, value);
-                break;
-              case 'lte':
-                (query as any).lte(field, value);
-                break;
-              case 'like':
-                (query as any).like(field, `%${value}%`);
-                break;
-              case 'ilike':
-                (query as any).ilike(field, `%${value}%`);
-                break;
-              case 'in':
-                if (Array.isArray(value)) {
-                  (query as any).in(field, value);
-                }
-                break;
-              case 'is':
-                (query as any).is(field, value);
-                break;
-              default:
-                break;
-            }
-          });
-        }
-        
-        const { data, error, count } = await query.limit(1000);
-        
-        if (error) {
-          console.error("Error running report query:", error);
-          throw error;
-        }
-        
-        console.log("Report query results:", data, "Count:", count);
-        
-        return {
-          columns: selectedFields,
-          rows: data || [],
-          total: count || 0
-        } as ReportData;
-      } catch (error) {
-        console.error("Error in runReport:", error);
-        throw error;
+      if (reportError) throw reportError;
+      
+      // Run the query based on report configuration
+      const baseTableName = report.module; // Use module as base_table
+      const selectedFields = Array.isArray(report.selected_fields) ? report.selected_fields as string[] : [];
+      
+      // This part needs to be fixed to handle dynamic tables
+      // We should verify that the table exists before querying it
+      if (!baseTableName) {
+        throw new Error('No base table specified in the report');
       }
+      
+      // Use type assertion to handle the dynamic table name
+      let query = supabase
+        .from(baseTableName as any)
+        .select(selectedFields.join(','));
+      
+      // Parse filters if they're stored as string
+      const parsedFilters = typeof report.filters === 'string' 
+        ? JSON.parse(report.filters) 
+        : report.filters;
+      
+      // Apply filters if present
+      if (parsedFilters && Array.isArray(parsedFilters)) {
+        parsedFilters.forEach((filter: any) => {
+          const { field, operator, value } = filter;
+          
+          switch (operator) {
+            case 'eq':
+              query = query.eq(field, value);
+              break;
+            case 'neq':
+              query = query.neq(field, value);
+              break;
+            case 'gt':
+              query = query.gt(field, value);
+              break;
+            case 'gte':
+              query = query.gte(field, value);
+              break;
+            case 'lt':
+              query = query.lt(field, value);
+              break;
+            case 'lte':
+              query = query.lte(field, value);
+              break;
+            case 'like':
+              query = query.like(field, `%${value}%`);
+              break;
+            case 'ilike':
+              query = query.ilike(field, `%${value}%`);
+              break;
+            case 'in':
+              if (Array.isArray(value)) {
+                query = query.in(field, value);
+              }
+              break;
+            case 'is':
+              query = query.is(field, value);
+              break;
+            default:
+              break;
+          }
+        });
+      }
+      
+      const { data, error, count } = await query.limit(1000);
+      
+      if (error) throw error;
+      
+      return {
+        columns: selectedFields,
+        rows: data || [],
+        total: count || 0
+      } as ReportData;
     }
   });
 

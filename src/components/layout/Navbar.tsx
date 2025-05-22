@@ -1,10 +1,8 @@
 
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Menu, Bell, Search, User, Loader2, ShieldAlert } from "lucide-react";
+import { Menu, Bell, Search, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/hooks/useAuth";
 
 interface NavbarProps {
   toggleSidebar: () => void;
@@ -13,30 +11,14 @@ interface NavbarProps {
 const Navbar = ({ toggleSidebar }: NavbarProps) => {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { logout, user, isSuperAdmin } = useAuth();
-  const [isLoading, setIsLoading] = useState(false);
 
   const handleLogout = async () => {
-    try {
-      setIsLoading(true);
-      await logout();
-      toast({
-        title: "Logged out successfully",
-        description: "You have been logged out of the system.",
-      });
-      navigate("/auth/login");
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "There was an error logging out. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleLoginClick = () => {
+    // Will implement with Supabase later
+    localStorage.removeItem("isAuthenticated");
+    toast({
+      title: "Logged out successfully",
+      description: "You have been logged out of the system.",
+    });
     navigate("/auth/login");
   };
 
@@ -67,38 +49,14 @@ const Navbar = ({ toggleSidebar }: NavbarProps) => {
           <Bell className="h-5 w-5" />
         </Button>
         <div className="flex items-center space-x-2">
-          {user ? (
-            <Button
-              variant="ghost"
-              className="flex items-center space-x-2"
-              onClick={handleLogout}
-              disabled={isLoading}
-            >
-              {isSuperAdmin ? (
-                <ShieldAlert className="h-5 w-5 text-red-500" />
-              ) : (
-                <User className="h-5 w-5" />
-              )}
-              <span className="hidden md:inline-block">
-                {isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : isSuperAdmin ? (
-                  'System Administrator'
-                ) : (
-                  `Logout (${user.email})`
-                )}
-              </span>
-            </Button>
-          ) : (
-            <Button
-              variant="ghost"
-              className="flex items-center space-x-2"
-              onClick={handleLoginClick}
-            >
-              <User className="h-5 w-5" />
-              <span className="hidden md:inline-block">Login</span>
-            </Button>
-          )}
+          <Button
+            variant="ghost"
+            className="flex items-center space-x-2"
+            onClick={handleLogout}
+          >
+            <User className="h-5 w-5" />
+            <span className="hidden md:inline-block">Logout</span>
+          </Button>
         </div>
       </div>
     </header>

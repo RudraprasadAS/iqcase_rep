@@ -19,11 +19,9 @@ export interface Report {
   is_public: boolean;
 }
 
-export type FilterOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'like' | 'ilike' | 'in' | 'is';
-
 export interface ReportFilter {
   field: string;
-  operator: FilterOperator;
+  operator: 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'like' | 'ilike' | 'in' | 'is';
   value: string | number | boolean | null | (string | number)[];
 }
 
