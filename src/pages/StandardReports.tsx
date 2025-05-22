@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useNavigate } from 'react-router-dom';
@@ -34,27 +33,30 @@ const StandardReports = () => {
       try {
         console.log(`Fetching data from ${activeTab} table with sort: ${sortField} ${sortDirection}, search: ${search}`);
         
-        // Use type assertion directly with any to make TypeScript happy
-        let query = supabase.from(activeTab) as any;
+        // Start building the query - get the table
+        let query = supabase.from(activeTab);
+        
+        // Build a select query
+        let selectQuery = query.select('*');
         
         // Add search filter if provided
         if (search) {
           if (activeTab === 'cases') {
-            query = query.ilike('title', `%${search}%`);
+            selectQuery = selectQuery.ilike('title', `%${search}%`);
           } else if (activeTab === 'users') {
-            query = query.ilike('name', `%${search}%`);
+            selectQuery = selectQuery.ilike('name', `%${search}%`);
           } else if (activeTab === 'case_activities') {
-            query = query.ilike('description', `%${search}%`);
+            selectQuery = selectQuery.ilike('description', `%${search}%`);
           } else if (activeTab === 'case_messages') {
-            query = query.ilike('message', `%${search}%`);
+            selectQuery = selectQuery.ilike('message', `%${search}%`);
           }
         }
         
-        // Add sorting
-        query = query.order(sortField, { ascending: sortDirection === 'asc' });
+        // Add sorting - make sure to use selectQuery for chaining
+        selectQuery = selectQuery.order(sortField, { ascending: sortDirection === 'asc' });
         
         // Limit to 50 rows for performance
-        const { data, error } = await query.limit(50);
+        const { data, error } = await selectQuery.limit(50);
         
         if (error) {
           console.error('Error fetching data:', error);
