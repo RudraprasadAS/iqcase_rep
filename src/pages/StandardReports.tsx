@@ -85,7 +85,8 @@ const StandardReports = () => {
         setAvailableColumns(mainTableColumns);
         
         // Set default columns based on column mappings
-        setSelectedColumns(columnMappings[activeTab].map(col => col.key));
+        const defaultColumns = columnMappings[activeTab].map(col => col.key);
+        setSelectedColumns(defaultColumns);
         
         // Find related tables
         loadRelatedTables(activeTab);
@@ -130,11 +131,12 @@ const StandardReports = () => {
     
     setRelatedTables(filteredRelatedTables);
     
-    // Create default joins for related tables
+    // Create default joins for related tables but make sure we have unique aliases
     const defaultJoins: TableJoin[] = relatedTablesData
       .filter(Boolean)
-      .map(rel => ({
+      .map((rel, index) => ({
         table: rel!.name,
+        alias: `${rel!.name}_${index}`, // Add index to ensure unique aliases
         sourceColumn: rel!.sourceColumn,
         targetColumn: rel!.targetColumn,
         joinType: 'left'
@@ -173,26 +175,24 @@ const StandardReports = () => {
           console.log('Applied filters:', filters);
           console.log('Selected columns:', selectedColumns);
           
-          // Start building the query - get the table
-          let query = supabase.from(activeTab);
-          
-          // Build a select query with selected columns or all columns if none selected
+          // Make sure we have columns to select
           const columnsToSelect = selectedColumns.length > 0 
             ? selectedColumns.join(',') 
             : '*';
-            
-          let selectQuery = query.select(columnsToSelect);
+          
+          // Use the any type to avoid TypeScript errors with dynamic tables
+          const query = (supabase.from(activeTab as any) as any).select(columnsToSelect);
           
           // Add search filter if provided
           if (search) {
             if (activeTab === 'cases') {
-              selectQuery = selectQuery.ilike('title', `%${search}%`);
+              query.ilike('title', `%${search}%`);
             } else if (activeTab === 'users') {
-              selectQuery = selectQuery.ilike('name', `%${search}%`);
+              query.ilike('name', `%${search}%`);
             } else if (activeTab === 'case_activities') {
-              selectQuery = selectQuery.ilike('description', `%${search}%`);
+              query.ilike('description', `%${search}%`);
             } else if (activeTab === 'case_messages') {
-              selectQuery = selectQuery.ilike('message', `%${search}%`);
+              query.ilike('message', `%${search}%`);
             }
           }
           
@@ -201,40 +201,37 @@ const StandardReports = () => {
             filters.forEach((filter) => {
               const { field, operator, value } = filter;
               
-              // Use any type to avoid TypeScript errors with dynamic method calls
-              const typedQuery = selectQuery as any;
-              
               switch (operator) {
                 case 'eq':
-                  selectQuery = typedQuery.eq(field, value);
+                  query.eq(field, value);
                   break;
                 case 'neq':
-                  selectQuery = typedQuery.neq(field, value);
+                  query.neq(field, value);
                   break;
                 case 'gt':
-                  selectQuery = typedQuery.gt(field, value);
+                  query.gt(field, value);
                   break;
                 case 'gte':
-                  selectQuery = typedQuery.gte(field, value);
+                  query.gte(field, value);
                   break;
                 case 'lt':
-                  selectQuery = typedQuery.lt(field, value);
+                  query.lt(field, value);
                   break;
                 case 'lte':
-                  selectQuery = typedQuery.lte(field, value);
+                  query.lte(field, value);
                   break;
                 case 'like':
-                  selectQuery = typedQuery.like(field, `%${value}%`);
+                  query.like(field, `%${value}%`);
                   break;
                 case 'ilike':
-                  selectQuery = typedQuery.ilike(field, `%${value}%`);
+                  query.ilike(field, `%${value}%`);
                   break;
                 case 'is':
                   // Handle 'is' operator specifically as it expects boolean values
                   const boolValue = value === 'true' ? true : 
                                    value === 'false' ? false : 
                                    value === 'null' ? null : value;
-                  selectQuery = typedQuery.is(field, boolValue);
+                  query.is(field, boolValue);
                   break;
                 default:
                   break;
@@ -243,7 +240,7 @@ const StandardReports = () => {
           }
           
           // Add sorting - use the casted query for type safety
-          const result = await selectQuery.order(sortField, { ascending: sortDirection === 'asc' }).limit(50);
+          const result = await query.order(sortField, { ascending: sortDirection === 'asc' }).limit(50);
           
           if (result.error) {
             console.error('Error fetching data:', result.error);
@@ -272,18 +269,7 @@ const StandardReports = () => {
     }
     
     // Provide default fields based on table if no data is available
-    switch (activeTab) {
-      case 'cases':
-        return ['title', 'status', 'priority', 'location', 'created_at'];
-      case 'users':
-        return ['name', 'email', 'user_type', 'is_active', 'created_at'];
-      case 'case_activities':
-        return ['activity_type', 'description', 'duration_minutes', 'created_at'];
-      case 'case_messages':
-        return ['message', 'is_internal', 'is_pinned', 'created_at'];
-      default:
-        return [];
-    }
+    return columnMappings[activeTab].map(col => col.key);
   };
   
   const addFilter = () => {
@@ -628,7 +614,7 @@ const StandardReports = () => {
                   <TableHeader>
                     <TableRow>
                       {selectedColumns.length > 0 ? 
-                        selectedColumns.map((colKey) => {
+                        selectedColumns.map((colKey, index) => {
                           // Check if it's a joined column (contains a dot)
                           const isJoinedColumn = colKey.includes('.');
                           let displayName = colKey;
@@ -648,7 +634,7 @@ const StandardReports = () => {
                           
                           return (
                             <TableHead 
-                              key={`header-${colKey}`} 
+                              key={`header-${colKey}-${index}`} // Add index to ensure uniqueness
                               className="cursor-pointer hover:bg-gray-50"
                               onClick={() => toggleSort(colKey)}
                             >
@@ -661,9 +647,9 @@ const StandardReports = () => {
                             </TableHead>
                           );
                         }) :
-                        columnMappings[activeTab]?.map((col) => (
+                        columnMappings[activeTab]?.map((col, index) => (
                           <TableHead 
-                            key={`header-${col.key}`} 
+                            key={`header-${col.key}-${index}`} // Add index to ensure uniqueness
                             className="cursor-pointer hover:bg-gray-50"
                             onClick={() => toggleSort(col.key)}
                           >
@@ -679,16 +665,16 @@ const StandardReports = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {data.map((row, index) => (
-                      <TableRow key={`row-${index}`}>
+                    {data.map((row, rowIndex) => (
+                      <TableRow key={`row-${rowIndex}`}>
                         {selectedColumns.length > 0 ? 
-                          selectedColumns.map((colKey) => (
-                            <TableCell key={`cell-${index}-${colKey}`}>
+                          selectedColumns.map((colKey, colIndex) => (
+                            <TableCell key={`cell-${rowIndex}-${colKey}-${colIndex}`}>
                               {renderTableCell(row[colKey], colKey)}
                             </TableCell>
                           )) :
-                          columnMappings[activeTab]?.map((col) => (
-                            <TableCell key={`cell-${index}-${col.key}`}>
+                          columnMappings[activeTab]?.map((col, colIndex) => (
+                            <TableCell key={`cell-${rowIndex}-${col.key}-${colIndex}`}>
                               {renderTableCell(row[col.key], col.key)}
                             </TableCell>
                           ))

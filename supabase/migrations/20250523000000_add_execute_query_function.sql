@@ -10,8 +10,8 @@ AS $$
 DECLARE
   result JSONB;
 BEGIN
-  -- Execute the query and get the results as JSON
-  EXECUTE 'SELECT jsonb_agg(r) FROM (' || query_text || ') r' INTO result;
+  -- Execute the query and convert results to JSON
+  EXECUTE 'SELECT to_jsonb(array_agg(row_to_json(t))) FROM (' || query_text || ') t' INTO result;
   
   -- Return empty array instead of null if no results
   RETURN COALESCE(result, '[]'::jsonb);

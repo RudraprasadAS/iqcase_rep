@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -565,11 +566,12 @@ export const useReports = () => {
           FROM ${baseTable}
         `;
         
-        // Add joins if specified
+        // Add joins if specified, ensure unique aliases
         if (joins && joins.length > 0) {
           joins.forEach(join => {
             const joinType = join.joinType.toUpperCase();
-            const alias = join.alias || join.table;
+            // Use the provided alias or generate a unique one
+            const alias = join.alias || `${join.table}_${Math.random().toString(36).substring(2, 7)}`;
             
             sqlQuery += `
               ${joinType} JOIN ${join.table} AS ${alias}
