@@ -3,7 +3,6 @@ import { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useNavigate } from 'react-router-dom';
 import { useReports } from '@/hooks/useReports';
-import { useAuth } from '@/hooks/useAuth';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -17,7 +16,6 @@ import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 
 const Reports = () => {
-  const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const { reports, tables, createReport, deleteReport, isLoadingReports, isLoadingTables } = useReports();
@@ -33,21 +31,10 @@ const Reports = () => {
     
     setIsSubmitting(true);
     try {
-      // Check if user is logged in
-      if (!user?.id) {
-        toast({
-          variant: 'destructive',
-          title: 'Authentication Required',
-          description: 'You must be logged in to create reports'
-        });
-        setIsSubmitting(false);
-        return;
-      }
-      
       const newReport = await createReport.mutateAsync({
         name: reportName,
         description: reportDescription,
-        created_by: user.id,
+        created_by: '00000000-0000-0000-0000-000000000000', // Hardcoded UUID for demo
         module: selectedTable,
         base_table: selectedTable,
         selected_fields: [],
