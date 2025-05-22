@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import { FilterBuilder } from '@/components/reports/FilterBuilder';
 import { ReportFilter } from '@/types/reports';
+import { ColumnSelector } from '@/components/reports/ColumnSelector';
 
 // Define allowed table names as a type for type safety
 type AllowedTableName = 'cases' | 'users' | 'case_activities' | 'case_messages';
@@ -38,19 +39,52 @@ const StandardReports = () => {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [filters, setFilters] = useState<ReportFilter[]>([]);
   const [filterDialogOpen, setFilterDialogOpen] = useState(false);
+  const [selectedColumns, setSelectedColumns] = useState<string[]>([]);
+  const [availableColumns, setAvailableColumns] = useState<string[]>([]);
+  
+  // Effect to reset selected columns when tab changes
+  useEffect(() => {
+    // Reset columns when changing tables
+    setSelectedColumns([]);
+    
+    // Get table structure from Supabase
+    const fetchTableColumns = async () => {
+      try {
+        const { data, error } = await supabase.rpc('get_tables_info');
+        if (error) throw error;
+        
+        // Find the table that matches the active tab
+        const tableInfo = data.find((table: any) => table.name === activeTab);
+        if (tableInfo && tableInfo.fields) {
+          setAvailableColumns(tableInfo.fields);
+          // Set default columns based on column mappings
+          setSelectedColumns(columnMappings[activeTab].map(col => col.key));
+        }
+      } catch (err) {
+        console.error('Error fetching table columns:', err);
+      }
+    };
+    
+    fetchTableColumns();
+  }, [activeTab]);
   
   const { data, isLoading, error } = useQuery({
-    queryKey: ['standardReport', activeTab, sortField, sortDirection, search, filters],
+    queryKey: ['standardReport', activeTab, sortField, sortDirection, search, filters, selectedColumns],
     queryFn: async () => {
       try {
         console.log(`Fetching data from ${activeTab} table with sort: ${sortField} ${sortDirection}, search: ${search}`);
         console.log('Applied filters:', filters);
+        console.log('Selected columns:', selectedColumns);
         
         // Start building the query - get the table
         let query = supabase.from(activeTab);
         
-        // Build a select query
-        let selectQuery = query.select('*');
+        // Build a select query with selected columns or all columns if none selected
+        const columnsToSelect = selectedColumns.length > 0 
+          ? selectedColumns.join(',') 
+          : '*';
+          
+        let selectQuery = query.select(columnsToSelect);
         
         // Add search filter if provided
         if (search) {
@@ -131,6 +165,10 @@ const StandardReports = () => {
   
   // Get field names from first row of data for the active table
   const getFieldNames = (): string[] => {
+    if (availableColumns.length > 0) {
+      return availableColumns;
+    }
+    
     if (data && data.length > 0) {
       return Object.keys(data[0]);
     }
@@ -193,8 +231,10 @@ const StandardReports = () => {
   const downloadCsv = () => {
     if (!data || data.length === 0) return;
     
-    // Get headers
-    const headers = Object.keys(data[0]);
+    // Get headers - use selected columns if available, otherwise use all headers from data
+    const headers = selectedColumns.length > 0 
+      ? selectedColumns 
+      : Object.keys(data[0]);
     
     // Create CSV content
     let csvContent = headers.join(',') + '\n';
@@ -367,6 +407,13 @@ const StandardReports = () => {
               )}
               Sort
             </Button>
+            
+            {/* Add column selector component */}
+            <ColumnSelector
+              availableColumns={getFieldNames()}
+              selectedColumns={selectedColumns}
+              onColumnChange={setSelectedColumns}
+            />
           </div>
           
           {filters.length > 0 && (
@@ -409,32 +456,57 @@ const StandardReports = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      {columnMappings[activeTab]?.map((col) => (
-                        <TableHead 
-                          key={col.key} 
-                          className="cursor-pointer hover:bg-gray-50"
-                          onClick={() => toggleSort(col.key)}
-                        >
-                          <div className="flex items-center gap-2">
-                            {col.label}
-                            {sortField === col.key && (
-                              sortDirection === 'asc' ? 
-                                <SortAsc className="h-3 w-3" /> : 
-                                <SortDesc className="h-3 w-3" />
-                            )}
-                          </div>
-                        </TableHead>
-                      ))}
+                      {selectedColumns.length > 0 ? 
+                        selectedColumns.map((colKey) => (
+                          <TableHead 
+                            key={colKey} 
+                            className="cursor-pointer hover:bg-gray-50"
+                            onClick={() => toggleSort(colKey)}
+                          >
+                            <div className="flex items-center gap-2">
+                              {colKey}
+                              {sortField === colKey && (
+                                sortDirection === 'asc' ? 
+                                  <SortAsc className="h-3 w-3" /> : 
+                                  <SortDesc className="h-3 w-3" />
+                              )}
+                            </div>
+                          </TableHead>
+                        )) :
+                        columnMappings[activeTab]?.map((col) => (
+                          <TableHead 
+                            key={col.key} 
+                            className="cursor-pointer hover:bg-gray-50"
+                            onClick={() => toggleSort(col.key)}
+                          >
+                            <div className="flex items-center gap-2">
+                              {col.label}
+                              {sortField === col.key && (
+                                sortDirection === 'asc' ? 
+                                  <SortAsc className="h-3 w-3" /> : 
+                                  <SortDesc className="h-3 w-3" />
+                              )}
+                            </div>
+                          </TableHead>
+                        ))
+                      }
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {data.map((row, index) => (
                       <TableRow key={index}>
-                        {columnMappings[activeTab]?.map((col) => (
-                          <TableCell key={col.key}>
-                            {renderTableCell(row[col.key], col.key)}
-                          </TableCell>
-                        ))}
+                        {selectedColumns.length > 0 ? 
+                          selectedColumns.map((colKey) => (
+                            <TableCell key={colKey}>
+                              {renderTableCell(row[colKey], colKey)}
+                            </TableCell>
+                          )) :
+                          columnMappings[activeTab]?.map((col) => (
+                            <TableCell key={col.key}>
+                              {renderTableCell(row[col.key], col.key)}
+                            </TableCell>
+                          ))
+                        }
                       </TableRow>
                     ))}
                   </TableBody>
