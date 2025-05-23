@@ -124,7 +124,7 @@ export const useReports = () => {
           .eq('auth_user_id', authUser.id)
           .maybeSingle();
         
-        let userId = authUser.id;
+        let actualUserId = null;
         
         if (userCheckError && userCheckError.code !== 'PGRST116') {
           console.error("Error checking user existence:", userCheckError);
@@ -161,7 +161,7 @@ export const useReports = () => {
               throw new Error("Could not update user record. Please contact an administrator.");
             }
             
-            userId = authUser.id;
+            actualUserId = updatedUser.id;
           } else {
             // Create a new user record
             const { data: newUser, error: createUserError } = await supabase
@@ -181,9 +181,14 @@ export const useReports = () => {
               throw new Error("Could not create user record. Please contact an administrator.");
             }
             
-            userId = authUser.id;
+            actualUserId = newUser.id;
           }
+        } else {
+          // User exists, use their ID
+          actualUserId = userExists.id;
         }
+        
+        console.log("Using user ID for report creation:", actualUserId);
         
         // Convert for Supabase DB structure
         const { data, error } = await supabase
@@ -191,7 +196,7 @@ export const useReports = () => {
           .insert({
             name: report.name,
             description: report.description,
-            created_by: userId, // Use the authenticated user ID
+            created_by: actualUserId, // Use the actual users table ID
             module: report.base_table || report.module, // Support both field names
             selected_fields: report.fields || report.selected_fields, // Support both field names
             filters: filtersForDb,
