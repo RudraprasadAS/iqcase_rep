@@ -23,22 +23,23 @@ interface ReportSettingsProps {
     name: string;
     description: string;
     base_table: string;
-    fields: string[];
     is_public: boolean;
   }>;
   tables?: TableInfo[];
   isLoadingTables: boolean;
-  isEditMode: boolean;
-  onBaseTableChange: (value: string) => void;
+  isEditMode?: boolean;
 }
 
 export const ReportSettings = ({ 
   form, 
   tables, 
   isLoadingTables, 
-  isEditMode,
-  onBaseTableChange 
+  isEditMode = false
 }: ReportSettingsProps) => {
+  const handleBaseTableChange = (value: string) => {
+    form.setValue('base_table', value);
+  };
+
   return (
     <Form {...form}>
       <div className="space-y-4">
@@ -77,7 +78,7 @@ export const ReportSettings = ({
               <Select
                 disabled={isEditMode}
                 value={field.value}
-                onValueChange={onBaseTableChange}
+                onValueChange={handleBaseTableChange}
               >
                 <FormControl>
                   <SelectTrigger>
