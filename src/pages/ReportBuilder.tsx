@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
@@ -10,6 +9,7 @@ import { ColumnSelector } from '@/components/reports/ColumnSelector';
 import { FilterBuilder } from '@/components/reports/FilterBuilder';
 import { VisualizationSelector } from '@/components/reports/VisualizationSelector';
 import { ReportPreview } from '@/components/reports/ReportPreview';
+import { CalculationFields } from '@/components/reports/CalculationFields';
 import { useReports } from '@/hooks/useReports';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -41,6 +41,7 @@ const ReportBuilder = () => {
       name: '',
       description: '',
       base_table: '',
+      fields: [] as string[],
       is_public: false
     }
   });
@@ -52,6 +53,7 @@ const ReportBuilder = () => {
   const [reportData, setReportData] = useState<any[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [currentReport, setCurrentReport] = useState<any>(null);
+  const [calculationFields, setCalculationFields] = useState<any[]>([]);
 
   // Load existing report if reportId is provided
   useEffect(() => {
@@ -72,6 +74,7 @@ const ReportBuilder = () => {
           ? report.selected_fields.map(field => String(field))
           : [];
         setSelectedFields(fieldsArray);
+        form.setValue('fields', fieldsArray);
         setFilters(Array.isArray(report.filters) ? report.filters : []);
         setChartType(report.chart_type || 'table');
         
@@ -297,19 +300,34 @@ const ReportBuilder = () => {
                   tables={tables}
                   isLoadingTables={isLoadingTables}
                   isEditMode={!!reportId}
+                  onBaseTableChange={(value) => {
+                    form.setValue('base_table', value);
+                    setSelectedFields([]);
+                    setCalculationFields([]);
+                  }}
                 />
 
                 <ColumnSelector
                   availableColumns={availableColumns}
                   selectedColumns={selectedFields}
-                  onColumnChange={setSelectedFields}
+                  onColumnChange={(fields) => {
+                    setSelectedFields(fields);
+                    form.setValue('fields', fields);
+                  }}
                   relatedTables={[]}
+                />
+
+                <CalculationFields
+                  availableColumns={availableColumns}
+                  calculationFields={calculationFields}
+                  onCalculationFieldsChange={setCalculationFields}
+                  selectedFields={selectedFields}
                 />
 
                 <VisualizationSelector
                   selectedType={chartType}
                   onTypeChange={setChartType}
-                  selectedFields={selectedFields}
+                  selectedFields={[...selectedFields, ...calculationFields.map(calc => calc.name)]}
                 />
 
                 <div className="space-y-4">
@@ -356,7 +374,7 @@ const ReportBuilder = () => {
               <CardContent>
                 <ReportPreview
                   data={reportData}
-                  columns={selectedFields}
+                  columns={[...selectedFields, ...calculationFields.map(calc => calc.name)]}
                   chartType={chartType}
                   isLoading={isLoadingData}
                   onRunReport={handleRunReport}
