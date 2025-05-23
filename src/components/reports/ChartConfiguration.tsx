@@ -12,6 +12,7 @@ interface ChartConfig {
   xAxis?: string;
   yAxis?: string;
   aggregation?: 'count' | 'sum' | 'avg' | 'min' | 'max';
+  dateGrouping?: 'day' | 'week' | 'month' | 'quarter' | 'year';
 }
 
 interface ChartConfigurationProps {
@@ -42,11 +43,20 @@ export const ChartConfiguration = ({
     { value: 'max', label: 'Maximum' }
   ];
 
+  const dateGroupingOptions = [
+    { value: 'day', label: 'Daily' },
+    { value: 'week', label: 'Weekly' },
+    { value: 'month', label: 'Monthly' },
+    { value: 'quarter', label: 'Quarterly' },
+    { value: 'year', label: 'Yearly' }
+  ];
+
   // Get columns that could be used for different purposes
   const categoricalColumns = availableColumns.filter(col => 
     !['id', 'created_at', 'updated_at'].includes(col.key) &&
     !col.key.includes('_id') &&
-    !isNumericField(col.key)
+    !isNumericField(col.key) &&
+    !isDateField(col.key)
   );
 
   const numericColumns = availableColumns.filter(col => 
@@ -54,12 +64,17 @@ export const ChartConfiguration = ({
   );
 
   const timeColumns = availableColumns.filter(col => 
-    col.key.includes('date') || col.key.includes('time') || col.key.includes('created') || col.key.includes('updated')
+    isDateField(col.key)
   );
 
   function isNumericField(fieldName: string): boolean {
     const numericIndicators = ['id', 'count', 'amount', 'price', 'total', 'sum', 'avg', 'min', 'max', 'number', 'duration'];
     return numericIndicators.some(indicator => fieldName.toLowerCase().includes(indicator));
+  }
+
+  function isDateField(fieldName: string): boolean {
+    const dateIndicators = ['date', 'time', 'created', 'updated', '_at'];
+    return dateIndicators.some(indicator => fieldName.toLowerCase().includes(indicator));
   }
 
   const updateChartConfig = (updates: Partial<ChartConfig>) => {
@@ -68,6 +83,7 @@ export const ChartConfiguration = ({
 
   const requiresAxes = chartConfig.type !== 'table';
   const isPieChart = chartConfig.type === 'pie';
+  const isSelectedFieldDate = chartConfig.xAxis && isDateField(chartConfig.xAxis);
 
   return (
     <div className="space-y-4">
@@ -116,14 +132,13 @@ export const ChartConfiguration = ({
                 <div>
                   <Label htmlFor="x-axis">X-Axis (Categories)</Label>
                   <Select
-                    value={chartConfig.xAxis || 'none'}
-                    onValueChange={(value) => updateChartConfig({ xAxis: value === 'none' ? undefined : value })}
+                    value={chartConfig.xAxis || ''}
+                    onValueChange={(value) => updateChartConfig({ xAxis: value || undefined })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select field for X-axis" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">-- Select Field --</SelectItem>
                       {categoricalColumns.map((col) => (
                         <SelectItem key={col.key} value={col.key}>
                           {col.label}
@@ -131,7 +146,7 @@ export const ChartConfiguration = ({
                       ))}
                       {timeColumns.map((col) => (
                         <SelectItem key={col.key} value={col.key}>
-                          {col.label} (Time)
+                          {col.label} (Date/Time)
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -140,6 +155,31 @@ export const ChartConfiguration = ({
                     Choose a categorical field or date field for grouping
                   </p>
                 </div>
+
+                {/* Date Grouping - Show only if a date field is selected for X-axis */}
+                {isSelectedFieldDate && (
+                  <div>
+                    <Label htmlFor="date-grouping">Date Grouping</Label>
+                    <Select
+                      value={chartConfig.dateGrouping || 'month'}
+                      onValueChange={(value) => updateChartConfig({ dateGrouping: value as ChartConfig['dateGrouping'] })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select date grouping" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {dateGroupingOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Group dates by time period for better visualization
+                    </p>
+                  </div>
+                )}
 
                 {/* Y-Axis */}
                 <div>
@@ -162,15 +202,14 @@ export const ChartConfiguration = ({
                     </Select>
                     
                     <Select
-                      value={chartConfig.yAxis || 'none'}
-                      onValueChange={(value) => updateChartConfig({ yAxis: value === 'none' ? undefined : value })}
+                      value={chartConfig.yAxis || ''}
+                      onValueChange={(value) => updateChartConfig({ yAxis: value || undefined })}
                       disabled={chartConfig.aggregation === 'count'}
                     >
                       <SelectTrigger className="flex-1">
                         <SelectValue placeholder="Select field for Y-axis" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="none">-- Select Field --</SelectItem>
                         {numericColumns.map((col) => (
                           <SelectItem key={col.key} value={col.key}>
                             {col.label}
@@ -198,14 +237,13 @@ export const ChartConfiguration = ({
                 <div>
                   <Label htmlFor="pie-category">Category Field</Label>
                   <Select
-                    value={chartConfig.xAxis || 'none'}
-                    onValueChange={(value) => updateChartConfig({ xAxis: value === 'none' ? undefined : value })}
+                    value={chartConfig.xAxis || ''}
+                    onValueChange={(value) => updateChartConfig({ xAxis: value || undefined })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select field for pie slices" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">-- Select Field --</SelectItem>
                       {categoricalColumns.map((col) => (
                         <SelectItem key={col.key} value={col.key}>
                           {col.label}
@@ -260,6 +298,9 @@ export const ChartConfiguration = ({
                   {chartConfig.type === 'bar' ? 'Bar' : 'Line'} chart with{' '}
                   {chartConfig.xAxis && (
                     <span className="font-medium">{availableColumns.find(col => col.key === chartConfig.xAxis)?.label}</span>
+                  )}
+                  {isSelectedFieldDate && chartConfig.dateGrouping && (
+                    <span className="font-medium"> ({chartConfig.dateGrouping})</span>
                   )}
                   {' '}on X-axis and{' '}
                   <span className="font-medium">{chartConfig.aggregation || 'count'}</span>

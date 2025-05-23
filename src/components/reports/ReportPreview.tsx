@@ -31,6 +31,7 @@ interface ChartConfig {
   xAxis?: string;
   yAxis?: string;
   aggregation?: 'count' | 'sum' | 'avg' | 'min' | 'max';
+  dateGrouping?: 'day' | 'week' | 'month' | 'quarter' | 'year';
 }
 
 interface ReportPreviewProps {
@@ -82,23 +83,101 @@ export const ReportPreview = ({
 
   const rows = Array.isArray(data) ? data : [];
   
+  // Function to format dates based on grouping
+  const formatDateByGrouping = (dateValue: any, grouping?: string): string => {
+    if (!dateValue) return 'Unknown';
+    
+    const date = new Date(dateValue);
+    if (isNaN(date.getTime())) return String(dateValue);
+    
+    switch (grouping) {
+      case 'day':
+        return date.toLocaleDateString();
+      case 'week':
+        const startOfWeek = new Date(date);
+        startOfWeek.setDate(date.getDate() - date.getDay());
+        return `Week of ${startOfWeek.toLocaleDateString()}`;
+      case 'month':
+        return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+      case 'quarter':
+        const quarter = Math.floor(date.getMonth() / 3) + 1;
+        return `Q${quarter} ${date.getFullYear()}`;
+      case 'year':
+        return date.getFullYear().toString();
+      default:
+        return date.toLocaleDateString();
+    }
+  };
+
+  // Function to get date grouping key for aggregation
+  const getDateGroupingKey = (dateValue: any, grouping?: string): string => {
+    if (!dateValue) return 'Unknown';
+    
+    const date = new Date(dateValue);
+    if (isNaN(date.getTime())) return String(dateValue);
+    
+    switch (grouping) {
+      case 'day':
+        return date.toISOString().split('T')[0];
+      case 'week':
+        const startOfWeek = new Date(date);
+        startOfWeek.setDate(date.getDate() - date.getDay());
+        return startOfWeek.toISOString().split('T')[0];
+      case 'month':
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      case 'quarter':
+        const quarter = Math.floor(date.getMonth() / 3) + 1;
+        return `${date.getFullYear()}-Q${quarter}`;
+      case 'year':
+        return date.getFullYear().toString();
+      default:
+        return date.toISOString().split('T')[0];
+    }
+  };
+
+  // Check if a field is a date field
+  const isDateField = (fieldName: string): boolean => {
+    const dateIndicators = ['date', 'time', 'created', 'updated', '_at'];
+    return dateIndicators.some(indicator => fieldName.toLowerCase().includes(indicator));
+  };
+
   // Prepare data for charts using the new chart configuration
   const prepareChartData = () => {
     if (!chartConfig || chartType === 'table' || !chartConfig.xAxis || !Array.isArray(rows)) return [];
 
+    const isDateFieldSelected = isDateField(chartConfig.xAxis);
+
     // Group data by X-axis field
     const grouped = rows.reduce((acc, row) => {
-      const xValue = row[chartConfig.xAxis!] || 'Unknown';
-      if (!acc[xValue]) {
-        acc[xValue] = [];
+      let xValue;
+      
+      if (isDateFieldSelected && chartConfig.dateGrouping) {
+        // Use date grouping for date fields
+        const groupingKey = getDateGroupingKey(row[chartConfig.xAxis!], chartConfig.dateGrouping);
+        xValue = formatDateByGrouping(row[chartConfig.xAxis!], chartConfig.dateGrouping);
+        // Use grouping key for consistent aggregation
+        const key = `${groupingKey}|${xValue}`;
+        if (!acc[key]) {
+          acc[key] = [];
+        }
+        acc[key].push(row);
+      } else {
+        // Regular grouping for non-date fields
+        xValue = row[chartConfig.xAxis!] || 'Unknown';
+        if (!acc[xValue]) {
+          acc[xValue] = [];
+        }
+        acc[xValue].push(row);
       }
-      acc[xValue].push(row);
+      
       return acc;
     }, {} as Record<string, any[]>);
 
     // Calculate aggregated values
-    return Object.entries(grouped).map(([xValue, groupRows]) => {
-      const result: any = { name: xValue };
+    const chartData = Object.entries(grouped).map(([key, groupRows]) => {
+      // Extract display name from key (for date fields with grouping)
+      const displayName = key.includes('|') ? key.split('|')[1] : key;
+      const result: any = { name: displayName };
       
       if (chartConfig.aggregation === 'count') {
         result.value = Array.isArray(groupRows) ? groupRows.length : 0;
@@ -128,7 +207,20 @@ export const ReportPreview = ({
       }
       
       return result;
-    }).sort((a, b) => b.value - a.value); // Sort by value descending
+    });
+
+    // Sort data appropriately
+    if (isDateFieldSelected) {
+      // Sort by the original date grouping key for proper chronological order
+      return chartData.sort((a, b) => {
+        const aKey = Object.keys(grouped).find(key => key.includes(a.name))?.split('|')[0] || a.name;
+        const bKey = Object.keys(grouped).find(key => key.includes(b.name))?.split('|')[0] || b.name;
+        return aKey.localeCompare(bKey);
+      });
+    } else {
+      // Sort by value descending for non-date fields
+      return chartData.sort((a, b) => b.value - a.value);
+    }
   };
   
   const chartData = prepareChartData();
@@ -143,7 +235,14 @@ export const ReportPreview = ({
       );
     }
     
-    const chartTitle = `${chartConfig.aggregation || 'count'} by ${chartConfig.xAxis}`;
+    const getChartTitle = () => {
+      const aggregationLabel = chartConfig.aggregation || 'count';
+      const xAxisLabel = chartConfig.xAxis || 'field';
+      const dateGroupingLabel = chartConfig.dateGrouping ? ` (${chartConfig.dateGrouping})` : '';
+      return `${aggregationLabel} by ${xAxisLabel}${dateGroupingLabel}`;
+    };
+    
+    const chartTitle = getChartTitle();
     
     switch (chartType) {
       case 'bar':
@@ -151,7 +250,12 @@ export const ReportPreview = ({
           <ResponsiveContainer width="100%" height={400}>
             <BarChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
+              <XAxis 
+                dataKey="name" 
+                angle={chartData.length > 5 ? -45 : 0}
+                textAnchor={chartData.length > 5 ? 'end' : 'middle'}
+                height={chartData.length > 5 ? 80 : 60}
+              />
               <YAxis />
               <Tooltip formatter={(value, name) => [value, chartTitle]} />
               <Bar dataKey="value" fill={COLORS[0]} />
@@ -164,7 +268,12 @@ export const ReportPreview = ({
           <ResponsiveContainer width="100%" height={400}>
             <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
+              <XAxis 
+                dataKey="name"
+                angle={chartData.length > 5 ? -45 : 0}
+                textAnchor={chartData.length > 5 ? 'end' : 'middle'}
+                height={chartData.length > 5 ? 80 : 60}
+              />
               <YAxis />
               <Tooltip formatter={(value, name) => [value, chartTitle]} />
               <Line type="monotone" dataKey="value" stroke={COLORS[0]} />

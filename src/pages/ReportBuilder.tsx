@@ -20,6 +20,7 @@ interface ChartConfig {
   xAxis?: string;
   yAxis?: string;
   aggregation?: 'count' | 'sum' | 'avg' | 'min' | 'max';
+  dateGrouping?: 'day' | 'week' | 'month' | 'quarter' | 'year';
 }
 
 const ReportBuilder = () => {
