@@ -1,3 +1,4 @@
+
 import React from 'react';
 import {
   Table,
@@ -25,6 +26,13 @@ import {
   Cell,
 } from 'recharts';
 
+interface ChartConfig {
+  type: 'table' | 'bar' | 'line' | 'pie';
+  xAxis?: string;
+  yAxis?: string;
+  aggregation?: 'count' | 'sum' | 'avg' | 'min' | 'max';
+}
+
 interface ReportPreviewProps {
   data: any[];
   columns: string[];
@@ -32,6 +40,7 @@ interface ReportPreviewProps {
   isLoading: boolean;
   onRunReport?: () => void;
   onExportCsv?: () => void;
+  chartConfig?: ChartConfig;
 }
 
 // Generate color array for charts
@@ -47,7 +56,8 @@ export const ReportPreview = ({
   chartType,
   isLoading,
   onRunReport = () => {},
-  onExportCsv = () => {}
+  onExportCsv = () => {},
+  chartConfig
 }: ReportPreviewProps) => {
   if (!data || data.length === 0) {
     return (
@@ -72,49 +82,68 @@ export const ReportPreview = ({
 
   const rows = data;
   
-  // Prepare data for charts
+  // Prepare data for charts using the new chart configuration
   const prepareChartData = () => {
-    if (columns.length < 2 || !rows.length) return [];
-    
-    // For simplicity, use first column as labels (x-axis) and second column as values (y-axis)
-    return rows.map(row => {
-      const chartDataPoint: Record<string, any> = { 
-        name: row[columns[0]] || 'Unknown'
-      };
+    if (!chartConfig || chartType === 'table' || !chartConfig.xAxis) return [];
+
+    // Group data by X-axis field
+    const grouped = rows.reduce((acc, row) => {
+      const xValue = row[chartConfig.xAxis!] || 'Unknown';
+      if (!acc[xValue]) {
+        acc[xValue] = [];
+      }
+      acc[xValue].push(row);
+      return acc;
+    }, {} as Record<string, any[]>);
+
+    // Calculate aggregated values
+    return Object.entries(grouped).map(([xValue, groupRows]) => {
+      const result: any = { name: xValue };
       
-      // Add all numeric columns as data points
-      columns.slice(1).forEach(column => {
-        if (typeof row[column] === 'number') {
-          chartDataPoint[column] = row[column];
-        } else if (typeof row[column] === 'string' && !isNaN(Number(row[column]))) {
-          // Try to convert string to number if possible
-          chartDataPoint[column] = Number(row[column]);
-        } else {
-          chartDataPoint[column] = 0;
+      if (chartConfig.aggregation === 'count') {
+        result.value = groupRows.length;
+      } else if (chartConfig.yAxis && chartConfig.aggregation) {
+        const values = groupRows
+          .map(row => Number(row[chartConfig.yAxis!]))
+          .filter(val => !isNaN(val));
+        
+        switch (chartConfig.aggregation) {
+          case 'sum':
+            result.value = values.reduce((sum, val) => sum + val, 0);
+            break;
+          case 'avg':
+            result.value = values.length > 0 ? values.reduce((sum, val) => sum + val, 0) / values.length : 0;
+            break;
+          case 'min':
+            result.value = values.length > 0 ? Math.min(...values) : 0;
+            break;
+          case 'max':
+            result.value = values.length > 0 ? Math.max(...values) : 0;
+            break;
+          default:
+            result.value = values.length;
         }
-      });
+      } else {
+        result.value = groupRows.length;
+      }
       
-      return chartDataPoint;
-    });
+      return result;
+    }).sort((a, b) => b.value - a.value); // Sort by value descending
   };
   
   const chartData = prepareChartData();
   
-  // Get numeric columns for charts
-  const numericColumns = columns.slice(1).filter(column => 
-    rows.some(row => typeof row[column] === 'number' || 
-    (typeof row[column] === 'string' && !isNaN(Number(row[column]))))
-  );
-  
   const renderChart = () => {
-    if (!chartData.length || !numericColumns.length) {
+    if (!chartConfig || !chartData.length) {
       return (
         <div className="text-center py-8 text-muted-foreground">
-          <p>Cannot render chart with this data.</p>
-          <p>Make sure you have at least one categorical column and one numeric column.</p>
+          <p>Configure chart axes to display visualization.</p>
+          <p>Select X-axis and aggregation method in the chart configuration.</p>
         </div>
       );
     }
+    
+    const chartTitle = `${chartConfig.aggregation || 'count'} by ${chartConfig.xAxis}`;
     
     switch (chartType) {
       case 'bar':
@@ -124,16 +153,8 @@ export const ReportPreview = ({
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" />
               <YAxis />
-              <Tooltip />
-              <Legend />
-              {numericColumns.map((column, index) => (
-                <Bar 
-                  key={column} 
-                  dataKey={column} 
-                  fill={COLORS[index % COLORS.length]} 
-                  name={column}
-                />
-              ))}
+              <Tooltip formatter={(value, name) => [value, chartTitle]} />
+              <Bar dataKey="value" fill={COLORS[0]} />
             </BarChart>
           </ResponsiveContainer>
         );
@@ -145,32 +166,19 @@ export const ReportPreview = ({
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" />
               <YAxis />
-              <Tooltip />
-              <Legend />
-              {numericColumns.map((column, index) => (
-                <Line 
-                  key={column} 
-                  type="monotone" 
-                  dataKey={column} 
-                  stroke={COLORS[index % COLORS.length]} 
-                  name={column}
-                />
-              ))}
+              <Tooltip formatter={(value, name) => [value, chartTitle]} />
+              <Line type="monotone" dataKey="value" stroke={COLORS[0]} />
             </LineChart>
           </ResponsiveContainer>
         );
         
       case 'pie':
-        // For pie charts, we can only use one numeric column
-        // Use the first numeric column by default
-        const pieDataKey = numericColumns[0];
-        
         return (
           <ResponsiveContainer width="100%" height={400}>
             <PieChart>
               <Pie
                 data={chartData}
-                dataKey={pieDataKey}
+                dataKey="value"
                 nameKey="name"
                 cx="50%"
                 cy="50%"
@@ -184,8 +192,7 @@ export const ReportPreview = ({
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
-              <Tooltip />
-              <Legend />
+              <Tooltip formatter={(value) => [value, chartTitle]} />
             </PieChart>
           </ResponsiveContainer>
         );

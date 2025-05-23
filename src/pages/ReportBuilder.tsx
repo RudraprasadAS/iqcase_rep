@@ -7,14 +7,20 @@ import { ArrowLeft, Play, Save, Download } from 'lucide-react';
 import { ReportSettings } from '@/components/reports/ReportSettings';
 import { ColumnSelector } from '@/components/reports/ColumnSelector';
 import { FilterBuilder } from '@/components/reports/FilterBuilder';
-import { VisualizationSelector } from '@/components/reports/VisualizationSelector';
+import { ChartConfiguration } from '@/components/reports/ChartConfiguration';
 import { ReportPreview } from '@/components/reports/ReportPreview';
-import { CalculationFields } from '@/components/reports/CalculationFields';
 import { useReports } from '@/hooks/useReports';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useForm } from 'react-hook-form';
 import { ReportFilter, ColumnDefinition } from '@/types/reports';
+
+interface ChartConfig {
+  type: 'table' | 'bar' | 'line' | 'pie';
+  xAxis?: string;
+  yAxis?: string;
+  aggregation?: 'count' | 'sum' | 'avg' | 'min' | 'max';
+}
 
 const ReportBuilder = () => {
   const [searchParams] = useSearchParams();
@@ -48,12 +54,11 @@ const ReportBuilder = () => {
 
   const [selectedFields, setSelectedFields] = useState<string[]>([]);
   const [filters, setFilters] = useState<ReportFilter[]>([]);
-  const [chartType, setChartType] = useState<'table' | 'bar' | 'line' | 'pie'>('table');
+  const [chartConfig, setChartConfig] = useState<ChartConfig>({ type: 'table' });
   const [availableColumns, setAvailableColumns] = useState<ColumnDefinition[]>([]);
   const [reportData, setReportData] = useState<any[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [currentReport, setCurrentReport] = useState<any>(null);
-  const [calculationFields, setCalculationFields] = useState<any[]>([]);
 
   // Load existing report if reportId is provided
   useEffect(() => {
@@ -76,7 +81,7 @@ const ReportBuilder = () => {
         setSelectedFields(fieldsArray);
         form.setValue('fields', fieldsArray);
         setFilters(Array.isArray(report.filters) ? report.filters : []);
-        setChartType(report.chart_type || 'table');
+        setChartConfig({ type: report.chart_type || 'table' });
         
         // Auto-run report if in view mode
         if (isViewMode) {
@@ -164,7 +169,7 @@ const ReportBuilder = () => {
           module: formValues.base_table,
           selected_fields: selectedFields,
           filters: filters,
-          chart_type: chartType,
+          chart_type: chartConfig.type,
           is_public: formValues.is_public
         });
         toast({
@@ -181,7 +186,7 @@ const ReportBuilder = () => {
           fields: selectedFields,
           selected_fields: selectedFields,
           filters: filters,
-          chart_type: chartType,
+          chart_type: chartConfig.type,
           is_public: formValues.is_public
         });
         
@@ -303,7 +308,7 @@ const ReportBuilder = () => {
                   onBaseTableChange={(value) => {
                     form.setValue('base_table', value);
                     setSelectedFields([]);
-                    setCalculationFields([]);
+                    setChartConfig({ type: 'table' });
                   }}
                 />
 
@@ -317,17 +322,11 @@ const ReportBuilder = () => {
                   relatedTables={[]}
                 />
 
-                <CalculationFields
+                <ChartConfiguration
                   availableColumns={availableColumns}
-                  calculationFields={calculationFields}
-                  onCalculationFieldsChange={setCalculationFields}
                   selectedFields={selectedFields}
-                />
-
-                <VisualizationSelector
-                  selectedType={chartType}
-                  onTypeChange={setChartType}
-                  selectedFields={[...selectedFields, ...calculationFields.map(calc => calc.name)]}
+                  chartConfig={chartConfig}
+                  onChartConfigChange={setChartConfig}
                 />
 
                 <div className="space-y-4">
@@ -374,11 +373,12 @@ const ReportBuilder = () => {
               <CardContent>
                 <ReportPreview
                   data={reportData}
-                  columns={[...selectedFields, ...calculationFields.map(calc => calc.name)]}
-                  chartType={chartType}
+                  columns={selectedFields}
+                  chartType={chartConfig.type}
                   isLoading={isLoadingData}
                   onRunReport={handleRunReport}
                   onExportCsv={exportToCsv}
+                  chartConfig={chartConfig}
                 />
               </CardContent>
             </Card>

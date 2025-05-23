@@ -8,6 +8,7 @@ interface VisualizationSelectorProps {
   selectedFields: string[];
 }
 
+// This component is now simplified and will be phased out in favor of ChartConfiguration
 export const VisualizationSelector = ({ 
   selectedType, 
   onTypeChange,
@@ -15,7 +16,7 @@ export const VisualizationSelector = ({
 }: VisualizationSelectorProps) => {
   return (
     <div className="grid gap-2">
-      <h3 className="text-sm font-medium">Visualization Type</h3>
+      <h3 className="text-sm font-medium">Quick Visualization Type</h3>
       <div className="flex flex-wrap gap-2">
         <Button
           variant={selectedType === 'table' ? 'default' : 'outline'}
@@ -54,6 +55,9 @@ export const VisualizationSelector = ({
           Pie Chart
         </Button>
       </div>
+      <p className="text-xs text-muted-foreground">
+        Use Chart Configuration below for advanced settings
+      </p>
     </div>
   );
 };
