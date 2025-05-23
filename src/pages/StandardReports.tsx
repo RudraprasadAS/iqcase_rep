@@ -1,11 +1,10 @@
-
 import { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Download, Filter, Search, SortAsc, SortDesc, Users, FileText, Calendar, MessageSquare, Activity, X, Save, Plus } from 'lucide-react';
+import { Download, Filter, Search, SortAsc, SortDesc, Users, FileText, Calendar, MessageSquare, Activity, X, Save, Plus, Settings } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
   Tabs,
@@ -35,7 +34,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 
 // Define allowed table names as a type for type safety
-type AllowedTableName = 'cases' | 'users' | 'case_activities' | 'case_messages';
+type AllowedTableName = 'cases' | 'users' | 'custom_reports';
 
 const StandardReports = () => {
   const navigate = useNavigate();
@@ -93,6 +92,11 @@ const StandardReports = () => {
     setSelectedColumns([]);
     setFilters([]);
     setJoins([]);
+    
+    if (activeTab === 'custom_reports') {
+      // For custom reports tab, we don't need to set columns from table structure
+      return;
+    }
     
     // Get table structure from Supabase
     if (tables) {
@@ -196,10 +200,15 @@ const StandardReports = () => {
       .replace(/\b\w/g, c => c.toUpperCase());
   };
   
-  // Fetch data with support for related tables
+  // Fetch data with support for related tables - only for standard tables
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['standardReport', activeTab, sortField, sortDirection, search, filters, selectedColumns, JSON.stringify(joins)],
     queryFn: async () => {
+      if (activeTab === 'custom_reports') {
+        // Return empty array for custom reports tab since we display reports differently
+        return [];
+      }
+
       try {
         console.log('Fetching data with joins:', joins.length > 0);
         console.log('Selected columns:', selectedColumns);
@@ -240,10 +249,6 @@ const StandardReports = () => {
               query.ilike('title', `%${search}%`);
             } else if (activeTab === 'users') {
               query.ilike('name', `%${search}%`);
-            } else if (activeTab === 'case_activities') {
-              query.ilike('description', `%${search}%`);
-            } else if (activeTab === 'case_messages') {
-              query.ilike('message', `%${search}%`);
             }
           }
           
@@ -320,7 +325,11 @@ const StandardReports = () => {
     }
     
     // Provide default fields based on table if no data is available
-    return columnMappings[activeTab].map(col => col.key);
+    if (activeTab !== 'custom_reports') {
+      return columnMappings[activeTab].map(col => col.key);
+    }
+    
+    return [];
   };
   
   const addFilter = () => {
@@ -504,7 +513,7 @@ const StandardReports = () => {
   };
   
   // Define column mappings for each table
-  const columnMappings: Record<AllowedTableName, { label: string, key: string }[]> = {
+  const columnMappings: Record<Exclude<AllowedTableName, 'custom_reports'>, { label: string, key: string }[]> = {
     cases: [
       { label: 'Title', key: 'title' },
       { label: 'Status', key: 'status' },
@@ -518,19 +527,91 @@ const StandardReports = () => {
       { label: 'Type', key: 'user_type' },
       { label: 'Active', key: 'is_active' },
       { label: 'Created', key: 'created_at' }
-    ],
-    case_activities: [
-      { label: 'Type', key: 'activity_type' },
-      { label: 'Description', key: 'description' },
-      { label: 'Duration', key: 'duration_minutes' },
-      { label: 'Created', key: 'created_at' }
-    ],
-    case_messages: [
-      { label: 'Message', key: 'message' },
-      { label: 'Internal', key: 'is_internal' },
-      { label: 'Pinned', key: 'is_pinned' },
-      { label: 'Created', key: 'created_at' }
     ]
+  };
+
+  // Function to render custom reports
+  const renderCustomReports = () => {
+    if (isLoadingReports) {
+      return (
+        <div className="flex items-center justify-center p-8">
+          <div className="w-8 h-8 border-4 border-gray-300 border-t-primary rounded-full animate-spin"></div>
+        </div>
+      );
+    }
+
+    if (!reports || reports.length === 0) {
+      return (
+        <div className="text-center p-8 text-muted-foreground">
+          <Settings className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+          <h3 className="text-lg font-medium mb-2">No Custom Reports</h3>
+          <p>You haven't created any custom reports yet.</p>
+          <Button 
+            onClick={() => setCreateReportDialogOpen(true)}
+            className="mt-4"
+          >
+            Create Your First Report
+          </Button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {reports.map((report) => (
+          <Card key={report.id} className="hover:shadow-md transition-shadow">
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span className="truncate">{report.name}</span>
+                <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                  {report.chart_type || 'table'}
+                </span>
+              </CardTitle>
+              {report.description && (
+                <p className="text-sm text-muted-foreground truncate">
+                  {report.description}
+                </p>
+              )}
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <div>
+                  <span className="font-medium">Module:</span> {report.module}
+                </div>
+                <div>
+                  <span className="font-medium">Fields:</span> {Array.isArray(report.selected_fields) ? report.selected_fields.length : 0} selected
+                </div>
+                <div>
+                  <span className="font-medium">Created:</span> {new Date(report.created_at || '').toLocaleDateString()}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">Visibility:</span>
+                  <span className={`px-2 py-1 rounded-full text-xs ${report.is_public ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                    {report.is_public ? 'Public' : 'Private'}
+                  </span>
+                </div>
+              </div>
+              <div className="mt-4 flex gap-2">
+                <Button 
+                  size="sm" 
+                  onClick={() => navigate(`/reports/builder?id=${report.id}`)}
+                  className="flex-1"
+                >
+                  View Report
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={() => navigate(`/reports/builder?id=${report.id}&edit=true`)}
+                >
+                  Edit
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
   };
   
   return (
@@ -543,7 +624,7 @@ const StandardReports = () => {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Standard Reports</h1>
-            <p className="text-muted-foreground">View pre-configured reports for your data</p>
+            <p className="text-muted-foreground">View pre-configured reports and manage custom reports</p>
             {reports && reports.length > 0 && (
               <p className="text-sm text-green-600 mt-1">
                 {reports.length} custom report{reports.length > 1 ? 's' : ''} available
@@ -559,6 +640,7 @@ const StandardReports = () => {
               Back to Reports
             </Button>
             
+            {/* Create Report Dialog */}
             <Dialog open={createReportDialogOpen} onOpenChange={setCreateReportDialogOpen}>
               <DialogTrigger asChild>
                 <Button
@@ -628,68 +710,74 @@ const StandardReports = () => {
               </DialogContent>
             </Dialog>
             
-            <Dialog open={saveViewDialogOpen} onOpenChange={setSaveViewDialogOpen}>
-              <DialogTrigger asChild>
-                <Button 
-                  variant="outline" 
-                  disabled={!data || data.length === 0}
-                  className="gap-2"
-                >
-                  <Save className="h-4 w-4" />
-                  Save View
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[500px]">
-                <DialogHeader>
-                  <DialogTitle>Save Custom View</DialogTitle>
-                  <DialogDescription>
-                    Save your current filters and selected columns as a custom view
-                  </DialogDescription>
-                </DialogHeader>
-                
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <label htmlFor="name" className="text-sm font-medium">
-                      View Name
-                    </label>
-                    <Input
-                      id="name"
-                      placeholder="My Custom View"
-                      {...saveViewForm.register('name', { required: true })}
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <label htmlFor="description" className="text-sm font-medium">
-                      Description (optional)
-                    </label>
-                    <Input
-                      id="description"
-                      placeholder="A brief description of this view"
-                      {...saveViewForm.register('description')}
-                    />
-                  </div>
-                </div>
-                
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setSaveViewDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit" onClick={handleSaveView}>
+            {/* Save View Dialog - only show for non-custom reports tabs */}
+            {activeTab !== 'custom_reports' && (
+              <Dialog open={saveViewDialogOpen} onOpenChange={setSaveViewDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    disabled={!data || data.length === 0}
+                    className="gap-2"
+                  >
+                    <Save className="h-4 w-4" />
                     Save View
                   </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[500px]">
+                  <DialogHeader>
+                    <DialogTitle>Save Custom View</DialogTitle>
+                    <DialogDescription>
+                      Save your current filters and selected columns as a custom view
+                    </DialogDescription>
+                  </DialogHeader>
+                  
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <label htmlFor="name" className="text-sm font-medium">
+                        View Name
+                      </label>
+                      <Input
+                        id="name"
+                        placeholder="My Custom View"
+                        {...saveViewForm.register('name', { required: true })}
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <label htmlFor="description" className="text-sm font-medium">
+                        Description (optional)
+                      </label>
+                      <Input
+                        id="description"
+                        placeholder="A brief description of this view"
+                        {...saveViewForm.register('description')}
+                      />
+                    </div>
+                  </div>
+                  
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setSaveViewDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button type="submit" onClick={handleSaveView}>
+                      Save View
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            )}
             
-            <Button 
-              variant="outline" 
-              onClick={downloadCsv}
-              disabled={!data || data.length === 0}
-            >
-              <Download className="mr-2 h-4 w-4" />
-              Export CSV
-            </Button>
+            {/* Export CSV - only show for non-custom reports tabs */}
+            {activeTab !== 'custom_reports' && (
+              <Button 
+                variant="outline" 
+                onClick={downloadCsv}
+                disabled={!data || data.length === 0}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Export CSV
+              </Button>
+            )}
           </div>
         </div>
         
@@ -704,203 +792,302 @@ const StandardReports = () => {
                 <Users className="h-4 w-4" />
                 Users
               </TabsTrigger>
-              <TabsTrigger value="case_activities" className="flex items-center gap-2">
-                <Activity className="h-4 w-4" />
-                Activities
-              </TabsTrigger>
-              <TabsTrigger value="case_messages" className="flex items-center gap-2">
-                <MessageSquare className="h-4 w-4" />
-                Messages
+              <TabsTrigger value="custom_reports" className="flex items-center gap-2">
+                <Settings className="h-4 w-4" />
+                Custom Reports
               </TabsTrigger>
             </TabsList>
           </div>
           
-          <div className="flex items-center gap-4 mb-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-8"
-              />
-            </div>
-            
-            <Dialog open={filterDialogOpen} onOpenChange={setFilterDialogOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <Filter className="h-4 w-4" />
-                  Filter {filters.length > 0 && `(${filters.length})`}
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[600px]">
-                <DialogHeader>
-                  <DialogTitle>Filter Data</DialogTitle>
-                  <DialogDescription>
-                    Create filters to narrow down your results.
-                  </DialogDescription>
-                </DialogHeader>
-                
-                <div className="py-4">
-                  <FilterBuilder
-                    selectedFields={getFieldNames()}
-                    filters={filters}
-                    onAddFilter={addFilter}
-                    onRemoveFilter={removeFilter}
-                    onUpdateFilter={updateFilter}
+          {/* Search and Filter controls - only show for non-custom reports tabs */}
+          {activeTab !== 'custom_reports' && (
+            <>
+              <div className="flex items-center gap-4 mb-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="pl-8"
                   />
                 </div>
                 
-                <DialogFooter>
-                  <Button variant="outline" onClick={clearFilters}>
-                    Clear All
-                  </Button>
-                  <Button onClick={applyFilters}>
-                    Apply Filters
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-            
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="gap-2"
-              onClick={() => setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')}
-            >
-              {sortDirection === 'asc' ? (
-                <SortAsc className="h-4 w-4" />
-              ) : (
-                <SortDesc className="h-4 w-4" />
-              )}
-              Sort
-            </Button>
-            
-            <ColumnSelector
-              availableColumns={availableColumns}
-              selectedColumns={selectedColumns}
-              onColumnChange={setSelectedColumns}
-              relatedTables={relatedTables}
-            />
-          </div>
-          
-          {filters.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-4">
-              {filters.map((filter, index) => (
-                <div key={`filter-${index}`} className="flex items-center gap-2 bg-muted px-3 py-1 rounded-md text-sm">
-                  <span>{filter.field} {getOperatorLabel(filter.operator)} {filter.value}</span>
+                <Dialog open={filterDialogOpen} onOpenChange={setFilterDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-2">
+                      <Filter className="h-4 w-4" />
+                      Filter {filters.length > 0 && `(${filters.length})`}
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[600px]">
+                    <DialogHeader>
+                      <DialogTitle>Filter Data</DialogTitle>
+                      <DialogDescription>
+                        Create filters to narrow down your results.
+                      </DialogDescription>
+                    </DialogHeader>
+                    
+                    <div className="py-4">
+                      <FilterBuilder
+                        selectedFields={getFieldNames()}
+                        filters={filters}
+                        onAddFilter={addFilter}
+                        onRemoveFilter={removeFilter}
+                        onUpdateFilter={updateFilter}
+                      />
+                    </div>
+                    
+                    <DialogFooter>
+                      <Button variant="outline" onClick={clearFilters}>
+                        Clear All
+                      </Button>
+                      <Button onClick={applyFilters}>
+                        Apply Filters
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+                
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="gap-2"
+                  onClick={() => setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')}
+                >
+                  {sortDirection === 'asc' ? (
+                    <SortAsc className="h-4 w-4" />
+                  ) : (
+                    <SortDesc className="h-4 w-4" />
+                  )}
+                  Sort
+                </Button>
+                
+                <ColumnSelector
+                  availableColumns={availableColumns}
+                  selectedColumns={selectedColumns}
+                  onColumnChange={setSelectedColumns}
+                  relatedTables={relatedTables}
+                />
+              </div>
+              
+              {/* Active filters display */}
+              {filters.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {filters.map((filter, index) => (
+                    <div key={`filter-${index}`} className="flex items-center gap-2 bg-muted px-3 py-1 rounded-md text-sm">
+                      <span>{filter.field} {getOperatorLabel(filter.operator)} {filter.value}</span>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-5 w-5"
+                        onClick={() => removeFilter(index)}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
                   <Button 
                     variant="ghost" 
-                    size="icon" 
-                    className="h-5 w-5"
-                    onClick={() => removeFilter(index)}
+                    size="sm"
+                    className="text-xs"
+                    onClick={clearFilters}
                   >
-                    <X className="h-3 w-3" />
+                    Clear all
                   </Button>
                 </div>
-              ))}
-              <Button 
-                variant="ghost" 
-                size="sm"
-                className="text-xs"
-                onClick={clearFilters}
-              >
-                Clear all
-              </Button>
-            </div>
+              )}
+            </>
           )}
           
-          <Card>
-            <CardContent className="p-0">
-              {isLoading ? (
-                <div className="flex items-center justify-center p-8">
-                  <div className="w-8 h-8 border-4 border-gray-300 border-t-primary rounded-full animate-spin"></div>
-                </div>
-              ) : error ? (
-                <div className="text-center p-8 text-red-500">
-                  Error loading data. Please try again. {error instanceof Error ? error.message : 'Unknown error'}
-                </div>
-              ) : data && data.length > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      {selectedColumns.length > 0 ? 
-                        selectedColumns.map((colKey, index) => {
-                          // Check if it's a joined column (contains a dot)
-                          const isJoinedColumn = colKey.includes('.');
-                          let displayName = colKey;
-                          let tableName = undefined;
-                          
-                          if (isJoinedColumn) {
-                            const [table, field] = colKey.split('.');
-                            displayName = formatFieldName(field);
-                            tableName = table;
-                          } else {
-                            // Find in available columns to get proper label
-                            const columnDef = availableColumns.find(col => col.key === colKey);
-                            if (columnDef) {
-                              displayName = columnDef.label;
+          {/* Tab Content */}
+          <TabsContent value="custom_reports">
+            {renderCustomReports()}
+          </TabsContent>
+          
+          <TabsContent value="cases">
+            <Card>
+              <CardContent className="p-0">
+                {isLoading ? (
+                  <div className="flex items-center justify-center p-8">
+                    <div className="w-8 h-8 border-4 border-gray-300 border-t-primary rounded-full animate-spin"></div>
+                  </div>
+                ) : error ? (
+                  <div className="text-center p-8 text-red-500">
+                    Error loading data. Please try again. {error instanceof Error ? error.message : 'Unknown error'}
+                  </div>
+                ) : data && data.length > 0 ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        {selectedColumns.length > 0 ? 
+                          selectedColumns.map((colKey, index) => {
+                            // Check if it's a joined column (contains a dot)
+                            const isJoinedColumn = colKey.includes('.');
+                            let displayName = colKey;
+                            
+                            if (isJoinedColumn) {
+                              const [table, field] = colKey.split('.');
+                              displayName = formatFieldName(field);
+                            } else {
+                              // Find in available columns to get proper label
+                              const columnDef = availableColumns.find(col => col.key === colKey);
+                              if (columnDef) {
+                                displayName = columnDef.label;
+                              }
                             }
-                          }
-                          
-                          return (
+                            
+                            return (
+                              <TableHead 
+                                key={`header-${colKey}-${index}`}
+                                className="cursor-pointer hover:bg-gray-50"
+                                onClick={() => toggleSort(colKey)}
+                              >
+                                {displayName}
+                                {sortField === colKey && (
+                                  <span className="ml-2 inline-block">
+                                    {sortDirection === 'asc' ? '↑' : '↓'}
+                                  </span>
+                                )}
+                              </TableHead>
+                            );
+                          }) :
+                          columnMappings[activeTab]?.map((col, index) => (
                             <TableHead 
-                              key={`header-${colKey}-${index}`} // Add index to ensure uniqueness
+                              key={`header-${col.key}-${index}`}
                               className="cursor-pointer hover:bg-gray-50"
-                              onClick={() => toggleSort(colKey)}
+                              onClick={() => toggleSort(col.key)}
                             >
-                              {displayName}
-                              {sortField === colKey && (
+                              {col.label}
+                              {sortField === col.key && (
                                 <span className="ml-2 inline-block">
                                   {sortDirection === 'asc' ? '↑' : '↓'}
                                 </span>
                               )}
                             </TableHead>
-                          );
-                        }) :
-                        columnMappings[activeTab]?.map((col, index) => (
-                          <TableHead 
-                            key={`header-${col.key}-${index}`} // Add index to ensure uniqueness
-                            className="cursor-pointer hover:bg-gray-50"
-                            onClick={() => toggleSort(col.key)}
-                          >
-                            {col.label}
-                            {sortField === col.key && (
-                              <span className="ml-2 inline-block">
-                                {sortDirection === 'asc' ? '↑' : '↓'}
-                              </span>
-                            )}
-                          </TableHead>
-                        ))
-                      }
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {data.map((row, rowIndex) => (
-                      <TableRow key={`row-${rowIndex}`}>
-                        {selectedColumns.length > 0 ? 
-                          selectedColumns.map((colKey, colIndex) => (
-                            <TableCell key={`cell-${rowIndex}-${colKey}-${colIndex}`}>
-                              {renderTableCell(row[colKey], colKey)}
-                            </TableCell>
-                          )) :
-                          columnMappings[activeTab]?.map((col, colIndex) => (
-                            <TableCell key={`cell-${rowIndex}-${col.key}-${colIndex}`}>
-                              {renderTableCell(row[col.key], col.key)}
-                            </TableCell>
                           ))
                         }
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              ) : (
-                <div className="text-center p-8 text-muted-foreground">
-                  No data available for this report.
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                    </TableHeader>
+                    <TableBody>
+                      {data.map((row, rowIndex) => (
+                        <TableRow key={`row-${rowIndex}`}>
+                          {selectedColumns.length > 0 ? 
+                            selectedColumns.map((colKey, colIndex) => (
+                              <TableCell key={`cell-${rowIndex}-${colKey}-${colIndex}`}>
+                                {renderTableCell(row[colKey], colKey)}
+                              </TableCell>
+                            )) :
+                            columnMappings[activeTab]?.map((col, colIndex) => (
+                              <TableCell key={`cell-${rowIndex}-${col.key}-${colIndex}`}>
+                                {renderTableCell(row[col.key], col.key)}
+                              </TableCell>
+                            ))
+                          }
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <div className="text-center p-8 text-muted-foreground">
+                    No data available for this report.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="users">
+            <Card>
+              <CardContent className="p-0">
+                {isLoading ? (
+                  <div className="flex items-center justify-center p-8">
+                    <div className="w-8 h-8 border-4 border-gray-300 border-t-primary rounded-full animate-spin"></div>
+                  </div>
+                ) : error ? (
+                  <div className="text-center p-8 text-red-500">
+                    Error loading data. Please try again. {error instanceof Error ? error.message : 'Unknown error'}
+                  </div>
+                ) : data && data.length > 0 ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        {selectedColumns.length > 0 ? 
+                          selectedColumns.map((colKey, index) => {
+                            // Check if it's a joined column (contains a dot)
+                            const isJoinedColumn = colKey.includes('.');
+                            let displayName = colKey;
+                            
+                            if (isJoinedColumn) {
+                              const [table, field] = colKey.split('.');
+                              displayName = formatFieldName(field);
+                            } else {
+                              // Find in available columns to get proper label
+                              const columnDef = availableColumns.find(col => col.key === colKey);
+                              if (columnDef) {
+                                displayName = columnDef.label;
+                              }
+                            }
+                            
+                            return (
+                              <TableHead 
+                                key={`header-${colKey}-${index}`}
+                                className="cursor-pointer hover:bg-gray-50"
+                                onClick={() => toggleSort(colKey)}
+                              >
+                                {displayName}
+                                {sortField === colKey && (
+                                  <span className="ml-2 inline-block">
+                                    {sortDirection === 'asc' ? '↑' : '↓'}
+                                  </span>
+                                )}
+                              </TableHead>
+                            );
+                          }) :
+                          columnMappings[activeTab]?.map((col, index) => (
+                            <TableHead 
+                              key={`header-${col.key}-${index}`}
+                              className="cursor-pointer hover:bg-gray-50"
+                              onClick={() => toggleSort(col.key)}
+                            >
+                              {col.label}
+                              {sortField === col.key && (
+                                <span className="ml-2 inline-block">
+                                  {sortDirection === 'asc' ? '↑' : '↓'}
+                                </span>
+                              )}
+                            </TableHead>
+                          ))
+                        }
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {data.map((row, rowIndex) => (
+                        <TableRow key={`row-${rowIndex}`}>
+                          {selectedColumns.length > 0 ? 
+                            selectedColumns.map((colKey, colIndex) => (
+                              <TableCell key={`cell-${rowIndex}-${colKey}-${colIndex}`}>
+                                {renderTableCell(row[colKey], colKey)}
+                              </TableCell>
+                            )) :
+                            columnMappings[activeTab]?.map((col, colIndex) => (
+                              <TableCell key={`cell-${rowIndex}-${col.key}-${colIndex}`}>
+                                {renderTableCell(row[col.key], col.key)}
+                              </TableCell>
+                            ))
+                          }
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <div className="text-center p-8 text-muted-foreground">
+                    No data available for this report.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
       </div>
     </>
