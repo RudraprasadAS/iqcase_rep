@@ -80,11 +80,11 @@ export const ReportPreview = ({
     );
   }
 
-  const rows = data;
+  const rows = Array.isArray(data) ? data : [];
   
   // Prepare data for charts using the new chart configuration
   const prepareChartData = () => {
-    if (!chartConfig || chartType === 'table' || !chartConfig.xAxis) return [];
+    if (!chartConfig || chartType === 'table' || !chartConfig.xAxis || !Array.isArray(rows)) return [];
 
     // Group data by X-axis field
     const grouped = rows.reduce((acc, row) => {
@@ -101,8 +101,8 @@ export const ReportPreview = ({
       const result: any = { name: xValue };
       
       if (chartConfig.aggregation === 'count') {
-        result.value = groupRows.length;
-      } else if (chartConfig.yAxis && chartConfig.aggregation) {
+        result.value = Array.isArray(groupRows) ? groupRows.length : 0;
+      } else if (chartConfig.yAxis && chartConfig.aggregation && Array.isArray(groupRows)) {
         const values = groupRows
           .map(row => Number(row[chartConfig.yAxis!]))
           .filter(val => !isNaN(val));
@@ -121,10 +121,10 @@ export const ReportPreview = ({
             result.value = values.length > 0 ? Math.max(...values) : 0;
             break;
           default:
-            result.value = values.length;
+            result.value = Array.isArray(groupRows) ? groupRows.length : 0;
         }
       } else {
-        result.value = groupRows.length;
+        result.value = Array.isArray(groupRows) ? groupRows.length : 0;
       }
       
       return result;
@@ -134,7 +134,7 @@ export const ReportPreview = ({
   const chartData = prepareChartData();
   
   const renderChart = () => {
-    if (!chartConfig || !chartData.length) {
+    if (!chartConfig || !Array.isArray(chartData) || chartData.length === 0) {
       return (
         <div className="text-center py-8 text-muted-foreground">
           <p>Configure chart axes to display visualization.</p>

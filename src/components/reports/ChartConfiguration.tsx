@@ -116,14 +116,14 @@ export const ChartConfiguration = ({
                 <div>
                   <Label htmlFor="x-axis">X-Axis (Categories)</Label>
                   <Select
-                    value={chartConfig.xAxis || ''}
-                    onValueChange={(value) => updateChartConfig({ xAxis: value })}
+                    value={chartConfig.xAxis || 'none'}
+                    onValueChange={(value) => updateChartConfig({ xAxis: value === 'none' ? undefined : value })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select field for X-axis" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">-- Select Field --</SelectItem>
+                      <SelectItem value="none">-- Select Field --</SelectItem>
                       {categoricalColumns.map((col) => (
                         <SelectItem key={col.key} value={col.key}>
                           {col.label}
@@ -146,7 +146,7 @@ export const ChartConfiguration = ({
                   <Label htmlFor="y-axis">Y-Axis (Values)</Label>
                   <div className="flex gap-2">
                     <Select
-                      value={chartConfig.aggregation || ''}
+                      value={chartConfig.aggregation || 'count'}
                       onValueChange={(value) => updateChartConfig({ aggregation: value as ChartConfig['aggregation'] })}
                     >
                       <SelectTrigger className="w-32">
@@ -162,15 +162,15 @@ export const ChartConfiguration = ({
                     </Select>
                     
                     <Select
-                      value={chartConfig.yAxis || ''}
-                      onValueChange={(value) => updateChartConfig({ yAxis: value })}
+                      value={chartConfig.yAxis || 'none'}
+                      onValueChange={(value) => updateChartConfig({ yAxis: value === 'none' ? undefined : value })}
                       disabled={chartConfig.aggregation === 'count'}
                     >
                       <SelectTrigger className="flex-1">
                         <SelectValue placeholder="Select field for Y-axis" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">-- Select Field --</SelectItem>
+                        <SelectItem value="none">-- Select Field --</SelectItem>
                         {numericColumns.map((col) => (
                           <SelectItem key={col.key} value={col.key}>
                             {col.label}
@@ -198,14 +198,14 @@ export const ChartConfiguration = ({
                 <div>
                   <Label htmlFor="pie-category">Category Field</Label>
                   <Select
-                    value={chartConfig.xAxis || ''}
-                    onValueChange={(value) => updateChartConfig({ xAxis: value })}
+                    value={chartConfig.xAxis || 'none'}
+                    onValueChange={(value) => updateChartConfig({ xAxis: value === 'none' ? undefined : value })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select field for pie slices" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">-- Select Field --</SelectItem>
+                      <SelectItem value="none">-- Select Field --</SelectItem>
                       {categoricalColumns.map((col) => (
                         <SelectItem key={col.key} value={col.key}>
                           {col.label}
