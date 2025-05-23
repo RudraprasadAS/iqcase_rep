@@ -67,14 +67,17 @@ const ReportBuilder = () => {
         form.setValue('base_table', report.module);
         form.setValue('is_public', report.is_public);
         
-        // Set other fields
-        setSelectedFields(Array.isArray(report.selected_fields) ? report.selected_fields : []);
+        // Set other fields - fix type conversion for selectedFields
+        const fieldsArray = Array.isArray(report.selected_fields) 
+          ? report.selected_fields.map(field => String(field))
+          : [];
+        setSelectedFields(fieldsArray);
         setFilters(Array.isArray(report.filters) ? report.filters : []);
         setChartType(report.chart_type || 'table');
         
         // Auto-run report if in view mode
         if (isViewMode) {
-          handleRunReport(report);
+          handleRunReport();
         }
       }
     }
@@ -102,9 +105,8 @@ const ReportBuilder = () => {
       .replace(/\b\w/g, c => c.toUpperCase());
   };
 
-  const handleRunReport = async (report?: any) => {
-    const reportToRun = report || currentReport;
-    if (!reportToRun) {
+  const handleRunReport = async () => {
+    if (!currentReport) {
       toast({
         variant: "destructive",
         title: "No report to run",
@@ -115,13 +117,8 @@ const ReportBuilder = () => {
 
     setIsLoadingData(true);
     try {
-      console.log('Running report with data:', reportToRun);
-      const result = await runReport.mutateAsync({
-        module: reportToRun.module,
-        selectedFields: Array.isArray(reportToRun.selected_fields) ? reportToRun.selected_fields : [],
-        filters: Array.isArray(reportToRun.filters) ? reportToRun.filters : [],
-        chartType: reportToRun.chart_type || 'table'
-      });
+      console.log('Running report with ID:', currentReport.id);
+      const result = await runReport.mutateAsync(currentReport.id);
       
       console.log('Report result:', result);
       setReportData(result.rows || []);
@@ -339,7 +336,7 @@ const ReportBuilder = () => {
                   
                   <Button 
                     variant="outline"
-                    onClick={() => handleRunReport()}
+                    onClick={handleRunReport}
                     disabled={!form.watch('base_table') || selectedFields.length === 0}
                   >
                     <Play className="h-4 w-4 mr-2" />
@@ -362,7 +359,7 @@ const ReportBuilder = () => {
                   columns={selectedFields}
                   chartType={chartType}
                   isLoading={isLoadingData}
-                  onRunReport={() => handleRunReport()}
+                  onRunReport={handleRunReport}
                   onExportCsv={exportToCsv}
                 />
               </CardContent>
