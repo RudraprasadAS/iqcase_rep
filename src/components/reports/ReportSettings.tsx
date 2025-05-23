@@ -23,7 +23,7 @@ interface ReportSettingsProps {
     name: string;
     description: string;
     base_table: string;
-    fields?: string[];
+    fields: string[];
     is_public: boolean;
   }>;
   tables?: TableInfo[];
