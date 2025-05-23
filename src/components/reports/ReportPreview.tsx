@@ -1,4 +1,3 @@
-
 import React from 'react';
 import {
   Table,
@@ -9,7 +8,6 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { ReportData } from '@/types/reports';
 import { Loader2, Play, Download } from 'lucide-react';
 import {
   BarChart,

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useNavigate } from 'react-router-dom';
@@ -248,8 +249,8 @@ const TableReportBuilder = () => {
               
               <TabsContent value="visualization" className="mt-0">
                 <VisualizationSelector
-                  selectedType={chartType || 'table'}
-                  onTypeChange={(type) => setChartType(type as Report['chart_type'])}
+                  selectedType={chartType}
+                  onTypeChange={(type) => setChartType(type)}
                   selectedFields={selectedFields}
                 />
               </TabsContent>
@@ -258,7 +259,7 @@ const TableReportBuilder = () => {
                 <ReportPreview
                   data={previewData}
                   columns={selectedFields}
-                  chartType={chartType || 'table'}
+                  chartType={chartType}
                   isLoading={previewLoading}
                   onRunReport={handlePreview}
                   onExportCsv={() => {

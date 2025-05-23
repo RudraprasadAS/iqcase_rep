@@ -1,5 +1,6 @@
 
 import { Button } from '@/components/ui/button';
+import { Table, BarChart, LineChart, PieChart } from 'lucide-react';
 
 interface VisualizationSelectorProps {
   selectedType: 'table' | 'bar' | 'line' | 'pie';
@@ -20,7 +21,9 @@ export const VisualizationSelector = ({
           variant={selectedType === 'table' ? 'default' : 'outline'}
           size="sm"
           onClick={() => onTypeChange('table')}
+          className="flex items-center"
         >
+          <Table className="h-4 w-4 mr-2" />
           Table
         </Button>
         <Button

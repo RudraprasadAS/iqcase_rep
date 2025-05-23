@@ -676,14 +676,14 @@ export const useReports = () => {
         console.log("Query results:", data);
         
         // Extract column names from the first result
-        const columns = data && data.length > 0 
+        const columns = data && Array.isArray(data) && data.length > 0 
           ? Object.keys(data[0])
           : selectedColumns;
         
         return {
           columns,
-          rows: data || [],
-          total: data?.length || 0
+          rows: Array.isArray(data) ? data : [],
+          total: Array.isArray(data) ? data.length : 0
         } as ReportData;
       } catch (error) {
         console.error("Error in runReportWithJoins:", error);
@@ -727,8 +727,7 @@ export const useReports = () => {
         // Apply filters if present - Fix for TS2339 errors
         if (parsedFilters && 
             typeof parsedFilters === 'object' && 
-            Array.isArray(parsedFilters) && 
-            parsedFilters.length > 0) {
+            Array.isArray(parsedFilters)) {
           parsedFilters.forEach((filter: any) => {
             const { field, operator, value } = filter;
             
