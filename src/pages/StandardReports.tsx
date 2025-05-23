@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useNavigate } from 'react-router-dom';
@@ -442,7 +441,7 @@ const StandardReports = () => {
       toast({
         variant: "destructive",
         title: "Error creating report",
-        description: "An unexpected error occurred. Please try again."
+        description: "An unexpected error occurred. Please try again"
       });
     }
   };
@@ -574,13 +573,16 @@ const StandardReports = () => {
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
                     <label htmlFor="report-name" className="text-sm font-medium">
-                      Report Name
+                      Report Name <span className="text-red-500">*</span>
                     </label>
                     <Input
                       id="report-name"
                       placeholder="Monthly Case Summary"
                       {...createReportForm.register('name', { required: true })}
                     />
+                    {createReportForm.formState.errors.name && (
+                      <p className="text-sm text-red-500">Report name is required</p>
+                    )}
                   </div>
                   
                   <div className="space-y-2">

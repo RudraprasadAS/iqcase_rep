@@ -117,6 +117,35 @@ export const useReports = () => {
         
         console.log("Auth user ID:", authUser.id);
         
+        // Check if the user exists in the users table
+        const { data: userExists, error: userCheckError } = await supabase
+          .from('users')
+          .select('id')
+          .eq('auth_user_id', authUser.id)
+          .single();
+        
+        if (userCheckError || !userExists) {
+          console.log("User does not exist in users table, attempting to create");
+          
+          // Create a user record
+          const { data: newUser, error: createUserError } = await supabase
+            .from('users')
+            .insert({
+              name: authUser.user_metadata?.name || 'Anonymous User',
+              email: authUser.email || authUser.user_metadata?.email || 'anonymous@example.com',
+              auth_user_id: authUser.id,
+              // Use a default role_id - this should be updated with a real role
+              role_id: '00000000-0000-0000-0000-000000000000'
+            })
+            .select('id')
+            .single();
+          
+          if (createUserError) {
+            console.error("Error creating user record:", createUserError);
+            throw new Error("Could not create user record. Please contact an administrator.");
+          }
+        }
+        
         // Convert for Supabase DB structure
         const { data, error } = await supabase
           .from('reports')
