@@ -1,336 +1,373 @@
 
-import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { useReports } from '@/hooks/useReports';
-import { supabase } from '@/integrations/supabase/client';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-  CardFooter
-} from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { ArrowLeft, Play, Save, Download } from 'lucide-react';
+import { ReportSettings } from '@/components/reports/ReportSettings';
+import { ColumnSelector } from '@/components/reports/ColumnSelector';
+import { FilterBuilder } from '@/components/reports/FilterBuilder';
+import { VisualizationSelector } from '@/components/reports/VisualizationSelector';
+import { ReportPreview } from '@/components/reports/ReportPreview';
+import { useReports } from '@/hooks/useReports';
+import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useForm } from 'react-hook-form';
-import { ArrowLeft, Loader2, Play, Save } from 'lucide-react';
+import { ReportFilter, ColumnDefinition } from '@/types/reports';
 
 const ReportBuilder = () => {
-  const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
   
-  const { 
-    tables, 
+  const reportId = searchParams.get('id');
+  const isEditMode = searchParams.get('edit') === 'true';
+  const isViewMode = searchParams.get('view') === 'true';
+  
+  const {
+    tables,
     isLoadingTables,
-    selectedReport,
-    updateReport, 
-    runReport, 
-    setSelectedReportId
+    createReport,
+    updateReport,
+    runReport,
+    reports,
+    isLoadingReports
   } = useReports();
-  
-  const [reportName, setReportName] = useState('');
-  const [description, setDescription] = useState('');
-  const [baseTable, setBaseTable] = useState('');
-  const [availableFields, setAvailableFields] = useState<string[]>([]);
+
+  const form = useForm({
+    defaultValues: {
+      name: '',
+      description: '',
+      base_table: '',
+      is_public: false
+    }
+  });
+
   const [selectedFields, setSelectedFields] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  
-  // Load report if ID is provided
+  const [filters, setFilters] = useState<ReportFilter[]>([]);
+  const [chartType, setChartType] = useState<'table' | 'bar' | 'line' | 'pie'>('table');
+  const [availableColumns, setAvailableColumns] = useState<ColumnDefinition[]>([]);
+  const [reportData, setReportData] = useState<any[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(false);
+  const [currentReport, setCurrentReport] = useState<any>(null);
+
+  // Load existing report if reportId is provided
   useEffect(() => {
-    if (!id) return;
-    setSelectedReportId(id);
-  }, [id, setSelectedReportId]);
-  
-  // When selected report changes, update form
-  useEffect(() => {
-    if (!selectedReport) return;
-    
-    setReportName(selectedReport.name);
-    setDescription(selectedReport.description || '');
-    setBaseTable(selectedReport.base_table || selectedReport.module || '');
-    
-    if (Array.isArray(selectedReport.fields)) {
-      setSelectedFields(selectedReport.fields);
-    } else if (Array.isArray(selectedReport.selected_fields)) {
-      setSelectedFields(selectedReport.selected_fields as string[]);
-    }
-    
-  }, [selectedReport]);
-  
-  // When base table changes, fetch fields
-  useEffect(() => {
-    if (!baseTable) {
-      setAvailableFields([]);
-      return;
-    }
-    
-    const loadFields = async () => {
-      if (!tables) return;
-      
-      const tableInfo = tables.find(table => table.name === baseTable);
-      if (tableInfo && Array.isArray(tableInfo.fields)) {
-        setAvailableFields(tableInfo.fields);
+    if (reportId && reports && reports.length > 0) {
+      const report = reports.find(r => r.id === reportId);
+      if (report) {
+        console.log('Loading existing report:', report);
+        setCurrentReport(report);
+        
+        // Populate form
+        form.setValue('name', report.name);
+        form.setValue('description', report.description || '');
+        form.setValue('base_table', report.module);
+        form.setValue('is_public', report.is_public);
+        
+        // Set other fields
+        setSelectedFields(Array.isArray(report.selected_fields) ? report.selected_fields : []);
+        setFilters(Array.isArray(report.filters) ? report.filters : []);
+        setChartType(report.chart_type || 'table');
+        
+        // Auto-run report if in view mode
+        if (isViewMode) {
+          handleRunReport(report);
+        }
       }
-    };
-    
-    loadFields();
-  }, [baseTable, tables]);
-  
-  const handleBaseTableChange = (value: string) => {
-    if (value === baseTable) return;
-    
-    setBaseTable(value);
-    setSelectedFields([]);
-  };
-  
-  const handleFieldToggle = (field: string) => {
-    if (selectedFields.includes(field)) {
-      setSelectedFields(selectedFields.filter(f => f !== field));
-    } else {
-      setSelectedFields([...selectedFields, field]);
     }
+  }, [reportId, reports, isViewMode, form]);
+
+  // Update available columns when base table changes
+  useEffect(() => {
+    const baseTable = form.watch('base_table');
+    if (baseTable && tables) {
+      const tableInfo = tables.find(table => table.name === baseTable);
+      if (tableInfo && tableInfo.fields) {
+        const columns: ColumnDefinition[] = tableInfo.fields.map(field => ({
+          key: field,
+          label: formatFieldName(field),
+          table: baseTable
+        }));
+        setAvailableColumns(columns);
+      }
+    }
+  }, [form.watch('base_table'), tables]);
+
+  const formatFieldName = (fieldName: string): string => {
+    return fieldName
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, c => c.toUpperCase());
   };
-  
-  const handleSaveReport = async () => {
-    if (!id || !reportName || !baseTable) {
+
+  const handleRunReport = async (report?: any) => {
+    const reportToRun = report || currentReport;
+    if (!reportToRun) {
       toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Please complete all required fields'
+        variant: "destructive",
+        title: "No report to run",
+        description: "Please create or select a report first"
       });
       return;
     }
-    
-    setIsLoading(true);
-    
+
+    setIsLoadingData(true);
     try {
-      await updateReport.mutateAsync({
-        id,
-        name: reportName,
-        description: description,
-        module: baseTable,
-        base_table: baseTable,
-        selected_fields: selectedFields,
-        fields: selectedFields,
-        filters: selectedReport?.filters || [],
-        is_public: selectedReport?.is_public || false,
-        chart_type: 'table'
+      console.log('Running report with data:', reportToRun);
+      const result = await runReport.mutateAsync({
+        module: reportToRun.module,
+        selectedFields: Array.isArray(reportToRun.selected_fields) ? reportToRun.selected_fields : [],
+        filters: Array.isArray(reportToRun.filters) ? reportToRun.filters : [],
+        chartType: reportToRun.chart_type || 'table'
       });
       
-      toast({
-        title: 'Report saved',
-        description: 'Your report configuration has been saved'
-      });
-    } catch (error) {
-      console.error('Error saving report:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  const handleRunReport = async () => {
-    if (!id || selectedFields.length === 0) {
-      toast({
-        variant: 'destructive', 
-        title: 'Error',
-        description: 'Please select at least one field before running the report'
-      });
-      return;
-    }
-    
-    setIsLoading(true);
-    
-    try {
-      // First save the report
-      await handleSaveReport();
-      
-      // Then run it
-      const result = await runReport.mutateAsync(id);
-      console.log('Report results:', result);
+      console.log('Report result:', result);
+      setReportData(result.rows || []);
       
       toast({
-        title: 'Report executed',
-        description: `Found ${result.rows.length} results`
+        title: "Report executed successfully",
+        description: `Found ${result.rows?.length || 0} records`
       });
     } catch (error) {
       console.error('Error running report:', error);
       toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to run report'
+        variant: "destructive",
+        title: "Error running report",
+        description: "Failed to execute report. Please try again."
       });
     } finally {
-      setIsLoading(false);
+      setIsLoadingData(false);
     }
   };
-  
+
+  const handleSaveReport = async () => {
+    if (!user) {
+      toast({
+        variant: "destructive",
+        title: "Authentication required",
+        description: "Please sign in to save reports"
+      });
+      return;
+    }
+
+    const formValues = form.getValues();
+    
+    try {
+      if (reportId && isEditMode) {
+        // Update existing report
+        await updateReport.mutateAsync({
+          id: reportId,
+          name: formValues.name,
+          description: formValues.description,
+          module: formValues.base_table,
+          selected_fields: selectedFields,
+          filters: filters,
+          chart_type: chartType,
+          is_public: formValues.is_public
+        });
+        toast({
+          title: "Report updated successfully"
+        });
+      } else {
+        // Create new report
+        const newReport = await createReport.mutateAsync({
+          name: formValues.name,
+          description: formValues.description,
+          created_by: user.id,
+          module: formValues.base_table,
+          base_table: formValues.base_table,
+          fields: selectedFields,
+          selected_fields: selectedFields,
+          filters: filters,
+          chart_type: chartType,
+          is_public: formValues.is_public
+        });
+        
+        toast({
+          title: "Report created successfully"
+        });
+        
+        // Navigate to view the new report
+        navigate(`/reports/builder?id=${newReport.id}&view=true`);
+      }
+    } catch (error) {
+      console.error('Error saving report:', error);
+      toast({
+        variant: "destructive",
+        title: "Error saving report",
+        description: "Failed to save report. Please try again."
+      });
+    }
+  };
+
+  const exportToCsv = () => {
+    if (!reportData || reportData.length === 0) return;
+    
+    const headers = selectedFields.length > 0 ? selectedFields : Object.keys(reportData[0]);
+    let csvContent = headers.join(',') + '\n';
+    
+    reportData.forEach((row) => {
+      const values = headers.map(header => {
+        const value = row[header];
+        if (value === null || value === undefined) return '';
+        if (typeof value === 'object') return JSON.stringify(value).replace(/,/g, ';');
+        return String(value).replace(/,/g, ';');
+      });
+      csvContent += values.join(',') + '\n';
+    });
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${form.getValues('name') || 'report'}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const addFilter = () => {
+    const newFilter: ReportFilter = {
+      field: availableColumns[0]?.key || '',
+      operator: 'eq',
+      value: ''
+    };
+    setFilters([...filters, newFilter]);
+  };
+
+  const removeFilter = (index: number) => {
+    const updatedFilters = [...filters];
+    updatedFilters.splice(index, 1);
+    setFilters(updatedFilters);
+  };
+
+  const updateFilter = (index: number, key: keyof ReportFilter, value: any) => {
+    const updatedFilters = [...filters];
+    updatedFilters[index] = { ...updatedFilters[index], [key]: value };
+    setFilters(updatedFilters);
+  };
+
+  if (isLoadingTables || isLoadingReports) {
+    return (
+      <div className="container mx-auto py-6">
+        <div className="flex items-center justify-center p-8">
+          <div className="w-8 h-8 border-4 border-gray-300 border-t-primary rounded-full animate-spin"></div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <Helmet>
-        <title>Report Builder | Case Management</title>
+        <title>{reportId ? (isEditMode ? 'Edit Report' : 'View Report') : 'Create Report'} | Case Management</title>
       </Helmet>
       
       <div className="container mx-auto py-6">
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" onClick={() => navigate('/reports')} size="sm">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Reports
-            </Button>
-            <div className="h-6 border-l border-gray-300" />
-            <h1 className="text-2xl font-bold tracking-tight">
-              {id ? 'Edit Report' : 'Create Report'}
-            </h1>
-          </div>
+        <div className="flex items-center gap-4 mb-6">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => navigate('/reports')}
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Reports
+          </Button>
           
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={handleRunReport}
-              disabled={isLoading || !selectedFields.length}
-            >
-              {isLoading ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Play className="h-4 w-4 mr-2" />
-              )}
-              Run Report
-            </Button>
-            
-            <Button onClick={handleSaveReport} disabled={isLoading}>
-              {isLoading ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4 mr-2" />
-              )}
-              Save
-            </Button>
+          <div>
+            <h1 className="text-2xl font-bold">
+              {reportId ? (isEditMode ? 'Edit Report' : 'View Report') : 'Create New Report'}
+            </h1>
+            {currentReport && (
+              <p className="text-muted-foreground">{currentReport.name}</p>
+            )}
           </div>
         </div>
-        
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Report Settings Card */}
-          <Card className="lg:col-span-1">
-            <CardHeader>
-              <CardTitle>Report Settings</CardTitle>
-              <CardDescription>Configure your report details</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Report Name</Label>
-                <Input 
-                  id="name" 
-                  value={reportName}
-                  onChange={(e) => setReportName(e.target.value)}
-                  placeholder="Enter a name for your report"
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Configuration Panel */}
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Report Configuration</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <ReportSettings
+                  form={form}
+                  tables={tables}
+                  isLoadingTables={isLoadingTables}
+                  isEditMode={!!reportId}
                 />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Input
-                  id="description"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Optional description"
+
+                <ColumnSelector
+                  availableColumns={availableColumns}
+                  selectedColumns={selectedFields}
+                  onColumnChange={setSelectedFields}
+                  relatedTables={[]}
                 />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="baseTable">Base Table</Label>
-                <Select
-                  value={baseTable}
-                  onValueChange={handleBaseTableChange}
-                  disabled={!!id} // Cannot change base table after creation
-                >
-                  <SelectTrigger id="baseTable">
-                    <SelectValue placeholder="Select a table" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {isLoadingTables ? (
-                      <div className="flex justify-center p-2">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      </div>
-                    ) : (
-                      tables?.map((table) => (
-                        <SelectItem key={table.name} value={table.name}>
-                          {table.name}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
-          
-          {/* Field Selector Card */}
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle>Select Fields</CardTitle>
-              <CardDescription>
-                Choose which fields to include in your report
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {!baseTable ? (
-                <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
-                  <p className="mb-4">No fields to display.</p>
-                  <p>Please select a base table first.</p>
+
+                <VisualizationSelector
+                  selectedType={chartType}
+                  onTypeChange={setChartType}
+                  selectedFields={selectedFields}
+                />
+
+                <div className="space-y-4">
+                  <h3 className="text-sm font-medium">Filters</h3>
+                  <FilterBuilder
+                    selectedFields={availableColumns.map(col => col.key)}
+                    filters={filters}
+                    onAddFilter={addFilter}
+                    onRemoveFilter={removeFilter}
+                    onUpdateFilter={updateFilter}
+                  />
                 </div>
-              ) : availableFields.length === 0 ? (
-                <div className="flex justify-center py-8">
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+
+                <div className="flex gap-2">
+                  {!isViewMode && (
+                    <Button 
+                      onClick={handleSaveReport}
+                      disabled={!form.watch('name') || !form.watch('base_table') || selectedFields.length === 0}
+                    >
+                      <Save className="h-4 w-4 mr-2" />
+                      {reportId && isEditMode ? 'Update Report' : 'Save Report'}
+                    </Button>
+                  )}
+                  
+                  <Button 
+                    variant="outline"
+                    onClick={() => handleRunReport()}
+                    disabled={!form.watch('base_table') || selectedFields.length === 0}
+                  >
+                    <Play className="h-4 w-4 mr-2" />
+                    Run Report
+                  </Button>
                 </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {availableFields.map((field) => (
-                    <div key={field} className="flex items-center space-x-2">
-                      <Checkbox 
-                        id={`field-${field}`}
-                        checked={selectedFields.includes(field)}
-                        onCheckedChange={() => handleFieldToggle(field)}
-                      />
-                      <Label 
-                        htmlFor={`field-${field}`}
-                        className="text-sm font-medium cursor-pointer"
-                      >
-                        {field}
-                      </Label>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-            <CardFooter>
-              <div className="flex justify-between items-center w-full">
-                <div className="text-sm text-muted-foreground">
-                  {selectedFields.length} field{selectedFields.length !== 1 ? 's' : ''} selected
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setSelectedFields([])}
-                  disabled={selectedFields.length === 0}
-                >
-                  Clear All
-                </Button>
-              </div>
-            </CardFooter>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Preview Panel */}
+          <div>
+            <Card>
+              <CardHeader>
+                <CardTitle>Report Preview</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ReportPreview
+                  data={reportData}
+                  columns={selectedFields}
+                  chartType={chartType}
+                  isLoading={isLoadingData}
+                  onRunReport={() => handleRunReport()}
+                  onExportCsv={exportToCsv}
+                />
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
     </>

@@ -10,6 +10,16 @@ const Reports = () => {
   const navigate = useNavigate();
   const { reports, isLoadingReports } = useReports();
   
+  const handleViewReport = (reportId: string) => {
+    // Navigate to report builder in view mode with the report ID
+    navigate(`/reports/builder?id=${reportId}&view=true`);
+  };
+
+  const handleEditReport = (reportId: string) => {
+    // Navigate to report builder in edit mode with the report ID
+    navigate(`/reports/builder?id=${reportId}&edit=true`);
+  };
+  
   return (
     <>
       <Helmet>
@@ -102,7 +112,7 @@ const Reports = () => {
                     <div className="mt-4 flex gap-2">
                       <Button 
                         size="sm" 
-                        onClick={() => navigate(`/reports/builder?id=${report.id}`)}
+                        onClick={() => handleViewReport(report.id)}
                         className="flex-1 gap-1"
                       >
                         <Eye className="h-3 w-3" />
@@ -111,7 +121,7 @@ const Reports = () => {
                       <Button 
                         size="sm" 
                         variant="outline"
-                        onClick={() => navigate(`/reports/builder?id=${report.id}&edit=true`)}
+                        onClick={() => handleEditReport(report.id)}
                         className="gap-1"
                       >
                         <Edit className="h-3 w-3" />
@@ -123,7 +133,19 @@ const Reports = () => {
               ))}
             </div>
           </div>
-        ) : null}
+        ) : (
+          <div className="text-center p-8 text-muted-foreground">
+            <Settings className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+            <h3 className="text-lg font-medium mb-2">No Custom Reports</h3>
+            <p>You haven't created any custom reports yet.</p>
+            <Button 
+              onClick={() => navigate('/reports/builder')}
+              className="mt-4"
+            >
+              Create Your First Report
+            </Button>
+          </div>
+        )}
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Standard Reports Card */}
