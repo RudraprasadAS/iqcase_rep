@@ -30,21 +30,27 @@ export const VisualizationSelector = ({
           variant={selectedType === 'bar' ? 'default' : 'outline'}
           size="sm"
           onClick={() => onTypeChange('bar')}
+          className="flex items-center"
         >
+          <BarChart className="h-4 w-4 mr-2" />
           Bar Chart
         </Button>
         <Button
           variant={selectedType === 'line' ? 'default' : 'outline'}
           size="sm"
           onClick={() => onTypeChange('line')}
+          className="flex items-center"
         >
+          <LineChart className="h-4 w-4 mr-2" />
           Line Chart
         </Button>
         <Button
           variant={selectedType === 'pie' ? 'default' : 'outline'}
           size="sm"
           onClick={() => onTypeChange('pie')}
+          className="flex items-center"
         >
+          <PieChart className="h-4 w-4 mr-2" />
           Pie Chart
         </Button>
       </div>

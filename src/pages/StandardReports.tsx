@@ -1,10 +1,11 @@
+
 import { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Download, Filter, Search, SortAsc, SortDesc, Users, FileText, Calendar, MessageSquare, Activity, X, Save } from 'lucide-react';
+import { Download, Filter, Search, SortAsc, SortDesc, Users, FileText, Calendar, MessageSquare, Activity, X, Save, Plus } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
   Tabs,
@@ -24,16 +25,21 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { FilterBuilder } from '@/components/reports/FilterBuilder';
-import { ColumnDefinition, ReportFilter, TableJoin } from '@/types/reports';
+import { ColumnDefinition, ReportFilter, Report, TableJoin } from '@/types/reports';
 import { ColumnSelector } from '@/components/reports/ColumnSelector';
 import { useForm } from 'react-hook-form';
 import { useReports } from '@/hooks/useReports';
+import { VisualizationSelector } from '@/components/reports/VisualizationSelector';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
 
 // Define allowed table names as a type for type safety
 type AllowedTableName = 'cases' | 'users' | 'case_activities' | 'case_messages';
 
 const StandardReports = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<AllowedTableName>('cases');
   const [search, setSearch] = useState('');
   const [sortField, setSortField] = useState('created_at');
@@ -43,8 +49,10 @@ const StandardReports = () => {
   const [selectedColumns, setSelectedColumns] = useState<string[]>([]);
   const [availableColumns, setAvailableColumns] = useState<ColumnDefinition[]>([]);
   const [saveViewDialogOpen, setSaveViewDialogOpen] = useState(false);
+  const [createReportDialogOpen, setCreateReportDialogOpen] = useState(false);
   const [joins, setJoins] = useState<TableJoin[]>([]);
   const [relatedTables, setRelatedTables] = useState<{ name: string; columns: ColumnDefinition[] }[]>([]);
+  const [chartType, setChartType] = useState<'table' | 'bar' | 'line' | 'pie'>('table');
   
   const { 
     tables, 
@@ -52,13 +60,22 @@ const StandardReports = () => {
     saveCustomView, 
     getRelatedTables,
     savedViews,
-    runReportWithJoins
+    runReportWithJoins,
+    createReport
   } = useReports();
 
   const saveViewForm = useForm({
     defaultValues: {
       name: '',
       description: ''
+    }
+  });
+
+  const createReportForm = useForm({
+    defaultValues: {
+      name: '',
+      description: '',
+      is_public: false
     }
   });
   
@@ -159,7 +176,7 @@ const StandardReports = () => {
   };
   
   // Fetch data with support for related tables
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['standardReport', activeTab, sortField, sortDirection, search, filters, selectedColumns, JSON.stringify(joins)],
     queryFn: async () => {
       try {
@@ -374,8 +391,59 @@ const StandardReports = () => {
       
       setSaveViewDialogOpen(false);
       saveViewForm.reset();
+      toast({
+        title: "View saved successfully",
+        description: "You can access this view from the Reports page"
+      });
     } catch (error) {
       console.error("Error saving view:", error);
+      toast({
+        variant: "destructive", 
+        title: "Error saving view",
+        description: "An unexpected error occurred. Please try again."
+      });
+    }
+  };
+
+  const handleCreateReport = async () => {
+    const values = createReportForm.getValues();
+    
+    if (!user) {
+      toast({
+        variant: "destructive",
+        title: "Authentication required",
+        description: "Please sign in to create a report"
+      });
+      return;
+    }
+    
+    try {
+      await createReport.mutateAsync({
+        name: values.name,
+        description: values.description,
+        created_by: user.id,
+        module: activeTab,
+        base_table: activeTab,
+        fields: selectedColumns,
+        selected_fields: selectedColumns,
+        filters: filters,
+        chart_type: chartType,
+        is_public: values.is_public
+      });
+      
+      setCreateReportDialogOpen(false);
+      createReportForm.reset();
+      toast({
+        title: "Report created successfully",
+        description: "You can access this report from the Reports page"
+      });
+    } catch (error) {
+      console.error("Error creating report:", error);
+      toast({
+        variant: "destructive",
+        title: "Error creating report",
+        description: "An unexpected error occurred. Please try again."
+      });
     }
   };
   
@@ -430,6 +498,15 @@ const StandardReports = () => {
               Back to Reports
             </Button>
             
+            <Button
+              variant="outline"
+              onClick={() => setCreateReportDialogOpen(true)}
+              className="gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Create Report
+            </Button>
+            
             <Dialog open={saveViewDialogOpen} onOpenChange={setSaveViewDialogOpen}>
               <DialogTrigger asChild>
                 <Button 
@@ -479,6 +556,77 @@ const StandardReports = () => {
                   </Button>
                   <Button type="submit" onClick={handleSaveView}>
                     Save View
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            
+            {/* Create Report Dialog */}
+            <Dialog open={createReportDialogOpen} onOpenChange={setCreateReportDialogOpen}>
+              <DialogContent className="sm:max-w-[500px]">
+                <DialogHeader>
+                  <DialogTitle>Create New Report</DialogTitle>
+                  <DialogDescription>
+                    Save your current configuration as a reusable report
+                  </DialogDescription>
+                </DialogHeader>
+                
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <label htmlFor="report-name" className="text-sm font-medium">
+                      Report Name
+                    </label>
+                    <Input
+                      id="report-name"
+                      placeholder="Monthly Case Summary"
+                      {...createReportForm.register('name', { required: true })}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label htmlFor="report-description" className="text-sm font-medium">
+                      Description (optional)
+                    </label>
+                    <Input
+                      id="report-description"
+                      placeholder="A brief description of this report"
+                      {...createReportForm.register('description')}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <input 
+                        type="checkbox" 
+                        id="is-public"
+                        className="h-4 w-4"
+                        {...createReportForm.register('is_public')}
+                      />
+                      <label htmlFor="is-public" className="text-sm font-medium">
+                        Make this report public
+                      </label>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Public reports are visible to all users in your organization
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Visualization Type</label>
+                    <VisualizationSelector
+                      selectedType={chartType}
+                      onTypeChange={setChartType}
+                      selectedFields={selectedColumns}
+                    />
+                  </div>
+                </div>
+                
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setCreateReportDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" onClick={handleCreateReport}>
+                    Create Report
                   </Button>
                 </DialogFooter>
               </DialogContent>
