@@ -1,9 +1,8 @@
-
 import { Helmet } from 'react-helmet-async';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { BarChart, FileText, Plus, Settings } from 'lucide-react';
+import { BarChart, FileText, Plus, Settings, Database } from 'lucide-react';
 
 const Reports = () => {
   const navigate = useNavigate();
@@ -15,10 +14,38 @@ const Reports = () => {
       </Helmet>
       
       <div className="container mx-auto py-6">
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Reports</h1>
-            <p className="text-muted-foreground">Access standard reports or create custom ones</p>
+            <p className="text-muted-foreground">View and manage reports</p>
+          </div>
+          
+          <div className="flex flex-wrap gap-2">
+            <Button 
+              onClick={() => navigate('/reports/builder')}
+              className="gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Create Report
+            </Button>
+            
+            <Button 
+              variant="outline"
+              onClick={() => navigate('/reports/standard')}
+              className="gap-2"
+            >
+              <FileText className="h-4 w-4" />
+              Standard Reports
+            </Button>
+            
+            <Button 
+              variant="outline"
+              onClick={() => navigate('/reports/table-builder')}
+              className="gap-2"
+            >
+              <Database className="h-4 w-4" />
+              Table Report Builder
+            </Button>
           </div>
         </div>
         

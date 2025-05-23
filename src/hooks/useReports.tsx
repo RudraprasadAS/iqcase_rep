@@ -724,8 +724,11 @@ export const useReports = () => {
           ? JSON.parse(report.filters) 
           : report.filters;
         
-        // Apply filters if present
-        if (parsedFilters && Array.isArray(parsedFilters) && parsedFilters.length > 0) {
+        // Apply filters if present - Fix for TS2339 errors
+        if (parsedFilters && 
+            typeof parsedFilters === 'object' && 
+            Array.isArray(parsedFilters) && 
+            parsedFilters.length > 0) {
           parsedFilters.forEach((filter: any) => {
             const { field, operator, value } = filter;
             
