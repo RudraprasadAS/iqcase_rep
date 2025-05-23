@@ -23,21 +23,28 @@ interface ReportSettingsProps {
     name: string;
     description: string;
     base_table: string;
+    fields?: string[];
     is_public: boolean;
   }>;
   tables?: TableInfo[];
   isLoadingTables: boolean;
   isEditMode?: boolean;
+  onBaseTableChange?: (value: string) => void;
 }
 
 export const ReportSettings = ({ 
   form, 
   tables, 
   isLoadingTables, 
-  isEditMode = false
+  isEditMode = false,
+  onBaseTableChange
 }: ReportSettingsProps) => {
   const handleBaseTableChange = (value: string) => {
     form.setValue('base_table', value);
+    // Call the optional onBaseTableChange callback if provided
+    if (onBaseTableChange) {
+      onBaseTableChange(value);
+    }
   };
 
   return (
