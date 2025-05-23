@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useNavigate } from 'react-router-dom';
@@ -261,6 +260,29 @@ const TableReportBuilder = () => {
                   columns={selectedFields}
                   chartType={chartType || 'table'}
                   isLoading={previewLoading}
+                  onRunReport={handlePreview}
+                  onExportCsv={() => {
+                    // Simple CSV export function
+                    if (previewData.length === 0) return;
+                    
+                    const csvContent = [
+                      selectedFields.join(','),
+                      ...previewData.map(row => 
+                        selectedFields.map(field => 
+                          row[field] !== null && row[field] !== undefined ? `"${row[field]}"` : '""'
+                        ).join(',')
+                      )
+                    ].join('\n');
+                    
+                    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                    const link = document.createElement('a');
+                    const url = URL.createObjectURL(blob);
+                    link.href = url;
+                    link.setAttribute('download', `report-${new Date().toISOString().split('T')[0]}.csv`);
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                  }}
                 />
               </TabsContent>
             </CardContent>

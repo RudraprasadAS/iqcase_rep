@@ -28,11 +28,12 @@ import {
 } from 'recharts';
 
 interface ReportPreviewProps {
-  reportData: ReportData | null;
-  visualizationType: 'table' | 'bar' | 'line' | 'pie';
-  isRunning: boolean;
-  onRunReport: () => void;
-  onExportCsv: () => void;
+  data: any[];
+  columns: string[];
+  chartType: 'table' | 'bar' | 'line' | 'pie';
+  isLoading: boolean;
+  onRunReport?: () => void;
+  onExportCsv?: () => void;
 }
 
 // Generate color array for charts
@@ -43,23 +44,24 @@ const COLORS = [
 ];
 
 export const ReportPreview = ({
-  reportData,
-  visualizationType,
-  isRunning,
-  onRunReport,
-  onExportCsv
+  data,
+  columns,
+  chartType,
+  isLoading,
+  onRunReport = () => {},
+  onExportCsv = () => {}
 }: ReportPreviewProps) => {
-  if (!reportData) {
+  if (!data || data.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
         <p className="mb-4">No data to display.</p>
         <p className="mb-6">Run the report to see results.</p>
         <Button 
           onClick={onRunReport} 
-          disabled={isRunning}
+          disabled={isLoading}
           className="mt-2"
         >
-          {isRunning ? (
+          {isLoading ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : (
             <Play className="mr-2 h-4 w-4" />
@@ -70,7 +72,7 @@ export const ReportPreview = ({
     );
   }
 
-  const { columns, rows } = reportData;
+  const rows = data;
   
   // Prepare data for charts
   const prepareChartData = () => {
@@ -116,7 +118,7 @@ export const ReportPreview = ({
       );
     }
     
-    switch (visualizationType) {
+    switch (chartType) {
       case 'bar':
         return (
           <ResponsiveContainer width="100%" height={400}>
@@ -242,7 +244,7 @@ export const ReportPreview = ({
             variant="outline"
             size="sm"
             onClick={onExportCsv}
-            disabled={!reportData || rows.length === 0}
+            disabled={!data || rows.length === 0}
           >
             <Download className="mr-2 h-4 w-4" />
             Export CSV
@@ -250,9 +252,9 @@ export const ReportPreview = ({
           <Button
             size="sm"
             onClick={onRunReport}
-            disabled={isRunning}
+            disabled={isLoading}
           >
-            {isRunning ? (
+            {isLoading ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
               <Play className="mr-2 h-4 w-4" />
@@ -262,9 +264,9 @@ export const ReportPreview = ({
         </div>
       </div>
       
-      {visualizationType === 'table' ? renderTableView() : renderChart()}
+      {chartType === 'table' ? renderTableView() : renderChart()}
       
-      {reportData && rows.length > 0 && (
+      {rows && rows.length > 0 && (
         <div className="text-sm text-muted-foreground text-right">
           Total rows: {rows.length}
         </div>

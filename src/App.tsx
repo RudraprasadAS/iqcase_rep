@@ -50,10 +50,10 @@ function App() {
               <Route element={<RequireAuth />}>
                 <Route element={<Layout />}>
                   <Route path="/dashboard" element={<Dashboard />} />
-                  <Route path="/reports" element={<RequireAuth><Reports /></RequireAuth>} />
-                  <Route path="/reports/builder" element={<RequireAuth><ReportBuilder /></RequireAuth>} />
-                  <Route path="/reports/standard" element={<RequireAuth><StandardReports /></RequireAuth>} />
-                  <Route path="/reports/table-builder" element={<RequireAuth><TableReportBuilder /></RequireAuth>} />
+                  <Route path="/reports" element={<Reports />} />
+                  <Route path="/reports/builder" element={<ReportBuilder />} />
+                  <Route path="/reports/standard" element={<StandardReports />} />
+                  <Route path="/reports/table-builder" element={<TableReportBuilder />} />
                   
                   {/* Admin routes */}
                   <Route path="/admin/permissions" element={<Permissions />} />
