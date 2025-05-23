@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -726,7 +725,7 @@ export const useReports = () => {
           : report.filters;
         
         // Apply filters if present
-        if (parsedFilters && Array.isArray(parsedFilters)) {
+        if (parsedFilters && Array.isArray(parsedFilters) && parsedFilters.length > 0) {
           parsedFilters.forEach((filter: any) => {
             const { field, operator, value } = filter;
             
