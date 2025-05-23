@@ -117,32 +117,71 @@ export const useReports = () => {
         
         console.log("Auth user ID:", authUser.id);
         
-        // Check if the user exists in the users table
+        // Check if the user exists in the users table by auth_user_id
         const { data: userExists, error: userCheckError } = await supabase
           .from('users')
           .select('id')
           .eq('auth_user_id', authUser.id)
-          .single();
+          .maybeSingle();
         
-        if (userCheckError || !userExists) {
+        let userId = authUser.id;
+        
+        if (userCheckError && userCheckError.code !== 'PGRST116') {
+          console.error("Error checking user existence:", userCheckError);
+          throw new Error("Error checking user record.");
+        }
+        
+        if (!userExists) {
           console.log("User does not exist in users table, attempting to create");
           
-          // Create a user record
-          const { data: newUser, error: createUserError } = await supabase
+          // Check if a user with this email already exists
+          const { data: existingEmailUser, error: emailCheckError } = await supabase
             .from('users')
-            .insert({
-              name: authUser.user_metadata?.name || 'Anonymous User',
-              email: authUser.email || authUser.user_metadata?.email || 'anonymous@example.com',
-              auth_user_id: authUser.id,
-              // Use a default role_id - this should be updated with a real role
-              role_id: '00000000-0000-0000-0000-000000000000'
-            })
-            .select('id')
-            .single();
+            .select('id, auth_user_id')
+            .eq('email', authUser.email || authUser.user_metadata?.email || '')
+            .maybeSingle();
           
-          if (createUserError) {
-            console.error("Error creating user record:", createUserError);
-            throw new Error("Could not create user record. Please contact an administrator.");
+          if (emailCheckError && emailCheckError.code !== 'PGRST116') {
+            console.error("Error checking email existence:", emailCheckError);
+            throw new Error("Error checking existing user.");
+          }
+          
+          if (existingEmailUser) {
+            // Update the existing user record with the new auth_user_id
+            console.log("Updating existing user with new auth_user_id");
+            const { data: updatedUser, error: updateUserError } = await supabase
+              .from('users')
+              .update({ auth_user_id: authUser.id })
+              .eq('id', existingEmailUser.id)
+              .select('id')
+              .single();
+            
+            if (updateUserError) {
+              console.error("Error updating user record:", updateUserError);
+              throw new Error("Could not update user record. Please contact an administrator.");
+            }
+            
+            userId = authUser.id;
+          } else {
+            // Create a new user record
+            const { data: newUser, error: createUserError } = await supabase
+              .from('users')
+              .insert({
+                name: authUser.user_metadata?.name || 'Anonymous User',
+                email: authUser.email || authUser.user_metadata?.email || 'anonymous@example.com',
+                auth_user_id: authUser.id,
+                // Use a default role_id - this should be updated with a real role
+                role_id: '00000000-0000-0000-0000-000000000000'
+              })
+              .select('id')
+              .single();
+            
+            if (createUserError) {
+              console.error("Error creating user record:", createUserError);
+              throw new Error("Could not create user record. Please contact an administrator.");
+            }
+            
+            userId = authUser.id;
           }
         }
         
@@ -152,7 +191,7 @@ export const useReports = () => {
           .insert({
             name: report.name,
             description: report.description,
-            created_by: authUser.id, // Use the authenticated user ID
+            created_by: userId, // Use the authenticated user ID
             module: report.base_table || report.module, // Support both field names
             selected_fields: report.fields || report.selected_fields, // Support both field names
             filters: filtersForDb,
