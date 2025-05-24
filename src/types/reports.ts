@@ -86,3 +86,12 @@ export interface ReportConfigJson {
   columns: string[];
   filters: ReportFilterJson[];
 }
+
+// Enhanced chart configuration interface
+export interface ChartConfig {
+  type: 'table' | 'bar' | 'line' | 'pie';
+  xAxis?: string;
+  yAxis?: string;
+  aggregation?: 'count' | 'sum' | 'avg' | 'min' | 'max';
+  dateGrouping?: 'day' | 'week' | 'month' | 'quarter' | 'year';
+}

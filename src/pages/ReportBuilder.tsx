@@ -87,11 +87,24 @@ const ReportBuilder = () => {
         form.setValue('fields', fieldsArray);
         setFilters(Array.isArray(report.filters) ? report.filters : []);
         
-        // Set chart config with existing data
-        const existingChartConfig: ChartConfig = {
+        // Enhanced chart config loading with proper fallbacks
+        let loadedChartConfig: ChartConfig = {
           type: report.chart_type || 'table'
         };
-        setChartConfig(existingChartConfig);
+
+        // Try to load additional chart config from various sources
+        if (report.aggregation) {
+          loadedChartConfig.aggregation = report.aggregation as ChartConfig['aggregation'];
+        }
+        
+        if (report.group_by) {
+          loadedChartConfig.xAxis = report.group_by;
+        }
+
+        // If we have additional config stored elsewhere, load it
+        // For now, we'll use the basic config but this can be extended
+        console.log('Loaded chart config:', loadedChartConfig);
+        setChartConfig(loadedChartConfig);
       }
     }
   }, [reportId, reports, form]);
@@ -174,34 +187,42 @@ const ReportBuilder = () => {
     const formValues = form.getValues();
     
     try {
+      const reportData = {
+        name: formValues.name,
+        description: formValues.description,
+        module: formValues.base_table,
+        base_table: formValues.base_table,
+        selected_fields: selectedFields,
+        filters: filters,
+        chart_type: chartConfig.type,
+        aggregation: chartConfig.aggregation,
+        group_by: chartConfig.xAxis,
+        is_public: formValues.is_public
+      };
+
       if (reportId && isEditMode) {
-        // Update existing report
+        // Update existing report with full chart config
         await updateReport.mutateAsync({
           id: reportId,
-          name: formValues.name,
-          description: formValues.description,
-          module: formValues.base_table,
-          selected_fields: selectedFields,
-          filters: filters,
-          chart_type: chartConfig.type,
-          is_public: formValues.is_public
+          ...reportData
         });
+        
+        // Update current report state to reflect changes
+        setCurrentReport({
+          ...currentReport,
+          ...reportData,
+          id: reportId
+        });
+        
         toast({
           title: "Report updated successfully"
         });
       } else {
         // Create new report
         const newReport = await createReport.mutateAsync({
-          name: formValues.name,
-          description: formValues.description,
+          ...reportData,
           created_by: user.id,
-          module: formValues.base_table,
-          base_table: formValues.base_table,
-          fields: selectedFields,
-          selected_fields: selectedFields,
-          filters: filters,
-          chart_type: chartConfig.type,
-          is_public: formValues.is_public
+          fields: selectedFields
         });
         
         toast({
