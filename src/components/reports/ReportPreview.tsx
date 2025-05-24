@@ -1,4 +1,3 @@
-
 import React from 'react';
 import {
   Table,
@@ -42,6 +41,7 @@ interface ReportPreviewProps {
   onRunReport?: () => void;
   onExportCsv?: () => void;
   chartConfig?: ChartConfig;
+  hideActions?: boolean;
 }
 
 // Generate color array for charts
@@ -58,25 +58,28 @@ export const ReportPreview = ({
   isLoading,
   onRunReport = () => {},
   onExportCsv = () => {},
-  chartConfig
+  chartConfig,
+  hideActions = false
 }: ReportPreviewProps) => {
   if (!data || data.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
         <p className="mb-4">No data to display.</p>
         <p className="mb-6">Run the report to see results.</p>
-        <Button 
-          onClick={onRunReport} 
-          disabled={isLoading}
-          className="mt-2"
-        >
-          {isLoading ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Play className="mr-2 h-4 w-4" />
-          )}
-          Run Report
-        </Button>
+        {!hideActions && (
+          <Button 
+            onClick={onRunReport} 
+            disabled={isLoading}
+            className="mt-2"
+          >
+            {isLoading ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Play className="mr-2 h-4 w-4" />
+            )}
+            Run Report
+          </Button>
+        )}
       </div>
     );
   }
@@ -351,32 +354,34 @@ export const ReportPreview = ({
   
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-medium">Report Results</h3>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onExportCsv}
-            disabled={!data || rows.length === 0}
-          >
-            <Download className="mr-2 h-4 w-4" />
-            Export CSV
-          </Button>
-          <Button
-            size="sm"
-            onClick={onRunReport}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Play className="mr-2 h-4 w-4" />
-            )}
-            Refresh
-          </Button>
+      {!hideActions && (
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-medium">Report Results</h3>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onExportCsv}
+              disabled={!data || rows.length === 0}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Export CSV
+            </Button>
+            <Button
+              size="sm"
+              onClick={onRunReport}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Play className="mr-2 h-4 w-4" />
+              )}
+              Refresh
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
       
       {chartType === 'table' ? renderTableView() : renderChart()}
       

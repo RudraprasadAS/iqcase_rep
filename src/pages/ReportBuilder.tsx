@@ -364,6 +364,7 @@ const ReportBuilder = () => {
                   onRunReport={handleRunReport}
                   onExportCsv={exportToCsv}
                   chartConfig={chartConfig}
+                  hideActions={true}
                 />
               </CardContent>
             </Card>
