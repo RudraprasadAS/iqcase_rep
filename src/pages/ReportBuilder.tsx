@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Play, Save, Download, Settings, Eye } from 'lucide-react';
+import { ArrowLeft, Play, Save, Download, Settings, Eye, Edit } from 'lucide-react';
 import { ReportSettings } from '@/components/reports/ReportSettings';
 import { ColumnSelector } from '@/components/reports/ColumnSelector';
 import { FilterBuilder } from '@/components/reports/FilterBuilder';
@@ -61,7 +61,7 @@ const ReportBuilder = () => {
   const [reportData, setReportData] = useState<any[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [currentReport, setCurrentReport] = useState<any>(null);
-  const [showConfiguration, setShowConfiguration] = useState(!isViewMode);
+  const [showConfiguration, setShowConfiguration] = useState(false);
 
   // Load existing report if reportId is provided
   useEffect(() => {
@@ -91,9 +91,9 @@ const ReportBuilder = () => {
         };
         setChartConfig(existingChartConfig);
         
-        // Auto-run report if in view mode
-        if (isViewMode) {
-          handleRunReport();
+        // Auto-run report if in view mode and we have the report data
+        if (isViewMode && fieldsArray.length > 0) {
+          setTimeout(() => handleRunReport(), 100);
         }
       }
     }
@@ -276,7 +276,7 @@ const ReportBuilder = () => {
   return (
     <>
       <Helmet>
-        <title>{reportId ? (isEditMode ? 'Edit Report' : 'View Report') : 'Create Report'} | Case Management</title>
+        <title>{reportId ? (isEditMode ? 'Edit Report' : currentReport?.name || 'View Report') : 'Create Report'} | Case Management</title>
       </Helmet>
       
       <div className="container mx-auto py-6">
@@ -292,29 +292,38 @@ const ReportBuilder = () => {
           
           <div className="flex-1">
             <h1 className="text-2xl font-bold">
-              {reportId ? (isEditMode ? 'Edit Report' : 'View Report') : 'Create New Report'}
+              {currentReport?.name || 'Report'}
             </h1>
-            {currentReport && (
-              <p className="text-muted-foreground">{currentReport.name}</p>
+            {currentReport?.description && (
+              <p className="text-muted-foreground">{currentReport.description}</p>
             )}
           </div>
 
           {isViewMode && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowConfiguration(!showConfiguration)}
-            >
-              <Settings className="h-4 w-4 mr-2" />
-              {showConfiguration ? 'Hide' : 'Show'} Configuration
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => navigate(`/reports/builder?id=${reportId}&edit=true`)}
+                className="gap-2"
+              >
+                <Edit className="h-4 w-4" />
+                Edit Report
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowConfiguration(!showConfiguration)}
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                {showConfiguration ? 'Hide' : 'Show'} Configuration
+              </Button>
+            </div>
           )}
         </div>
 
         {isViewMode ? (
-          // View Mode Layout: Report first, configuration collapsible
+          // View Mode: Report Display First
           <div className="space-y-6">
-            {/* Report Display - Primary */}
+            {/* Main Report Display */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
@@ -336,14 +345,6 @@ const ReportBuilder = () => {
                     >
                       <Play className="mr-2 h-4 w-4" />
                       Refresh
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => navigate(`/reports/builder?id=${reportId}&edit=true`)}
-                    >
-                      <Settings className="mr-2 h-4 w-4" />
-                      Edit Report
                     </Button>
                   </div>
                 </CardTitle>
@@ -414,7 +415,7 @@ const ReportBuilder = () => {
             </Collapsible>
           </div>
         ) : (
-          // Edit/Create Mode Layout: Side by side
+          // Edit/Create Mode: Side by side layout
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Configuration Panel */}
             <div className="space-y-6">
