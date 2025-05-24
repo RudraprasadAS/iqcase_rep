@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
@@ -14,16 +13,8 @@ import { useReports } from '@/hooks/useReports';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useForm } from 'react-hook-form';
-import { ReportFilter, ColumnDefinition } from '@/types/reports';
+import { ReportFilter, ColumnDefinition, ChartConfig } from '@/types/reports';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-
-interface ChartConfig {
-  type: 'table' | 'bar' | 'line' | 'pie';
-  xAxis?: string;
-  yAxis?: string;
-  aggregation?: 'count' | 'sum' | 'avg' | 'min' | 'max';
-  dateGrouping?: 'day' | 'week' | 'month' | 'quarter' | 'year';
-}
 
 const ReportBuilder = () => {
   const [searchParams] = useSearchParams();
@@ -224,6 +215,9 @@ const ReportBuilder = () => {
           created_by: user.id,
           fields: selectedFields
         });
+        
+        // Set the current report to the newly created report
+        setCurrentReport(newReport);
         
         toast({
           title: "Report created successfully"
@@ -504,7 +498,7 @@ const ReportBuilder = () => {
                     <Button 
                       variant="outline"
                       onClick={handleRunReport}
-                      disabled={!form.watch('base_table') || selectedFields.length === 0}
+                      disabled={!form.watch('base_table') || selectedFields.length === 0 || !currentReport}
                     >
                       <Play className="h-4 w-4 mr-2" />
                       Run Report
