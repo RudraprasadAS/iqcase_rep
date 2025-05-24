@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Play, Save, Download } from 'lucide-react';
+import { ArrowLeft, Play, Save, Download, Settings, Eye } from 'lucide-react';
 import { ReportSettings } from '@/components/reports/ReportSettings';
 import { ColumnSelector } from '@/components/reports/ColumnSelector';
 import { FilterBuilder } from '@/components/reports/FilterBuilder';
@@ -14,6 +14,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useForm } from 'react-hook-form';
 import { ReportFilter, ColumnDefinition } from '@/types/reports';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 interface ChartConfig {
   type: 'table' | 'bar' | 'line' | 'pie';
@@ -60,6 +61,7 @@ const ReportBuilder = () => {
   const [reportData, setReportData] = useState<any[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [currentReport, setCurrentReport] = useState<any>(null);
+  const [showConfiguration, setShowConfiguration] = useState(!isViewMode);
 
   // Load existing report if reportId is provided
   useEffect(() => {
@@ -82,7 +84,12 @@ const ReportBuilder = () => {
         setSelectedFields(fieldsArray);
         form.setValue('fields', fieldsArray);
         setFilters(Array.isArray(report.filters) ? report.filters : []);
-        setChartConfig({ type: report.chart_type || 'table' });
+        
+        // Set chart config with existing data
+        const existingChartConfig: ChartConfig = {
+          type: report.chart_type || 'table'
+        };
+        setChartConfig(existingChartConfig);
         
         // Auto-run report if in view mode
         if (isViewMode) {
@@ -283,7 +290,7 @@ const ReportBuilder = () => {
             Back to Reports
           </Button>
           
-          <div>
+          <div className="flex-1">
             <h1 className="text-2xl font-bold">
               {reportId ? (isEditMode ? 'Edit Report' : 'View Report') : 'Create New Report'}
             </h1>
@@ -291,85 +298,55 @@ const ReportBuilder = () => {
               <p className="text-muted-foreground">{currentReport.name}</p>
             )}
           </div>
+
+          {isViewMode && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowConfiguration(!showConfiguration)}
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              {showConfiguration ? 'Hide' : 'Show'} Configuration
+            </Button>
+          )}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Configuration Panel */}
+        {isViewMode ? (
+          // View Mode Layout: Report first, configuration collapsible
           <div className="space-y-6">
+            {/* Report Display - Primary */}
             <Card>
               <CardHeader>
-                <CardTitle>Report Configuration</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <ReportSettings
-                  form={form}
-                  tables={tables}
-                  isLoadingTables={isLoadingTables}
-                  isEditMode={!!reportId}
-                  onBaseTableChange={(value) => {
-                    form.setValue('base_table', value);
-                    setSelectedFields([]);
-                    setChartConfig({ type: 'table' });
-                  }}
-                />
-
-                <ColumnSelector
-                  availableColumns={availableColumns}
-                  selectedColumns={selectedFields}
-                  onColumnChange={(fields) => {
-                    setSelectedFields(fields);
-                    form.setValue('fields', fields);
-                  }}
-                  relatedTables={[]}
-                />
-
-                <ChartConfiguration
-                  availableColumns={availableColumns}
-                  selectedFields={selectedFields}
-                  chartConfig={chartConfig}
-                  onChartConfigChange={setChartConfig}
-                />
-
-                <div className="space-y-4">
-                  <h3 className="text-sm font-medium">Filters</h3>
-                  <FilterBuilder
-                    selectedFields={availableColumns.map(col => col.key)}
-                    filters={filters}
-                    onAddFilter={addFilter}
-                    onRemoveFilter={removeFilter}
-                    onUpdateFilter={updateFilter}
-                  />
-                </div>
-
-                <div className="flex gap-2">
-                  {!isViewMode && (
-                    <Button 
-                      onClick={handleSaveReport}
-                      disabled={!form.watch('name') || !form.watch('base_table') || selectedFields.length === 0}
+                <CardTitle className="flex items-center justify-between">
+                  <span>Report Results</span>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={exportToCsv}
+                      disabled={!reportData || reportData.length === 0}
                     >
-                      <Save className="h-4 w-4 mr-2" />
-                      {reportId && isEditMode ? 'Update Report' : 'Save Report'}
+                      <Download className="mr-2 h-4 w-4" />
+                      Export CSV
                     </Button>
-                  )}
-                  
-                  <Button 
-                    variant="outline"
-                    onClick={handleRunReport}
-                    disabled={!form.watch('base_table') || selectedFields.length === 0}
-                  >
-                    <Play className="h-4 w-4 mr-2" />
-                    Run Report
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Preview Panel */}
-          <div>
-            <Card>
-              <CardHeader>
-                <CardTitle>Report Preview</CardTitle>
+                    <Button
+                      size="sm"
+                      onClick={handleRunReport}
+                      disabled={isLoadingData}
+                    >
+                      <Play className="mr-2 h-4 w-4" />
+                      Refresh
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate(`/reports/builder?id=${reportId}&edit=true`)}
+                    >
+                      <Settings className="mr-2 h-4 w-4" />
+                      Edit Report
+                    </Button>
+                  </div>
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <ReportPreview
@@ -383,8 +360,152 @@ const ReportBuilder = () => {
                 />
               </CardContent>
             </Card>
+
+            {/* Configuration - Collapsible */}
+            <Collapsible open={showConfiguration} onOpenChange={setShowConfiguration}>
+              <CollapsibleContent>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Report Configuration</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <ReportSettings
+                      form={form}
+                      tables={tables}
+                      isLoadingTables={isLoadingTables}
+                      isEditMode={!!reportId}
+                      onBaseTableChange={(value) => {
+                        form.setValue('base_table', value);
+                        setSelectedFields([]);
+                        setChartConfig({ type: 'table' });
+                      }}
+                    />
+
+                    <ColumnSelector
+                      availableColumns={availableColumns}
+                      selectedColumns={selectedFields}
+                      onColumnChange={(fields) => {
+                        setSelectedFields(fields);
+                        form.setValue('fields', fields);
+                      }}
+                      relatedTables={[]}
+                    />
+
+                    <ChartConfiguration
+                      availableColumns={availableColumns}
+                      selectedFields={selectedFields}
+                      chartConfig={chartConfig}
+                      onChartConfigChange={setChartConfig}
+                    />
+
+                    <div className="space-y-4">
+                      <h3 className="text-sm font-medium">Filters</h3>
+                      <FilterBuilder
+                        selectedFields={availableColumns.map(col => col.key)}
+                        filters={filters}
+                        onAddFilter={addFilter}
+                        onRemoveFilter={removeFilter}
+                        onUpdateFilter={updateFilter}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              </CollapsibleContent>
+            </Collapsible>
           </div>
-        </div>
+        ) : (
+          // Edit/Create Mode Layout: Side by side
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Configuration Panel */}
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Report Configuration</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <ReportSettings
+                    form={form}
+                    tables={tables}
+                    isLoadingTables={isLoadingTables}
+                    isEditMode={!!reportId}
+                    onBaseTableChange={(value) => {
+                      form.setValue('base_table', value);
+                      setSelectedFields([]);
+                      setChartConfig({ type: 'table' });
+                    }}
+                  />
+
+                  <ColumnSelector
+                    availableColumns={availableColumns}
+                    selectedColumns={selectedFields}
+                    onColumnChange={(fields) => {
+                      setSelectedFields(fields);
+                      form.setValue('fields', fields);
+                    }}
+                    relatedTables={[]}
+                  />
+
+                  <ChartConfiguration
+                    availableColumns={availableColumns}
+                    selectedFields={selectedFields}
+                    chartConfig={chartConfig}
+                    onChartConfigChange={setChartConfig}
+                  />
+
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-medium">Filters</h3>
+                    <FilterBuilder
+                      selectedFields={availableColumns.map(col => col.key)}
+                      filters={filters}
+                      onAddFilter={addFilter}
+                      onRemoveFilter={removeFilter}
+                      onUpdateFilter={updateFilter}
+                    />
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button 
+                      onClick={handleSaveReport}
+                      disabled={!form.watch('name') || !form.watch('base_table') || selectedFields.length === 0}
+                    >
+                      <Save className="h-4 w-4 mr-2" />
+                      {reportId && isEditMode ? 'Update Report' : 'Save Report'}
+                    </Button>
+                    
+                    <Button 
+                      variant="outline"
+                      onClick={handleRunReport}
+                      disabled={!form.watch('base_table') || selectedFields.length === 0}
+                    >
+                      <Play className="h-4 w-4 mr-2" />
+                      Run Report
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Preview Panel */}
+            <div>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Report Preview</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ReportPreview
+                    data={reportData}
+                    columns={selectedFields}
+                    chartType={chartConfig.type}
+                    isLoading={isLoadingData}
+                    onRunReport={handleRunReport}
+                    onExportCsv={exportToCsv}
+                    chartConfig={chartConfig}
+                  />
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );
