@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
@@ -62,6 +63,7 @@ const ReportBuilder = () => {
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [currentReport, setCurrentReport] = useState<any>(null);
   const [showConfiguration, setShowConfiguration] = useState(false);
+  const [hasAutoRun, setHasAutoRun] = useState(false);
 
   // Load existing report if reportId is provided
   useEffect(() => {
@@ -90,14 +92,18 @@ const ReportBuilder = () => {
           type: report.chart_type || 'table'
         };
         setChartConfig(existingChartConfig);
-        
-        // Auto-run report if in view mode and we have the report data
-        if (isViewMode && fieldsArray.length > 0) {
-          setTimeout(() => handleRunReport(), 100);
-        }
       }
     }
-  }, [reportId, reports, isViewMode, form]);
+  }, [reportId, reports, form]);
+
+  // Auto-run report in view mode
+  useEffect(() => {
+    if (isViewMode && currentReport && !hasAutoRun && !isLoadingData) {
+      console.log('Auto-running report in view mode');
+      setHasAutoRun(true);
+      handleRunReport();
+    }
+  }, [isViewMode, currentReport, hasAutoRun, isLoadingData]);
 
   // Update available columns when base table changes
   useEffect(() => {
