@@ -8,7 +8,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Search, Plus, Filter } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Search, Plus, Filter, ArrowUp, ArrowDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface Case {
@@ -24,20 +25,28 @@ interface Case {
   description?: string;
 }
 
+interface SortConfig {
+  key: keyof Case;
+  direction: 'asc' | 'desc';
+}
+
 const Cases = () => {
   const [cases, setCases] = useState<Case[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [priorityFilter, setPriorityFilter] = useState<string>('all');
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'created_at', direction: 'desc' });
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
     fetchCases();
-  }, []);
+  }, [sortConfig]);
 
   const fetchCases = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('cases')
         .select(`
           id,
@@ -50,8 +59,12 @@ const Cases = () => {
           created_at,
           updated_at,
           description
-        `)
-        .order('created_at', { ascending: false });
+        `);
+
+      // Apply sorting
+      query = query.order(sortConfig.key, { ascending: sortConfig.direction === 'asc' });
+
+      const { data, error } = await query;
 
       if (error) {
         throw error;
@@ -70,11 +83,30 @@ const Cases = () => {
     }
   };
 
-  const filteredCases = cases.filter(case_ =>
-    case_.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    case_.status.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    case_.priority.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const handleSort = (key: keyof Case) => {
+    setSortConfig(prevConfig => ({
+      key,
+      direction: prevConfig.key === key && prevConfig.direction === 'asc' ? 'desc' : 'asc'
+    }));
+  };
+
+  const getSortIcon = (key: keyof Case) => {
+    if (sortConfig.key !== key) return null;
+    return sortConfig.direction === 'asc' ? 
+      <ArrowUp className="h-4 w-4 ml-1" /> : 
+      <ArrowDown className="h-4 w-4 ml-1" />;
+  };
+
+  const filteredCases = cases.filter(case_ => {
+    const matchesSearch = case_.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      case_.status.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      case_.priority.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesStatus = statusFilter === 'all' || case_.status === statusFilter;
+    const matchesPriority = priorityFilter === 'all' || case_.priority === priorityFilter;
+    
+    return matchesSearch && matchesStatus && matchesPriority;
+  });
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status.toLowerCase()) {
@@ -155,10 +187,29 @@ const Cases = () => {
                     className="pl-10 w-64"
                   />
                 </div>
-                <Button variant="outline" size="sm">
-                  <Filter className="h-4 w-4 mr-2" />
-                  Filter
-                </Button>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="open">Open</SelectItem>
+                    <SelectItem value="in_progress">In Progress</SelectItem>
+                    <SelectItem value="resolved">Resolved</SelectItem>
+                    <SelectItem value="closed">Closed</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue placeholder="Priority" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Priority</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="low">Low</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </CardHeader>
@@ -166,12 +217,60 @@ const Cases = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Case Number</TableHead>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Priority</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead>Updated</TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/30"
+                    onClick={() => handleSort('id')}
+                  >
+                    <div className="flex items-center">
+                      Case Number
+                      {getSortIcon('id')}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/30"
+                    onClick={() => handleSort('title')}
+                  >
+                    <div className="flex items-center">
+                      Title
+                      {getSortIcon('title')}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/30"
+                    onClick={() => handleSort('status')}
+                  >
+                    <div className="flex items-center">
+                      Status
+                      {getSortIcon('status')}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/30"
+                    onClick={() => handleSort('priority')}
+                  >
+                    <div className="flex items-center">
+                      Priority
+                      {getSortIcon('priority')}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/30"
+                    onClick={() => handleSort('created_at')}
+                  >
+                    <div className="flex items-center">
+                      Created
+                      {getSortIcon('created_at')}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/30"
+                    onClick={() => handleSort('updated_at')}
+                  >
+                    <div className="flex items-center">
+                      Updated
+                      {getSortIcon('updated_at')}
+                    </div>
+                  </TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -212,7 +311,7 @@ const Cases = () => {
             
             {filteredCases.length === 0 && (
               <div className="text-center py-8 text-muted-foreground">
-                {searchTerm ? 'No cases found matching your search.' : 'No cases found.'}
+                {searchTerm || statusFilter !== 'all' || priorityFilter !== 'all' ? 'No cases found matching your filters.' : 'No cases found.'}
               </div>
             )}
           </CardContent>
