@@ -9,8 +9,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Plus, Filter, ArrowUp, ArrowDown } from 'lucide-react';
+import { Search, Plus, Filter, ArrowUp, ArrowDown, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import CaseEditDialog from '@/components/cases/CaseEditDialog';
 
 interface Case {
   id: string;
@@ -37,6 +38,8 @@ const Cases = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'created_at', direction: 'desc' });
+  const [editingCase, setEditingCase] = useState<Case | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -148,6 +151,30 @@ const Cases = () => {
     const year = new Date(createdAt).getFullYear();
     const shortId = id.slice(-6).toUpperCase();
     return `#${year}-${shortId}`;
+  };
+
+  const handleRowClick = (caseId: string) => {
+    navigate(`/cases/${caseId}`);
+  };
+
+  const handleEditClick = (event: React.MouseEvent, case_: Case) => {
+    event.stopPropagation(); // Prevent row click navigation
+    setEditingCase(case_);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleCaseUpdate = (updatedCase: Case) => {
+    setCases(prevCases => 
+      prevCases.map(case_ => 
+        case_.id === updatedCase.id ? updatedCase : case_
+      )
+    );
+    setIsEditDialogOpen(false);
+    setEditingCase(null);
+    toast({
+      title: "Success",
+      description: "Case updated successfully"
+    });
   };
 
   if (loading) {
@@ -276,7 +303,11 @@ const Cases = () => {
               </TableHeader>
               <TableBody>
                 {filteredCases.map((case_) => (
-                  <TableRow key={case_.id} className="cursor-pointer hover:bg-muted/50">
+                  <TableRow 
+                    key={case_.id} 
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleRowClick(case_.id)}
+                  >
                     <TableCell className="font-medium">
                       {generateCaseNumber(case_.id, case_.created_at)}
                     </TableCell>
@@ -296,13 +327,22 @@ const Cases = () => {
                     <TableCell>{formatDate(case_.created_at)}</TableCell>
                     <TableCell>{formatDate(case_.updated_at)}</TableCell>
                     <TableCell>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => navigate(`/cases/${case_.id}`)}
-                      >
-                        View
-                      </Button>
+                      <div className="flex space-x-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => navigate(`/cases/${case_.id}`)}
+                        >
+                          View
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => handleEditClick(e, case_)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -317,6 +357,16 @@ const Cases = () => {
           </CardContent>
         </Card>
       </div>
+
+      <CaseEditDialog
+        case={editingCase}
+        isOpen={isEditDialogOpen}
+        onClose={() => {
+          setIsEditDialogOpen(false);
+          setEditingCase(null);
+        }}
+        onCaseUpdate={handleCaseUpdate}
+      />
     </>
   );
 };

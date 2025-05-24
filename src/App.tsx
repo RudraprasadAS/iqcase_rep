@@ -23,6 +23,7 @@ import ReportBuilder from "./pages/ReportBuilder";
 import TableReportBuilder from './pages/TableReportBuilder';
 import Cases from './pages/Cases';
 import CaseDetail from './pages/CaseDetail';
+import NewCase from './pages/NewCase';
 
 const queryClient = new QueryClient();
 const helmetContext = {}; // Create an empty object for the context
@@ -54,6 +55,7 @@ function App() {
                 <Route element={<Layout />}>
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/cases" element={<Cases />} />
+                  <Route path="/cases/new" element={<NewCase />} />
                   <Route path="/cases/:id" element={<CaseDetail />} />
                   <Route path="/reports" element={<Reports />} />
                   <Route path="/reports/builder" element={<ReportBuilder />} />
