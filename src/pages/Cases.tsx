@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useNavigate } from 'react-router-dom';
@@ -7,11 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Plus, Filter, ArrowUp, ArrowDown, Edit } from 'lucide-react';
+import { Search, Plus, ArrowUp, ArrowDown, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import CaseEditDialog from '@/components/cases/CaseEditDialog';
+import SLABadge from '@/components/cases/SLABadge';
+import StatusBadge from '@/components/cases/StatusBadge';
+import PriorityBadge from '@/components/cases/PriorityBadge';
 
 interface Case {
   id: string;
@@ -24,6 +25,7 @@ interface Case {
   created_at: string;
   updated_at: string;
   description?: string;
+  sla_due_at?: string;
 }
 
 interface SortConfig {
@@ -37,6 +39,7 @@ const Cases = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
+  const [slaFilter, setSlaFilter] = useState<string>('all');
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'created_at', direction: 'desc' });
   const [editingCase, setEditingCase] = useState<Case | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -61,10 +64,10 @@ const Cases = () => {
           assigned_to,
           created_at,
           updated_at,
-          description
+          description,
+          sla_due_at
         `);
 
-      // Apply sorting
       query = query.order(sortConfig.key, { ascending: sortConfig.direction === 'asc' });
 
       const { data, error } = await query;
@@ -100,6 +103,22 @@ const Cases = () => {
       <ArrowDown className="h-4 w-4 ml-1" />;
   };
 
+  const getSLAStatus = (case_: Case) => {
+    if (!case_.sla_due_at || case_.status === 'closed' || case_.status === 'resolved') {
+      return 'none';
+    }
+    
+    const dueDate = new Date(case_.sla_due_at);
+    const now = new Date();
+    const timeDiff = dueDate.getTime() - now.getTime();
+    const hoursRemaining = timeDiff / (1000 * 60 * 60);
+
+    if (hoursRemaining < 0) return 'breached';
+    if (hoursRemaining < 2) return 'critical';
+    if (hoursRemaining < 24) return 'warning';
+    return 'on_track';
+  };
+
   const filteredCases = cases.filter(case_ => {
     const matchesSearch = case_.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       case_.status.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -108,36 +127,11 @@ const Cases = () => {
     const matchesStatus = statusFilter === 'all' || case_.status === statusFilter;
     const matchesPriority = priorityFilter === 'all' || case_.priority === priorityFilter;
     
-    return matchesSearch && matchesStatus && matchesPriority;
+    const slaStatus = getSLAStatus(case_);
+    const matchesSLA = slaFilter === 'all' || slaStatus === slaFilter;
+    
+    return matchesSearch && matchesStatus && matchesPriority && matchesSLA;
   });
-
-  const getStatusBadgeVariant = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'open':
-        return 'default';
-      case 'in_progress':
-        return 'secondary';
-      case 'resolved':
-        return 'outline';
-      case 'closed':
-        return 'secondary';
-      default:
-        return 'default';
-    }
-  };
-
-  const getPriorityBadgeVariant = (priority: string) => {
-    switch (priority.toLowerCase()) {
-      case 'high':
-        return 'destructive';
-      case 'medium':
-        return 'default';
-      case 'low':
-        return 'secondary';
-      default:
-        return 'default';
-    }
-  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -158,7 +152,7 @@ const Cases = () => {
   };
 
   const handleEditClick = (event: React.MouseEvent, case_: Case) => {
-    event.stopPropagation(); // Prevent row click navigation
+    event.stopPropagation();
     setEditingCase(case_);
     setIsEditDialogOpen(true);
   };
@@ -237,6 +231,18 @@ const Cases = () => {
                     <SelectItem value="low">Low</SelectItem>
                   </SelectContent>
                 </Select>
+                <Select value={slaFilter} onValueChange={setSlaFilter}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue placeholder="SLA" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All SLA</SelectItem>
+                    <SelectItem value="breached">Breached</SelectItem>
+                    <SelectItem value="critical">Critical</SelectItem>
+                    <SelectItem value="warning">Warning</SelectItem>
+                    <SelectItem value="on_track">On Track</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </CardHeader>
@@ -282,20 +288,20 @@ const Cases = () => {
                   </TableHead>
                   <TableHead 
                     className="cursor-pointer hover:bg-muted/30"
+                    onClick={() => handleSort('sla_due_at')}
+                  >
+                    <div className="flex items-center">
+                      SLA Status
+                      {getSortIcon('sla_due_at')}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/30"
                     onClick={() => handleSort('created_at')}
                   >
                     <div className="flex items-center">
                       Created
                       {getSortIcon('created_at')}
-                    </div>
-                  </TableHead>
-                  <TableHead 
-                    className="cursor-pointer hover:bg-muted/30"
-                    onClick={() => handleSort('updated_at')}
-                  >
-                    <div className="flex items-center">
-                      Updated
-                      {getSortIcon('updated_at')}
                     </div>
                   </TableHead>
                   <TableHead>Actions</TableHead>
@@ -315,17 +321,15 @@ const Cases = () => {
                       <div className="max-w-xs truncate">{case_.title}</div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={getStatusBadgeVariant(case_.status)}>
-                        {case_.status.replace('_', ' ').toUpperCase()}
-                      </Badge>
+                      <StatusBadge status={case_.status} />
                     </TableCell>
                     <TableCell>
-                      <Badge variant={getPriorityBadgeVariant(case_.priority)}>
-                        {case_.priority.toUpperCase()}
-                      </Badge>
+                      <PriorityBadge priority={case_.priority} />
+                    </TableCell>
+                    <TableCell>
+                      <SLABadge sla_due_at={case_.sla_due_at} status={case_.status} />
                     </TableCell>
                     <TableCell>{formatDate(case_.created_at)}</TableCell>
-                    <TableCell>{formatDate(case_.updated_at)}</TableCell>
                     <TableCell>
                       <div className="flex space-x-2">
                         <Button
@@ -351,7 +355,7 @@ const Cases = () => {
             
             {filteredCases.length === 0 && (
               <div className="text-center py-8 text-muted-foreground">
-                {searchTerm || statusFilter !== 'all' || priorityFilter !== 'all' ? 'No cases found matching your filters.' : 'No cases found.'}
+                {searchTerm || statusFilter !== 'all' || priorityFilter !== 'all' || slaFilter !== 'all' ? 'No cases found matching your filters.' : 'No cases found.'}
               </div>
             )}
           </CardContent>

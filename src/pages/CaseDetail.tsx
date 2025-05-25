@@ -1,16 +1,17 @@
-
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { ArrowLeft, Edit, MessageSquare, Clock, FileText } from 'lucide-react';
+import { ArrowLeft, Edit, MessageSquare, Clock, FileText, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import SLABadge from '@/components/cases/SLABadge';
+import StatusBadge from '@/components/cases/StatusBadge';
+import PriorityBadge from '@/components/cases/PriorityBadge';
 
 interface CaseData {
   id: string;
@@ -151,7 +152,7 @@ const CaseDetail = () => {
         .insert({
           case_id: id,
           message: newMessage,
-          sender_id: 'current-user-id', // This should be the actual user ID from auth
+          sender_id: 'current-user-id',
           is_internal: false
         });
 
@@ -196,32 +197,46 @@ const CaseDetail = () => {
     });
   };
 
-  const getStatusBadgeVariant = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'open':
-        return 'default';
-      case 'in_progress':
-        return 'secondary';
-      case 'resolved':
-        return 'outline';
-      case 'closed':
-        return 'secondary';
-      default:
-        return 'default';
+  const getSLAStatusInfo = (sla_due_at?: string, status?: string) => {
+    if (!sla_due_at || status === 'closed' || status === 'resolved') {
+      return null;
     }
-  };
 
-  const getPriorityBadgeVariant = (priority: string) => {
-    switch (priority.toLowerCase()) {
-      case 'high':
-        return 'destructive';
-      case 'medium':
-        return 'default';
-      case 'low':
-        return 'secondary';
-      default:
-        return 'default';
+    const dueDate = new Date(sla_due_at);
+    const now = new Date();
+    const timeDiff = dueDate.getTime() - now.getTime();
+    const hoursRemaining = timeDiff / (1000 * 60 * 60);
+
+    if (hoursRemaining < 0) {
+      const hoursOverdue = Math.abs(hoursRemaining);
+      return {
+        status: 'breached',
+        message: `SLA breached ${Math.round(hoursOverdue)} hours ago`,
+        color: 'text-red-600',
+        bgColor: 'bg-red-50 border-red-200'
+      };
+    } else if (hoursRemaining < 2) {
+      return {
+        status: 'critical',
+        message: `SLA due in ${Math.round(hoursRemaining)} hours - URGENT`,
+        color: 'text-orange-600',
+        bgColor: 'bg-orange-50 border-orange-200'
+      };
+    } else if (hoursRemaining < 24) {
+      return {
+        status: 'warning',
+        message: `SLA due in ${Math.round(hoursRemaining)} hours`,
+        color: 'text-yellow-600',
+        bgColor: 'bg-yellow-50 border-yellow-200'
+      };
     }
+
+    return {
+      status: 'on_track',
+      message: `SLA due in ${Math.round(hoursRemaining / 24)} days`,
+      color: 'text-green-600',
+      bgColor: 'bg-green-50 border-green-200'
+    };
   };
 
   if (loading) {
@@ -239,6 +254,8 @@ const CaseDetail = () => {
       </div>
     );
   }
+
+  const slaInfo = getSLAStatusInfo(caseData.sla_due_at, caseData.status);
 
   return (
     <>
@@ -258,12 +275,9 @@ const CaseDetail = () => {
                 Case {generateCaseNumber(caseData.id, caseData.created_at)}
               </h1>
               <div className="flex items-center space-x-2 mt-1">
-                <Badge variant={getStatusBadgeVariant(caseData.status)}>
-                  {caseData.status.replace('_', ' ').toUpperCase()}
-                </Badge>
-                <Badge variant={getPriorityBadgeVariant(caseData.priority)}>
-                  {caseData.priority.toUpperCase()}
-                </Badge>
+                <StatusBadge status={caseData.status} />
+                <PriorityBadge priority={caseData.priority} />
+                <SLABadge sla_due_at={caseData.sla_due_at} status={caseData.status} />
               </div>
             </div>
           </div>
@@ -272,6 +286,23 @@ const CaseDetail = () => {
             Edit Case
           </Button>
         </div>
+
+        {slaInfo && (
+          <Card className={`border-2 ${slaInfo.bgColor}`}>
+            <CardContent className="py-3">
+              <div className={`flex items-center ${slaInfo.color}`}>
+                {slaInfo.status === 'breached' && <AlertTriangle className="h-5 w-5 mr-2" />}
+                {slaInfo.status !== 'breached' && <Clock className="h-5 w-5 mr-2" />}
+                <span className="font-medium">{slaInfo.message}</span>
+                {caseData.sla_due_at && (
+                  <span className="ml-2 text-sm opacity-75">
+                    (Due: {formatDateTime(caseData.sla_due_at)})
+                  </span>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
@@ -284,17 +315,13 @@ const CaseDetail = () => {
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Priority</label>
                     <div className="mt-1">
-                      <Badge variant={getPriorityBadgeVariant(caseData.priority)}>
-                        {caseData.priority.toUpperCase()}
-                      </Badge>
+                      <PriorityBadge priority={caseData.priority} />
                     </div>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Status</label>
                     <div className="mt-1">
-                      <Badge variant={getStatusBadgeVariant(caseData.status)}>
-                        {caseData.status.replace('_', ' ').toUpperCase()}
-                      </Badge>
+                      <StatusBadge status={caseData.status} />
                     </div>
                   </div>
                   <div>
@@ -310,8 +337,10 @@ const CaseDetail = () => {
                     <div className="mt-1">{formatDate(caseData.created_at)}</div>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-muted-foreground">Due Date</label>
-                    <div className="mt-1">{caseData.sla_due_at ? formatDate(caseData.sla_due_at) : 'Not set'}</div>
+                    <label className="text-sm font-medium text-muted-foreground">SLA Due Date</label>
+                    <div className="mt-1">
+                      {caseData.sla_due_at ? formatDateTime(caseData.sla_due_at) : 'Not set'}
+                    </div>
                   </div>
                   {caseData.location && (
                     <div>
