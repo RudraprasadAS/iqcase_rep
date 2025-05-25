@@ -103,17 +103,30 @@ const CaseEditDialog = ({ case: caseData, isOpen, onClose, onCaseUpdate }: CaseE
 
     setLoading(true);
     try {
-      const updateData = {
+      // Clean the data before sending
+      const updateData: any = {
         title: formData.title,
         description: formData.description,
         status: formData.status,
         priority: formData.priority,
-        category_id: formData.category_id === 'none' ? null : formData.category_id,
-        assigned_to: formData.assigned_to === 'unassigned' ? null : formData.assigned_to,
         updated_at: new Date().toISOString()
       };
 
-      console.log('Updating case with data:', updateData);
+      // Handle category_id - only include if it's not 'none'
+      if (formData.category_id && formData.category_id !== 'none') {
+        updateData.category_id = formData.category_id;
+      } else {
+        updateData.category_id = null;
+      }
+
+      // Handle assigned_to - only include if it's not 'unassigned'
+      if (formData.assigned_to && formData.assigned_to !== 'unassigned') {
+        updateData.assigned_to = formData.assigned_to;
+      } else {
+        updateData.assigned_to = null;
+      }
+
+      console.log('Updating case with cleaned data:', updateData);
 
       const { data, error } = await supabase
         .from('cases')

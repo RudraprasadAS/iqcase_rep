@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -24,6 +23,7 @@ import TableReportBuilder from './pages/TableReportBuilder';
 import Cases from './pages/Cases';
 import CaseDetail from './pages/CaseDetail';
 import NewCase from './pages/NewCase';
+import KnowledgeBase from './pages/KnowledgeBase';
 
 const queryClient = new QueryClient();
 const helmetContext = {}; // Create an empty object for the context
@@ -57,6 +57,7 @@ function App() {
                   <Route path="/cases" element={<Cases />} />
                   <Route path="/cases/new" element={<NewCase />} />
                   <Route path="/cases/:id" element={<CaseDetail />} />
+                  <Route path="/knowledge" element={<KnowledgeBase />} />
                   <Route path="/reports" element={<Reports />} />
                   <Route path="/reports/builder" element={<ReportBuilder />} />
                   <Route path="/reports/standard" element={<StandardReports />} />
