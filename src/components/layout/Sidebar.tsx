@@ -1,4 +1,3 @@
-
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -14,6 +13,7 @@ import {
   CalendarCheck,
   ShieldCheck,
   UserCog,
+  BookOpen,
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
@@ -40,6 +40,7 @@ const Sidebar = ({ isOpen, setIsOpen }: SidebarProps) => {
             <nav className="space-y-1">
               <NavItem icon={Home} to="/dashboard" label="Dashboard" isOpen={isOpen} />
               <NavItem icon={FileText} to="/cases" label="Cases" isOpen={isOpen} />
+              <NavItem icon={BookOpen} to="/knowledge" label="Knowledge Base" isOpen={isOpen} />
               <NavItem icon={Users} to="/users" label="Users" isOpen={isOpen} />
               <NavItem icon={FolderClosed} to="/categories" label="Categories" isOpen={isOpen} />
               <NavItem icon={MessageSquare} to="/messages" label="Messages" isOpen={isOpen} />

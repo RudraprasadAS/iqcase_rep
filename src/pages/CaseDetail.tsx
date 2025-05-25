@@ -14,6 +14,7 @@ import SLABadge from '@/components/cases/SLABadge';
 import StatusBadge from '@/components/cases/StatusBadge';
 import PriorityBadge from '@/components/cases/PriorityBadge';
 import CaseEditDialog from '@/components/cases/CaseEditDialog';
+import CaseAIAssistant from '@/components/cases/CaseAIAssistant';
 import { useAuth } from '@/hooks/useAuth';
 
 interface CaseData {
@@ -626,6 +627,16 @@ ${conversationContext}
           </div>
         </div>
       </div>
+
+      {/* Add the AI Assistant component */}
+      <CaseAIAssistant 
+        caseContext={{
+          title: caseData.title,
+          status: caseData.status,
+          priority: caseData.priority,
+          description: caseData.description
+        }}
+      />
 
       <CaseEditDialog
         case={caseData}
