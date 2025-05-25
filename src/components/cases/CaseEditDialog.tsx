@@ -61,8 +61,8 @@ const CaseEditDialog = ({ case: caseData, isOpen, onClose, onCaseUpdate }: CaseE
         description: caseData.description || '',
         status: caseData.status || '',
         priority: caseData.priority || '',
-        category_id: caseData.category_id || '',
-        assigned_to: caseData.assigned_to || ''
+        category_id: caseData.category_id || 'none',
+        assigned_to: caseData.assigned_to || 'unassigned'
       });
       fetchUsers();
       fetchCategories();
@@ -108,8 +108,8 @@ const CaseEditDialog = ({ case: caseData, isOpen, onClose, onCaseUpdate }: CaseE
         description: formData.description,
         status: formData.status,
         priority: formData.priority,
-        category_id: formData.category_id === '' ? null : formData.category_id,
-        assigned_to: formData.assigned_to === '' ? null : formData.assigned_to,
+        category_id: formData.category_id === 'none' ? null : formData.category_id,
+        assigned_to: formData.assigned_to === 'unassigned' ? null : formData.assigned_to,
         updated_at: new Date().toISOString()
       };
 
@@ -243,7 +243,7 @@ const CaseEditDialog = ({ case: caseData, isOpen, onClose, onCaseUpdate }: CaseE
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No Category</SelectItem>
+                    <SelectItem value="none">No Category</SelectItem>
                     {categories.map((category) => (
                       <SelectItem key={category.id} value={category.id}>
                         {category.name}
@@ -260,7 +260,7 @@ const CaseEditDialog = ({ case: caseData, isOpen, onClose, onCaseUpdate }: CaseE
                     <SelectValue placeholder="Select assignee" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Unassigned</SelectItem>
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
                     {users.map((user) => (
                       <SelectItem key={user.id} value={user.id}>
                         {user.name} ({user.email})
