@@ -108,10 +108,12 @@ const CaseEditDialog = ({ case: caseData, isOpen, onClose, onCaseUpdate }: CaseE
         description: formData.description,
         status: formData.status,
         priority: formData.priority,
-        category_id: formData.category_id === 'none' ? null : formData.category_id,
-        assigned_to: formData.assigned_to === 'unassigned' ? null : formData.assigned_to,
+        category_id: formData.category_id === '' ? null : formData.category_id,
+        assigned_to: formData.assigned_to === '' ? null : formData.assigned_to,
         updated_at: new Date().toISOString()
       };
+
+      console.log('Updating case with data:', updateData);
 
       const { data, error } = await supabase
         .from('cases')
@@ -124,6 +126,10 @@ const CaseEditDialog = ({ case: caseData, isOpen, onClose, onCaseUpdate }: CaseE
 
       onCaseUpdate(data);
       onClose();
+      toast({
+        title: "Success",
+        description: "Case updated successfully"
+      });
     } catch (error) {
       console.error('Error updating case:', error);
       toast({
@@ -160,19 +166,19 @@ const CaseEditDialog = ({ case: caseData, isOpen, onClose, onCaseUpdate }: CaseE
           <div className="grid grid-cols-2 gap-4 p-4 bg-muted/30 rounded-lg">
             <div>
               <Label className="text-sm font-medium text-muted-foreground">Case ID</Label>
-              <div className="text-sm">{caseData.id}</div>
+              <div className="text-sm">{caseData?.id}</div>
             </div>
             <div>
               <Label className="text-sm font-medium text-muted-foreground">Submitted By</Label>
-              <div className="text-sm">{caseData.submitted_by}</div>
+              <div className="text-sm">{caseData?.submitted_by}</div>
             </div>
             <div>
               <Label className="text-sm font-medium text-muted-foreground">Created At</Label>
-              <div className="text-sm">{formatDate(caseData.created_at)}</div>
+              <div className="text-sm">{caseData ? formatDate(caseData.created_at) : ''}</div>
             </div>
             <div>
               <Label className="text-sm font-medium text-muted-foreground">Last Updated</Label>
-              <div className="text-sm">{formatDate(caseData.updated_at)}</div>
+              <div className="text-sm">{caseData ? formatDate(caseData.updated_at) : ''}</div>
             </div>
           </div>
 
@@ -232,12 +238,12 @@ const CaseEditDialog = ({ case: caseData, isOpen, onClose, onCaseUpdate }: CaseE
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="category">Category</Label>
-                <Select value={formData.category_id || 'none'} onValueChange={(value) => setFormData(prev => ({ ...prev, category_id: value }))}>
+                <Select value={formData.category_id} onValueChange={(value) => setFormData(prev => ({ ...prev, category_id: value }))}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">No Category</SelectItem>
+                    <SelectItem value="">No Category</SelectItem>
                     {categories.map((category) => (
                       <SelectItem key={category.id} value={category.id}>
                         {category.name}
@@ -249,12 +255,12 @@ const CaseEditDialog = ({ case: caseData, isOpen, onClose, onCaseUpdate }: CaseE
 
               <div>
                 <Label htmlFor="assigned_to">Assigned To</Label>
-                <Select value={formData.assigned_to || 'unassigned'} onValueChange={(value) => setFormData(prev => ({ ...prev, assigned_to: value }))}>
+                <Select value={formData.assigned_to} onValueChange={(value) => setFormData(prev => ({ ...prev, assigned_to: value }))}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select assignee" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                    <SelectItem value="">Unassigned</SelectItem>
                     {users.map((user) => (
                       <SelectItem key={user.id} value={user.id}>
                         {user.name} ({user.email})
