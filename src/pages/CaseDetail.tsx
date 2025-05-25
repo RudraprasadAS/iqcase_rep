@@ -38,6 +38,7 @@ interface Message {
   sender_id: string;
   created_at: string;
   is_internal: boolean;
+  sender_name?: string;
 }
 
 interface Attachment {
