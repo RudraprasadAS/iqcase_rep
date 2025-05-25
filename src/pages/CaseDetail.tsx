@@ -8,12 +8,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Edit, MessageSquare, Clock, FileText, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Edit, MessageSquare, Clock, FileText, AlertTriangle, Sparkles, Send } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import SLABadge from '@/components/cases/SLABadge';
 import StatusBadge from '@/components/cases/StatusBadge';
 import PriorityBadge from '@/components/cases/PriorityBadge';
 import CaseEditDialog from '@/components/cases/CaseEditDialog';
+import { useAuth } from '@/hooks/useAuth';
 
 interface CaseData {
   id: string;
@@ -62,6 +63,7 @@ const CaseDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [caseData, setCaseData] = useState<CaseData | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -69,6 +71,8 @@ const CaseDetail = () => {
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [sendingMessage, setSendingMessage] = useState(false);
+  const [generatingAI, setGeneratingAI] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -105,12 +109,25 @@ const CaseDetail = () => {
     try {
       const { data, error } = await supabase
         .from('case_messages')
-        .select('*')
+        .select(`
+          *,
+          users:sender_id (
+            name,
+            email
+          )
+        `)
         .eq('case_id', id)
         .order('created_at', { ascending: true });
 
       if (error) throw error;
-      setMessages(data || []);
+      
+      // Transform the data to include sender names
+      const messagesWithSenders = (data || []).map(msg => ({
+        ...msg,
+        sender_name: msg.users?.name || msg.users?.email || msg.sender_id
+      }));
+      
+      setMessages(messagesWithSenders);
     } catch (error) {
       console.error('Error fetching messages:', error);
     }
@@ -147,22 +164,30 @@ const CaseDetail = () => {
   };
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim()) return;
+    if (!newMessage.trim() || !user) {
+      toast({
+        title: "Error",
+        description: "Please enter a message and ensure you're logged in",
+        variant: "destructive"
+      });
+      return;
+    }
 
+    setSendingMessage(true);
     try {
       const { error } = await supabase
         .from('case_messages')
         .insert({
           case_id: id,
-          message: newMessage,
-          sender_id: 'current-user-id',
+          message: newMessage.trim(),
+          sender_id: user.id,
           is_internal: false
         });
 
       if (error) throw error;
       
       setNewMessage('');
-      fetchMessages();
+      await fetchMessages();
       toast({
         title: "Message sent successfully"
       });
@@ -173,6 +198,56 @@ const CaseDetail = () => {
         description: "Failed to send message",
         variant: "destructive"
       });
+    } finally {
+      setSendingMessage(false);
+    }
+  };
+
+  const generateAIResponse = async () => {
+    if (!caseData) return;
+
+    setGeneratingAI(true);
+    try {
+      // Create context from case data and recent messages
+      const recentMessages = messages.slice(-5); // Last 5 messages for context
+      const conversationContext = recentMessages.map(msg => 
+        `${msg.sender_name}: ${msg.message}`
+      ).join('\n');
+
+      const caseContext = `
+Case: ${caseData.title}
+Status: ${caseData.status}
+Priority: ${caseData.priority}
+Description: ${caseData.description || 'No description'}
+
+Recent conversation:
+${conversationContext}
+      `;
+
+      const { data, error } = await supabase.functions.invoke('generate-case-response', {
+        body: {
+          caseContext,
+          prompt: "Generate a helpful, professional response for this case based on the context provided. The response should be solution-oriented and actionable."
+        }
+      });
+
+      if (error) throw error;
+
+      setNewMessage(data.generatedText || 'Unable to generate response');
+      
+      toast({
+        title: "AI response generated",
+        description: "Review and modify the message before sending"
+      });
+    } catch (error) {
+      console.error('Error generating AI response:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate AI response",
+        variant: "destructive"
+      });
+    } finally {
+      setGeneratingAI(false);
     }
   };
 
@@ -406,13 +481,13 @@ const CaseDetail = () => {
                         <div key={message.id} className="flex space-x-3">
                           <Avatar className="h-8 w-8">
                             <AvatarFallback>
-                              {message.sender_id.slice(0, 2).toUpperCase()}
+                              {(message.sender_name || message.sender_id).slice(0, 2).toUpperCase()}
                             </AvatarFallback>
                           </Avatar>
                           <div className="flex-1">
                             <div className="text-sm">
                               <span className="font-medium">
-                                {message.sender_id}
+                                {message.sender_name || message.sender_id}
                               </span>
                               <span className="text-muted-foreground ml-2">
                                 {formatDateTime(message.created_at)}
@@ -435,15 +510,34 @@ const CaseDetail = () => {
                         </div>
                       )}
                     </div>
-                    <div className="border-t pt-4">
+                    <div className="border-t pt-4 space-y-2">
+                      <div className="flex gap-2 mb-2">
+                        <Button
+                          onClick={generateAIResponse}
+                          disabled={generatingAI || !caseData}
+                          variant="outline"
+                          size="sm"
+                          className="flex items-center gap-2"
+                        >
+                          <Sparkles className="h-4 w-4" />
+                          {generatingAI ? 'Generating...' : 'AI Draft'}
+                        </Button>
+                      </div>
                       <Textarea
                         placeholder="Write a message..."
                         value={newMessage}
                         onChange={(e) => setNewMessage(e.target.value)}
                         className="mb-2"
+                        rows={3}
                       />
-                      <Button onClick={handleSendMessage} size="sm">
-                        Send Message
+                      <Button 
+                        onClick={handleSendMessage} 
+                        size="sm"
+                        disabled={sendingMessage || !newMessage.trim()}
+                        className="w-full"
+                      >
+                        <Send className="h-4 w-4 mr-2" />
+                        {sendingMessage ? 'Sending...' : 'Send Message'}
                       </Button>
                     </div>
                   </TabsContent>
