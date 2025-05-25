@@ -108,8 +108,8 @@ const CaseEditDialog = ({ case: caseData, isOpen, onClose, onCaseUpdate }: CaseE
         description: formData.description,
         status: formData.status,
         priority: formData.priority,
-        category_id: formData.category_id || null,
-        assigned_to: formData.assigned_to || null,
+        category_id: formData.category_id === 'none' ? null : formData.category_id,
+        assigned_to: formData.assigned_to === 'unassigned' ? null : formData.assigned_to,
         updated_at: new Date().toISOString()
       };
 
@@ -232,12 +232,12 @@ const CaseEditDialog = ({ case: caseData, isOpen, onClose, onCaseUpdate }: CaseE
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="category">Category</Label>
-                <Select value={formData.category_id} onValueChange={(value) => setFormData(prev => ({ ...prev, category_id: value }))}>
+                <Select value={formData.category_id || 'none'} onValueChange={(value) => setFormData(prev => ({ ...prev, category_id: value }))}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No Category</SelectItem>
+                    <SelectItem value="none">No Category</SelectItem>
                     {categories.map((category) => (
                       <SelectItem key={category.id} value={category.id}>
                         {category.name}
@@ -249,12 +249,12 @@ const CaseEditDialog = ({ case: caseData, isOpen, onClose, onCaseUpdate }: CaseE
 
               <div>
                 <Label htmlFor="assigned_to">Assigned To</Label>
-                <Select value={formData.assigned_to} onValueChange={(value) => setFormData(prev => ({ ...prev, assigned_to: value }))}>
+                <Select value={formData.assigned_to || 'unassigned'} onValueChange={(value) => setFormData(prev => ({ ...prev, assigned_to: value }))}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select assignee" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Unassigned</SelectItem>
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
                     {users.map((user) => (
                       <SelectItem key={user.id} value={user.id}>
                         {user.name} ({user.email})
