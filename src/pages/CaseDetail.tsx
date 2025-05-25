@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
@@ -14,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import SLABadge from '@/components/cases/SLABadge';
 import StatusBadge from '@/components/cases/StatusBadge';
 import PriorityBadge from '@/components/cases/PriorityBadge';
+import CaseEditDialog from '@/components/cases/CaseEditDialog';
 
 interface CaseData {
   id: string;
@@ -68,6 +68,7 @@ const CaseDetail = () => {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -173,6 +174,15 @@ const CaseDetail = () => {
         variant: "destructive"
       });
     }
+  };
+
+  const handleCaseUpdate = (updatedCase: CaseData) => {
+    setCaseData(updatedCase);
+    setIsEditDialogOpen(false);
+    toast({
+      title: "Success",
+      description: "Case updated successfully"
+    });
   };
 
   const generateCaseNumber = (id: string, createdAt: string) => {
@@ -283,7 +293,7 @@ const CaseDetail = () => {
               </div>
             </div>
           </div>
-          <Button>
+          <Button onClick={() => setIsEditDialogOpen(true)}>
             <Edit className="h-4 w-4 mr-2" />
             Edit Case
           </Button>
@@ -521,6 +531,13 @@ const CaseDetail = () => {
           </div>
         </div>
       </div>
+
+      <CaseEditDialog
+        case={caseData}
+        isOpen={isEditDialogOpen}
+        onClose={() => setIsEditDialogOpen(false)}
+        onCaseUpdate={handleCaseUpdate}
+      />
     </>
   );
 };
