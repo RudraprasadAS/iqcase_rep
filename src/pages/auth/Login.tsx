@@ -71,52 +71,19 @@ const Login = () => {
       setIsLoading(false);
     }
   };
-  
-  const handleSuperAdminLogin = async () => {
-    setIsLoading(true);
-    setLoginError("");
-    
-    try {
-      const { error } = await login("admin@system.com", "Admin123!");
-      
-      if (error) {
-        setLoginError("Super admin login failed: " + error.message);
-        toast({
-          title: "Super admin login failed",
-          description: error.message,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Super admin login successful",
-          description: "Welcome, System Administrator.",
-        });
-        
-        navigate("/dashboard", { replace: true });
-      }
-    } catch (error: any) {
-      toast({
-        title: "Super admin login failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center px-4">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-12">
           <img 
             src="/lovable-uploads/6eaac0f3-2c45-46e1-9354-d335a6c466ca.png" 
             alt="Ethos"
-            className="h-12 mx-auto mb-8"
+            className="h-8 mx-auto mb-8"
           />
-          <h1 className="text-2xl font-light text-gray-900 mb-2">Welcome back</h1>
-          <p className="text-sm text-gray-500">Sign in to your account</p>
+          <h1 className="text-2xl font-light text-gray-900 mb-2">Sign in</h1>
+          <p className="text-sm text-gray-500">to continue to Case Management</p>
         </div>
 
         <div className="space-y-6">
@@ -188,29 +155,6 @@ const Login = () => {
               </Button>
             </form>
           </Form>
-
-          {/* System Admin Access */}
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-200"></div>
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-3 bg-white text-gray-500">or</span>
-            </div>
-          </div>
-          
-          <Button 
-            onClick={handleSuperAdminLogin} 
-            className="w-full h-11 bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 font-medium"
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Accessing...
-              </>
-            ) : "System Administrator Access"}
-          </Button>
 
           <div className="text-center pt-4">
             <p className="text-sm text-gray-500">
