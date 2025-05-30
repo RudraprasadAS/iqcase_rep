@@ -17,6 +17,7 @@ export const useAuth = () => {
   // Fetch user role from database
   const fetchUserRole = async (userId: string) => {
     try {
+      console.log('Fetching user role for:', userId);
       const { data: userData, error } = await supabase
         .from('users')
         .select(`
@@ -34,7 +35,9 @@ export const useAuth = () => {
         return null;
       }
       
-      return userData?.roles?.name || null;
+      const role = userData?.roles?.name || null;
+      console.log('User role fetched:', role);
+      return role;
     } catch (error) {
       console.error('Exception fetching user role:', error);
       return null;
@@ -43,62 +46,79 @@ export const useAuth = () => {
   
   // Check for existing session on mount
   useEffect(() => {
-    const checkSession = async () => {
+    let mounted = true;
+    
+    const initializeAuth = async () => {
       try {
-        console.log('Checking for existing Supabase session...');
+        console.log('Initializing auth...');
         
-        // Set up auth state listener FIRST
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(
-          async (event, currentSession) => {
-            console.log('Auth state changed:', event);
-            setSession(currentSession);
-            setUser(currentSession?.user ?? null);
-            
-            if (currentSession?.user) {
-              // Fetch user role when user logs in
-              const role = await fetchUserRole(currentSession.user.id);
-              setUserRole(role);
-            } else {
-              setUserRole(null);
-            }
-          }
-        );
-        
-        // THEN check for existing session
+        // First, get the current session
         const { data: { session: currentSession }, error } = await supabase.auth.getSession();
         
         if (error) {
-          console.error('Error checking session:', error);
+          console.error('Error getting session:', error);
+          if (mounted) {
+            setIsLoading(false);
+          }
           return;
         }
         
-        if (currentSession) {
-          console.log('Found existing session:', currentSession.user.id);
+        console.log('Current session:', currentSession ? 'exists' : 'none');
+        
+        if (currentSession && mounted) {
           setSession(currentSession);
           setUser(currentSession.user);
           
           // Fetch user role for existing session
           const role = await fetchUserRole(currentSession.user.id);
-          setUserRole(role);
-        } else {
-          console.log('No existing session found');
-          setUser(null);
-          setSession(null);
-          setUserRole(null);
+          if (mounted) {
+            setUserRole(role);
+          }
         }
         
-        setIsLoading(false);
-        
-        return () => {
-          subscription.unsubscribe();
-        };
+        if (mounted) {
+          setIsLoading(false);
+        }
       } catch (error) {
-        console.error('Session check error:', error);
-        setIsLoading(false);
+        console.error('Auth initialization error:', error);
+        if (mounted) {
+          setIsLoading(false);
+        }
       }
     };
     
-    checkSession();
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, currentSession) => {
+        console.log('Auth state changed:', event);
+        
+        if (!mounted) return;
+        
+        setSession(currentSession);
+        setUser(currentSession?.user ?? null);
+        
+        if (currentSession?.user) {
+          // Fetch user role when user logs in
+          const role = await fetchUserRole(currentSession.user.id);
+          if (mounted) {
+            setUserRole(role);
+          }
+        } else {
+          setUserRole(null);
+        }
+        
+        // Make sure loading is false after auth state change
+        setIsLoading(false);
+      }
+    );
+    
+    // Initialize auth
+    initializeAuth();
+    
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
   
   const login = async (email: string, password: string) => {
@@ -117,11 +137,7 @@ export const useAuth = () => {
       
       console.log('Login successful:', data.user?.id);
       
-      // Fetch user role after successful login
-      if (data.user) {
-        const role = await fetchUserRole(data.user.id);
-        setUserRole(role);
-      }
+      // Note: Role will be fetched by the auth state change listener
       
       return { user: data.user, session: data.session, error: null };
     } catch (error) {
