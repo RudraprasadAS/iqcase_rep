@@ -16,6 +16,11 @@ import PriorityBadge from '@/components/cases/PriorityBadge';
 import CaseEditDialog from '@/components/cases/CaseEditDialog';
 import CaseAIAssistant from '@/components/cases/CaseAIAssistant';
 import { useAuth } from '@/hooks/useAuth';
+import RelatedCases from '@/components/cases/RelatedCases';
+import CaseWatchers from '@/components/cases/CaseWatchers';
+import CaseTasks from '@/components/cases/CaseTasks';
+import CaseFeedback from '@/components/cases/CaseFeedback';
+import InternalNotes from '@/components/cases/InternalNotes';
 
 interface CaseData {
   id: string;
@@ -460,6 +465,12 @@ ${conversationContext}
                 )}
               </CardContent>
             </Card>
+
+            {/* New Related Cases Section */}
+            <RelatedCases caseId={caseData.id} />
+
+            {/* New Tasks Section */}
+            <CaseTasks caseId={caseData.id} />
           </div>
 
           <div className="space-y-6">
@@ -472,8 +483,9 @@ ${conversationContext}
               </CardHeader>
               <CardContent>
                 <Tabs defaultValue="messages" className="w-full">
-                  <TabsList className="grid w-full grid-cols-3">
+                  <TabsList className="grid w-full grid-cols-4">
                     <TabsTrigger value="messages">Messages</TabsTrigger>
+                    <TabsTrigger value="notes">Internal</TabsTrigger>
                     <TabsTrigger value="activities">Activities</TabsTrigger>
                     <TabsTrigger value="updates">Updates</TabsTrigger>
                   </TabsList>
@@ -543,6 +555,9 @@ ${conversationContext}
                       </Button>
                     </div>
                   </TabsContent>
+                  <TabsContent value="notes" className="space-y-4">
+                    <InternalNotes caseId={caseData.id} />
+                  </TabsContent>
                   <TabsContent value="activities" className="space-y-4">
                     <div className="space-y-3 max-h-96 overflow-y-auto">
                       {activities.map((activity) => (
@@ -600,30 +615,11 @@ ${conversationContext}
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Clock className="h-5 w-5 mr-2" />
-                  Time Tracking
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Total Activities</span>
-                  <span>{activities.length}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Total Time</span>
-                  <span>
-                    {activities.reduce((total, activity) => total + (activity.duration_minutes || 0), 0)} minutes
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Last Updated</span>
-                  <span>{formatDateTime(caseData.updated_at)}</span>
-                </div>
-              </CardContent>
-            </Card>
+            {/* New Watchers Section */}
+            <CaseWatchers caseId={caseData.id} />
+
+            {/* New Feedback Section */}
+            <CaseFeedback caseId={caseData.id} caseStatus={caseData.status} />
           </div>
         </div>
       </div>

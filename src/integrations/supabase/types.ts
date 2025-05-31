@@ -54,38 +54,54 @@ export type Database = {
       case_activities: {
         Row: {
           activity_type: string
+          actor_id: string | null
           case_id: string
           created_at: string | null
           description: string | null
           duration_minutes: number | null
           id: string
+          message: string | null
           performed_by: string
+          timestamp: string | null
           travel_minutes: number | null
           updated_at: string | null
         }
         Insert: {
           activity_type: string
+          actor_id?: string | null
           case_id: string
           created_at?: string | null
           description?: string | null
           duration_minutes?: number | null
           id?: string
+          message?: string | null
           performed_by: string
+          timestamp?: string | null
           travel_minutes?: number | null
           updated_at?: string | null
         }
         Update: {
           activity_type?: string
+          actor_id?: string | null
           case_id?: string
           created_at?: string | null
           description?: string | null
           duration_minutes?: number | null
           id?: string
+          message?: string | null
           performed_by?: string
+          timestamp?: string | null
           travel_minutes?: number | null
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "case_activities_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "case_activities_case_id_fkey"
             columns: ["case_id"]
@@ -274,6 +290,48 @@ export type Database = {
           },
         ]
       }
+      case_feedback: {
+        Row: {
+          case_id: string
+          comment: string | null
+          id: string
+          rating: number | null
+          submitted_at: string | null
+          submitted_by: string | null
+        }
+        Insert: {
+          case_id: string
+          comment?: string | null
+          id?: string
+          rating?: number | null
+          submitted_at?: string | null
+          submitted_by?: string | null
+        }
+        Update: {
+          case_id?: string
+          comment?: string | null
+          id?: string
+          rating?: number | null
+          submitted_at?: string | null
+          submitted_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "case_feedback_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "case_feedback_submitted_by_fkey"
+            columns: ["submitted_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       case_messages: {
         Row: {
           case_id: string
@@ -328,6 +386,7 @@ export type Database = {
           case_id: string
           created_at: string | null
           id: string
+          is_internal: boolean | null
           is_pinned: boolean | null
           note: string
           updated_at: string | null
@@ -337,6 +396,7 @@ export type Database = {
           case_id: string
           created_at?: string | null
           id?: string
+          is_internal?: boolean | null
           is_pinned?: boolean | null
           note: string
           updated_at?: string | null
@@ -346,6 +406,7 @@ export type Database = {
           case_id?: string
           created_at?: string | null
           id?: string
+          is_internal?: boolean | null
           is_pinned?: boolean | null
           note?: string
           updated_at?: string | null
@@ -363,6 +424,110 @@ export type Database = {
             columns: ["case_id"]
             isOneToOne: false
             referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      case_tasks: {
+        Row: {
+          assigned_to: string | null
+          case_id: string
+          created_at: string | null
+          created_by: string | null
+          due_date: string | null
+          id: string
+          status: string
+          task_name: string
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          case_id: string
+          created_at?: string | null
+          created_by?: string | null
+          due_date?: string | null
+          id?: string
+          status?: string
+          task_name: string
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          case_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          due_date?: string | null
+          id?: string
+          status?: string
+          task_name?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "case_tasks_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "case_tasks_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "case_tasks_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      case_watchers: {
+        Row: {
+          added_by: string | null
+          case_id: string
+          created_at: string | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          added_by?: string | null
+          case_id: string
+          created_at?: string | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          added_by?: string | null
+          case_id?: string
+          created_at?: string | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "case_watchers_added_by_fkey"
+            columns: ["added_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "case_watchers_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "case_watchers_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -649,6 +814,55 @@ export type Database = {
             columns: ["role_id"]
             isOneToOne: false
             referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      related_cases: {
+        Row: {
+          case_id: string
+          created_at: string | null
+          created_by: string | null
+          id: string
+          related_case_id: string
+          relationship_type: string
+        }
+        Insert: {
+          case_id: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          related_case_id: string
+          relationship_type: string
+        }
+        Update: {
+          case_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          related_case_id?: string
+          relationship_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "related_cases_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "related_cases_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "related_cases_related_case_id_fkey"
+            columns: ["related_case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
             referencedColumns: ["id"]
           },
         ]
