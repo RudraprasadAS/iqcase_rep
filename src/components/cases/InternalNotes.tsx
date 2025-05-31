@@ -43,7 +43,7 @@ const InternalNotes = ({ caseId }: InternalNotesProps) => {
         .from('case_notes')
         .select(`
           *,
-          users:author_id (
+          users!case_notes_author_id_fkey (
             name,
             email
           )

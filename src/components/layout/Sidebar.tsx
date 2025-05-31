@@ -1,91 +1,181 @@
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
-import {
-  Home,
-  FileText,
-  Users,
-  Settings,
-  BarChart,
-  MessageSquare,
-  FolderClosed,
-  CalendarCheck,
-  ShieldCheck,
-  UserCog,
+
+import { useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { 
+  Home, 
+  Users, 
+  Settings, 
+  FileText, 
+  BarChart3, 
+  Shield, 
+  ChevronLeft, 
+  ChevronRight,
+  Plus,
   BookOpen,
-} from "lucide-react";
-import { NavLink } from "react-router-dom";
+  Calendar,
+  Search
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 
-interface SidebarProps {
-  isOpen: boolean;
-  setIsOpen: (open: boolean) => void;
-}
+const Sidebar = () => {
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const location = useLocation();
 
-const Sidebar = ({ isOpen, setIsOpen }: SidebarProps) => {
+  const navigationItems = [
+    {
+      title: 'Dashboard',
+      href: '/dashboard',
+      icon: Home,
+    },
+    {
+      title: 'Cases',
+      href: '/cases',
+      icon: FileText,
+    },
+    {
+      title: 'Knowledge Base',
+      href: '/knowledge',
+      icon: BookOpen,
+    },
+    {
+      title: 'Reports',
+      href: '/reports',
+      icon: BarChart3,
+    }
+  ];
+
+  const quickActions = [
+    {
+      title: 'New Case',
+      href: '/cases/new',
+      icon: Plus,
+    }
+  ];
+
+  const adminItems = [
+    {
+      title: 'Users',
+      href: '/admin/users',
+      icon: Users,
+    },
+    {
+      title: 'Permissions',
+      href: '/admin/permissions',
+      icon: Shield,
+    }
+  ];
+
   return (
-    <div
-      className={cn(
-        "bg-white border-r border-caseMgmt-border h-screen transition-all duration-300 overflow-hidden",
-        isOpen ? "w-64" : "w-16"
-      )}
-    >
-      <div className="flex flex-col h-full">
-        <div className={cn("h-16 p-4", isOpen ? "justify-between" : "justify-center", "flex items-center")}>
-          {isOpen && <h1 className="font-semibold text-caseMgmt-primary text-lg">CaseManager</h1>}
-        </div>
+    <div className={cn(
+      "bg-white border-r border-gray-200 flex flex-col transition-all duration-300",
+      isCollapsed ? "w-16" : "w-64"
+    )}>
+      {/* Header */}
+      <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+        {!isCollapsed && (
+          <h1 className="text-xl font-bold text-gray-900">IQCase</h1>
+        )}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="p-2"
+        >
+          {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+        </Button>
+      </div>
 
-        <ScrollArea className="flex-1">
-          <div className="px-2 py-2">
-            <nav className="space-y-1">
-              <NavItem icon={Home} to="/dashboard" label="Dashboard" isOpen={isOpen} />
-              <NavItem icon={FileText} to="/cases" label="Cases" isOpen={isOpen} />
-              <NavItem icon={BookOpen} to="/knowledge" label="Knowledge Base" isOpen={isOpen} />
-              <NavItem icon={Users} to="/users" label="Users" isOpen={isOpen} />
-              <NavItem icon={FolderClosed} to="/categories" label="Categories" isOpen={isOpen} />
-              <NavItem icon={MessageSquare} to="/messages" label="Messages" isOpen={isOpen} />
-              <NavItem icon={CalendarCheck} to="/deadlines" label="Deadlines" isOpen={isOpen} />
-              <NavItem icon={BarChart} to="/reports" label="Reports" isOpen={isOpen} />
-              
-              {/* Admin section with Roles & Permissions and Users */}
-              {isOpen && <div className="pt-4 pb-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Admin</div>}
-              <NavItem icon={ShieldCheck} to="/admin/permissions" label="Roles & Permissions" isOpen={isOpen} />
-              <NavItem icon={UserCog} to="/admin/users" label="Users Management" isOpen={isOpen} />
-              
-              <Separator className="my-4" />
-              
-              <NavItem icon={Settings} to="/settings" label="Settings" isOpen={isOpen} />
-            </nav>
-          </div>
-        </ScrollArea>
+      {/* Quick Actions */}
+      <div className="p-4 border-b border-gray-200">
+        {!isCollapsed && (
+          <h2 className="text-sm font-semibold text-gray-700 mb-2">Quick Actions</h2>
+        )}
+        <div className="space-y-1">
+          {quickActions.map((item) => {
+            const Icon = item.icon;
+            const isActive = location.pathname === item.href;
+            
+            return (
+              <Link
+                key={item.href}
+                to={item.href}
+                className={cn(
+                  "flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                  isActive 
+                    ? "bg-blue-100 text-blue-700" 
+                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
+                  isCollapsed && "justify-center"
+                )}
+              >
+                <Icon className={cn("h-4 w-4", !isCollapsed && "mr-3")} />
+                {!isCollapsed && item.title}
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Main Navigation */}
+      <div className="flex-1 p-4">
+        {!isCollapsed && (
+          <h2 className="text-sm font-semibold text-gray-700 mb-2">Navigation</h2>
+        )}
+        <nav className="space-y-1">
+          {navigationItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = location.pathname.startsWith(item.href);
+            
+            return (
+              <Link
+                key={item.href}
+                to={item.href}
+                className={cn(
+                  "flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                  isActive 
+                    ? "bg-blue-100 text-blue-700" 
+                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
+                  isCollapsed && "justify-center"
+                )}
+              >
+                <Icon className={cn("h-4 w-4", !isCollapsed && "mr-3")} />
+                {!isCollapsed && item.title}
+              </Link>
+            );
+          })}
+        </nav>
+      </div>
+
+      {/* Admin Section */}
+      <div className="p-4 border-t border-gray-200">
+        {!isCollapsed && (
+          <h2 className="text-sm font-semibold text-gray-700 mb-2">Administration</h2>
+        )}
+        <nav className="space-y-1">
+          {adminItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = location.pathname === item.href;
+            
+            return (
+              <Link
+                key={item.href}
+                to={item.href}
+                className={cn(
+                  "flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                  isActive 
+                    ? "bg-blue-100 text-blue-700" 
+                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
+                  isCollapsed && "justify-center"
+                )}
+              >
+                <Icon className={cn("h-4 w-4", !isCollapsed && "mr-3")} />
+                {!isCollapsed && item.title}
+              </Link>
+            );
+          })}
+        </nav>
       </div>
     </div>
-  );
-};
-
-interface NavItemProps {
-  icon: React.ElementType;
-  to: string;
-  label: string;
-  isOpen: boolean;
-}
-
-const NavItem = ({ icon: Icon, to, label, isOpen }: NavItemProps) => {
-  return (
-    <NavLink
-      to={to}
-      className={({ isActive }) =>
-        cn(
-          "flex items-center py-2 px-3 rounded-md transition-colors",
-          isActive
-            ? "bg-caseMgmt-primary text-white"
-            : "hover:bg-gray-100 text-gray-700"
-        )
-      }
-    >
-      <Icon className="w-5 h-5" />
-      {isOpen && <span className="ml-3">{label}</span>}
-    </NavLink>
   );
 };
 
