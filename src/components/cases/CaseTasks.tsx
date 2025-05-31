@@ -39,7 +39,7 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
   const [availableUsers, setAvailableUsers] = useState<User[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newTaskName, setNewTaskName] = useState('');
-  const [selectedAssignee, setSelectedAssignee] = useState('');
+  const [selectedAssignee, setSelectedAssignee] = useState('unassigned');
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const { user } = useAuth();
@@ -95,7 +95,7 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
         .insert({
           case_id: caseId,
           task_name: newTaskName.trim(),
-          assigned_to: selectedAssignee || null,
+          assigned_to: selectedAssignee === 'unassigned' ? null : selectedAssignee,
           created_by: user.id
         });
 
@@ -104,7 +104,7 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
       await fetchTasks();
       setIsAddDialogOpen(false);
       setNewTaskName('');
-      setSelectedAssignee('');
+      setSelectedAssignee('unassigned');
       
       toast({
         title: "Success",
@@ -221,7 +221,7 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
                     <SelectValue placeholder="Choose assignee" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Unassigned</SelectItem>
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
                     {availableUsers.map((user) => (
                       <SelectItem key={user.id} value={user.id}>
                         {user.name} ({user.email})
