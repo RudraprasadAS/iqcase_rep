@@ -51,7 +51,7 @@ const CaseWatchers = ({ caseId }: CaseWatchersProps) => {
         .from('case_watchers')
         .select(`
           *,
-          users (
+          users!case_watchers_user_id_fkey (
             id,
             name,
             email

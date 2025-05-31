@@ -55,7 +55,7 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
         .from('case_tasks')
         .select(`
           *,
-          users:assigned_to (
+          users!case_tasks_assigned_to_fkey (
             name,
             email
           )

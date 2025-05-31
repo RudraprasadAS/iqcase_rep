@@ -47,7 +47,7 @@ const RelatedCases = ({ caseId }: RelatedCasesProps) => {
         .from('related_cases')
         .select(`
           *,
-          cases:related_case_id (
+          cases!related_cases_related_case_id_fkey (
             id,
             title,
             status,
