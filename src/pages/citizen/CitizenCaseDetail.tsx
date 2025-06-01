@@ -42,7 +42,7 @@ interface Message {
   users: {
     name: string;
     email: string;
-  };
+  } | null;
 }
 
 interface Activity {
@@ -52,7 +52,7 @@ interface Activity {
   created_at: string;
   users: {
     name: string;
-  };
+  } | null;
 }
 
 const CitizenCaseDetail = () => {
@@ -94,7 +94,7 @@ const CitizenCaseDetail = () => {
         .from('case_messages')
         .select(`
           *,
-          users:sender_id (
+          users!case_messages_sender_id_fkey (
             name,
             email
           )
@@ -111,7 +111,7 @@ const CitizenCaseDetail = () => {
         .from('case_activities')
         .select(`
           *,
-          users:performed_by (
+          users!case_activities_performed_by_fkey (
             name
           )
         `)
@@ -319,12 +319,12 @@ const CitizenCaseDetail = () => {
                   <div key={message.id} className="flex space-x-3">
                     <Avatar className="h-8 w-8">
                       <AvatarFallback>
-                        {message.users.name.slice(0, 2).toUpperCase()}
+                        {message.users?.name ? message.users.name.slice(0, 2).toUpperCase() : 'UN'}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1">
                       <div className="text-sm">
-                        <span className="font-medium">{message.users.name}</span>
+                        <span className="font-medium">{message.users?.name || 'Unknown User'}</span>
                         <span className="text-muted-foreground ml-2">
                           {formatDateTime(message.created_at)}
                         </span>
