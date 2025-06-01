@@ -240,7 +240,7 @@ const CitizenCaseDetail = () => {
               {caseData.sla_due_at && (
                 <div>
                   <p className="text-sm font-medium text-gray-500">SLA Due</p>
-                  <SLABadge dueDate={caseData.sla_due_at} />
+                  <SLABadge sla_due_at={caseData.sla_due_at} status={caseData.status} />
                 </div>
               )}
             </CardContent>
