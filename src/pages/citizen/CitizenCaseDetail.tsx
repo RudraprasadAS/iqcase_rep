@@ -8,7 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Calendar, MapPin, User, Tag, Clock } from 'lucide-react';
+import { ArrowLeft, Calendar, MapPin, User, Tag, Clock, Paperclip, Download } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import StatusBadge from '@/components/cases/StatusBadge';
 import PriorityBadge from '@/components/cases/PriorityBadge';
@@ -39,12 +39,13 @@ interface Activity {
   users: { name: string } | null;
 }
 
-interface Message {
+interface Attachment {
   id: string;
-  message: string;
+  file_name: string;
+  file_url: string;
+  file_type: string;
   created_at: string;
-  is_internal: boolean;
-  users: { name: string } | null;
+  uploaded_by: string;
 }
 
 const CitizenCaseDetail = () => {
@@ -55,7 +56,7 @@ const CitizenCaseDetail = () => {
   
   const [caseData, setCaseData] = useState<CaseData | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -68,6 +69,20 @@ const CitizenCaseDetail = () => {
     if (!id || !user) return;
 
     try {
+      // Get internal user ID first
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (userError) {
+        console.error('User lookup error:', userError);
+        throw userError;
+      }
+
+      console.log('Internal user ID:', userData.id);
+
       const { data: caseData, error: caseError } = await supabase
         .from('cases')
         .select(`
@@ -77,10 +92,15 @@ const CitizenCaseDetail = () => {
           assigned_users:users!assigned_to(name)
         `)
         .eq('id', id)
-        .eq('submitted_by', user.id)
+        .eq('submitted_by', userData.id)
         .single();
 
-      if (caseError) throw caseError;
+      if (caseError) {
+        console.error('Case fetch error:', caseError);
+        throw caseError;
+      }
+
+      console.log('Case data:', caseData);
 
       setCaseData({
         ...caseData,
@@ -89,6 +109,7 @@ const CitizenCaseDetail = () => {
         assigned_to_user: caseData.assigned_users
       });
 
+      // Fetch case activities
       const { data: activitiesData, error: activitiesError } = await supabase
         .from('case_activities')
         .select(`
@@ -98,21 +119,26 @@ const CitizenCaseDetail = () => {
         .eq('case_id', id)
         .order('created_at', { ascending: false });
 
-      if (activitiesError) throw activitiesError;
-      setActivities(activitiesData || []);
+      if (activitiesError) {
+        console.error('Activities fetch error:', activitiesError);
+      } else {
+        setActivities(activitiesData || []);
+      }
 
-      const { data: messagesData, error: messagesError } = await supabase
-        .from('case_messages')
-        .select(`
-          *,
-          users!case_messages_sender_id_fkey(name)
-        `)
+      // Fetch case attachments
+      const { data: attachmentsData, error: attachmentsError } = await supabase
+        .from('case_attachments')
+        .select('*')
         .eq('case_id', id)
-        .eq('is_internal', false)
-        .order('created_at', { ascending: true });
+        .eq('is_private', false)
+        .order('created_at', { ascending: false });
 
-      if (messagesError) throw messagesError;
-      setMessages(messagesData || []);
+      if (attachmentsError) {
+        console.error('Attachments fetch error:', attachmentsError);
+      } else {
+        console.log('Attachments data:', attachmentsData);
+        setAttachments(attachmentsData || []);
+      }
 
     } catch (error) {
       console.error('Error fetching case data:', error);
@@ -125,6 +151,16 @@ const CitizenCaseDetail = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const downloadAttachment = (fileUrl: string, fileName: string) => {
+    const link = document.createElement('a');
+    link.href = fileUrl;
+    link.download = fileName;
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   if (loading) {
@@ -192,6 +228,38 @@ const CitizenCaseDetail = () => {
                       <Badge key={tag} variant="outline" className="text-xs">
                         {tag}
                       </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {attachments.length > 0 && (
+                <div>
+                  <h4 className="font-medium mb-2 flex items-center gap-2">
+                    <Paperclip className="h-4 w-4" />
+                    Attachments ({attachments.length})
+                  </h4>
+                  <div className="space-y-2">
+                    {attachments.map((attachment) => (
+                      <div key={attachment.id} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <Paperclip className="h-4 w-4 text-gray-400" />
+                          <div>
+                            <p className="text-sm font-medium">{attachment.file_name}</p>
+                            <p className="text-xs text-gray-500">
+                              Uploaded {formatDistanceToNow(new Date(attachment.created_at), { addSuffix: true })}
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => downloadAttachment(attachment.file_url, attachment.file_name)}
+                        >
+                          <Download className="h-4 w-4 mr-1" />
+                          Download
+                        </Button>
+                      </div>
                     ))}
                   </div>
                 </div>

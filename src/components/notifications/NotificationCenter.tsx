@@ -22,25 +22,58 @@ const NotificationCenter = () => {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
+  const [internalUserId, setInternalUserId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
-      fetchNotifications();
+      fetchInternalUserId();
     }
   }, [user]);
 
-  const fetchNotifications = async () => {
+  useEffect(() => {
+    if (internalUserId) {
+      fetchNotifications();
+    }
+  }, [internalUserId]);
+
+  const fetchInternalUserId = async () => {
     if (!user) return;
+
+    try {
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (userError) {
+        console.error('User lookup error:', userError);
+        return;
+      }
+
+      setInternalUserId(userData.id);
+    } catch (error) {
+      console.error('Error fetching internal user ID:', error);
+    }
+  };
+
+  const fetchNotifications = async () => {
+    if (!internalUserId) return;
 
     try {
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', internalUserId)
         .order('created_at', { ascending: false })
         .limit(20);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Notifications fetch error:', error);
+        throw error;
+      }
+
+      console.log('Notifications fetched:', data);
       setNotifications(data || []);
     } catch (error) {
       console.error('Error fetching notifications:', error);
@@ -65,14 +98,14 @@ const NotificationCenter = () => {
   };
 
   const markAllAsRead = async () => {
-    if (!user) return;
+    if (!internalUserId) return;
 
     setLoading(true);
     try {
       const { error } = await supabase
         .from('notifications')
         .update({ is_read: true })
-        .eq('user_id', user.id)
+        .eq('user_id', internalUserId)
         .eq('is_read', false);
 
       if (error) throw error;

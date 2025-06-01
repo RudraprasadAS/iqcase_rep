@@ -32,10 +32,40 @@ const MessageCenter = ({ caseId, isInternal = false }: MessageCenterProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [internalUserId, setInternalUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchMessages();
+    if (user) {
+      fetchInternalUserId();
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (caseId) {
+      fetchMessages();
+    }
   }, [caseId]);
+
+  const fetchInternalUserId = async () => {
+    if (!user) return;
+
+    try {
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (userError) {
+        console.error('User lookup error:', userError);
+        return;
+      }
+
+      setInternalUserId(userData.id);
+    } catch (error) {
+      console.error('Error fetching internal user ID:', error);
+    }
+  };
 
   const fetchMessages = async () => {
     try {
@@ -49,7 +79,12 @@ const MessageCenter = ({ caseId, isInternal = false }: MessageCenterProps) => {
         .eq('is_internal', isInternal)
         .order('created_at', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Messages fetch error:', error);
+        throw error;
+      }
+
+      console.log('Messages fetched:', data);
       setMessages(data || []);
     } catch (error) {
       console.error('Error fetching messages:', error);
@@ -57,7 +92,7 @@ const MessageCenter = ({ caseId, isInternal = false }: MessageCenterProps) => {
   };
 
   const sendMessage = async () => {
-    if (!newMessage.trim() || !user) return;
+    if (!newMessage.trim() || !internalUserId) return;
 
     setLoading(true);
     try {
@@ -66,11 +101,14 @@ const MessageCenter = ({ caseId, isInternal = false }: MessageCenterProps) => {
         .insert({
           case_id: caseId,
           message: newMessage.trim(),
-          sender_id: user.id,
+          sender_id: internalUserId,
           is_internal: isInternal
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Message send error:', error);
+        throw error;
+      }
 
       setNewMessage('');
       fetchMessages();
@@ -132,11 +170,11 @@ const MessageCenter = ({ caseId, isInternal = false }: MessageCenterProps) => {
             onChange={(e) => setNewMessage(e.target.value)}
             placeholder={`Type your ${isInternal ? 'internal ' : ''}message...`}
             rows={3}
-            disabled={loading}
+            disabled={loading || !internalUserId}
           />
           <Button 
             onClick={sendMessage}
-            disabled={!newMessage.trim() || loading}
+            disabled={!newMessage.trim() || loading || !internalUserId}
             className="w-full"
           >
             <Send className="h-4 w-4 mr-2" />

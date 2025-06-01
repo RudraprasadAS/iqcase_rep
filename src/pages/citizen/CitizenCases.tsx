@@ -54,16 +54,37 @@ const CitizenCases = () => {
   }, [cases, searchTerm, statusFilter, priorityFilter]);
 
   const fetchCases = async () => {
+    if (!user) return;
+
     try {
       setLoading(true);
       
+      // Get internal user ID first
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (userError) {
+        console.error('User lookup error:', userError);
+        throw userError;
+      }
+
+      console.log('Fetching cases for internal user ID:', userData.id);
+
       const { data, error } = await supabase
         .from('cases')
         .select('id, title, status, priority, created_at, sla_due_at, location, description')
-        .eq('submitted_by', user?.id)
+        .eq('submitted_by', userData.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Cases fetch error:', error);
+        throw error;
+      }
+
+      console.log('Cases fetched:', data);
       setCases(data || []);
 
     } catch (error) {
