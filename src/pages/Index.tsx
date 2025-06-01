@@ -1,93 +1,154 @@
 
 import { Button } from "@/components/ui/button";
-import { useNavigate } from "react-router-dom";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Link } from "react-router-dom";
+import { FileText, Users, BarChart, Shield, UserCheck, Plus } from "lucide-react";
 
 const Index = () => {
-  const navigate = useNavigate();
-
   return (
-    <div className="min-h-screen bg-caseMgmt-background">
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex-shrink-0 flex items-center">
-              <h1 className="text-xl font-bold text-caseMgmt-primary">Case Management System</h1>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Button 
-                variant="ghost" 
-                onClick={() => navigate("/auth/login")}
-              >
-                Login
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="container mx-auto px-4 py-12">
+        <div className="text-center mb-12">
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">
+            Case Management System
+          </h1>
+          <p className="text-xl text-gray-600 mb-8">
+            Streamline your case management process with our comprehensive platform
+          </p>
+          
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link to="/citizen/dashboard">
+              <Button size="lg" className="bg-blue-600 hover:bg-blue-700">
+                <UserCheck className="mr-2 h-5 w-5" />
+                Citizen Portal
               </Button>
-              <Button 
-                onClick={() => navigate("/auth/register")}
-                className="bg-caseMgmt-primary hover:bg-caseMgmt-primary/90"
-              >
-                Sign Up
+            </Link>
+            <Link to="/auth/login">
+              <Button size="lg" variant="outline">
+                <Shield className="mr-2 h-5 w-5" />
+                Staff Login
               </Button>
-            </div>
+            </Link>
           </div>
         </div>
-      </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-24">
-        <div className="md:flex md:items-center md:justify-between">
-          <div className="md:w-1/2 md:pr-12">
-            <h1 className="text-4xl font-bold text-gray-900 sm:text-5xl sm:tracking-tight lg:text-6xl">
-              Modern Case Management System
-            </h1>
-            <p className="mt-6 max-w-3xl text-xl text-gray-500">
-              A versatile platform designed for government agencies and organizations to efficiently track,
-              manage, and resolve service requests, complaints, applications, and more.
-            </p>
-            <div className="mt-10 flex items-center gap-x-6">
-              <Button 
-                onClick={() => navigate("/auth/register")}
-                size="lg" 
-                className="bg-caseMgmt-primary hover:bg-caseMgmt-primary/90"
-              >
-                Get Started
-              </Button>
-              <Button 
-                variant="outline" 
-                size="lg"
-                onClick={() => navigate("/auth/login")}
-              >
-                Log in to dashboard
-              </Button>
-            </div>
-          </div>
-          <div className="mt-12 md:mt-0 md:w-1/2">
-            <div className="rounded-lg bg-white p-6 shadow-xl border border-gray-200">
-              <div className="space-y-4">
-                <div className="h-2 w-20 bg-caseMgmt-primary rounded"></div>
-                <h2 className="text-2xl font-bold">Flexible and Adaptable</h2>
-                <p className="text-gray-600">
-                  Designed to serve multiple use cases from 311 service requests 
-                  to permit applications, grant management, and ombudsman workflows.
-                </p>
-
-                <div className="grid grid-cols-2 gap-4 pt-4">
-                  <FeatureItem title="Case Tracking" description="Track case progress, statuses and history" />
-                  <FeatureItem title="Secure Access" description="Role-based access control for users" />
-                  <FeatureItem title="Notification System" description="Automated alerts for updates and deadlines" />
-                  <FeatureItem title="Advanced Reports" description="Analytics and insights on case data" />
+        <div className="grid md:grid-cols-2 gap-8 mb-12">
+          {/* Citizen Portal */}
+          <Card className="border-blue-200 bg-blue-50">
+            <CardHeader>
+              <CardTitle className="flex items-center text-blue-700">
+                <UserCheck className="mr-2 h-6 w-6" />
+                Citizen Portal
+              </CardTitle>
+              <CardDescription className="text-blue-600">
+                Submit and track your cases easily
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex items-center text-sm text-blue-700">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Submit new cases
+                </div>
+                <div className="flex items-center text-sm text-blue-700">
+                  <FileText className="mr-2 h-4 w-4" />
+                  Track case progress
+                </div>
+                <div className="flex items-center text-sm text-blue-700">
+                  <Users className="mr-2 h-4 w-4" />
+                  Communicate with staff
                 </div>
               </div>
-            </div>
-          </div>
+              <div className="mt-6 space-y-2">
+                <Link to="/citizen/dashboard" className="block">
+                  <Button className="w-full bg-blue-600 hover:bg-blue-700">
+                    Access Citizen Portal
+                  </Button>
+                </Link>
+                <Link to="/auth/register" className="block">
+                  <Button variant="outline" className="w-full border-blue-300 text-blue-700 hover:bg-blue-50">
+                    Create Account
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Staff Portal */}
+          <Card className="border-gray-200">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Shield className="mr-2 h-6 w-6" />
+                Staff Portal
+              </CardTitle>
+              <CardDescription>
+                Manage cases and system administration
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex items-center text-sm text-gray-600">
+                  <FileText className="mr-2 h-4 w-4" />
+                  Case management
+                </div>
+                <div className="flex items-center text-sm text-gray-600">
+                  <BarChart className="mr-2 h-4 w-4" />
+                  Analytics & reporting
+                </div>
+                <div className="flex items-center text-sm text-gray-600">
+                  <Users className="mr-2 h-4 w-4" />
+                  User administration
+                </div>
+              </div>
+              <div className="mt-6">
+                <Link to="/auth/login" className="block">
+                  <Button variant="outline" className="w-full">
+                    Staff Login
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Features Grid */}
+        <div className="grid md:grid-cols-3 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Easy Case Submission</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-600">
+                Citizens can easily submit cases with detailed information, attachments, and location data.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Real-time Tracking</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-600">
+                Track case progress in real-time with status updates and SLA monitoring.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Secure Communication</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-600">
+                Secure messaging between citizens and staff with full audit trails.
+              </p>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
   );
 };
-
-const FeatureItem = ({ title, description }: { title: string; description: string }) => (
-  <div className="p-4 rounded-lg bg-gray-50 border border-gray-100">
-    <h3 className="font-medium">{title}</h3>
-    <p className="text-sm text-gray-600 mt-1">{description}</p>
-  </div>
-);
 
 export default Index;

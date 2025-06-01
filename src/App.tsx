@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -12,6 +13,7 @@ import ForgotPassword from "./pages/auth/ForgotPassword";
 import ResetPassword from "./pages/auth/ResetPassword";
 import Dashboard from "./pages/Dashboard";
 import Layout from "./components/layout/Layout";
+import CitizenLayout from "./components/layout/CitizenLayout";
 import AuthLayout from "./components/layout/AuthLayout";
 import RequireAuth from "./components/auth/RequireAuth";
 import Permissions from "./pages/admin/Permissions";
@@ -24,13 +26,15 @@ import Cases from './pages/Cases';
 import CaseDetail from './pages/CaseDetail';
 import NewCase from './pages/NewCase';
 import KnowledgeBase from './pages/KnowledgeBase';
+import CitizenDashboard from './pages/citizen/CitizenDashboard';
+import CitizenCases from './pages/citizen/CitizenCases';
+import CitizenCaseDetail from './pages/citizen/CitizenCaseDetail';
+import NewCitizenCase from './pages/citizen/NewCase';
 
 const queryClient = new QueryClient();
-const helmetContext = {}; // Create an empty object for the context
+const helmetContext = {};
 
 function App() {
-  // ... keep existing code (auth state)
-  
   return (
     <HelmetProvider context={helmetContext}>
       <QueryClientProvider client={queryClient}>
@@ -50,7 +54,7 @@ function App() {
                 <Route path="/auth/reset-password" element={<ResetPassword />} />
               </Route>
               
-              {/* Protected routes */}
+              {/* Protected routes - Admin/Staff */}
               <Route element={<RequireAuth />}>
                 <Route element={<Layout />}>
                   <Route path="/dashboard" element={<Dashboard />} />
@@ -66,6 +70,14 @@ function App() {
                   {/* Admin routes */}
                   <Route path="/admin/permissions" element={<Permissions />} />
                   <Route path="/admin/users" element={<Users />} />
+                </Route>
+                
+                {/* Citizen Portal Routes */}
+                <Route element={<CitizenLayout />}>
+                  <Route path="/citizen/dashboard" element={<CitizenDashboard />} />
+                  <Route path="/citizen/cases" element={<CitizenCases />} />
+                  <Route path="/citizen/cases/new" element={<NewCitizenCase />} />
+                  <Route path="/citizen/cases/:id" element={<CitizenCaseDetail />} />
                 </Route>
               </Route>
               

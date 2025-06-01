@@ -774,6 +774,81 @@ export type Database = {
           },
         ]
       }
+      locations: {
+        Row: {
+          address: string | null
+          city: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          latitude: number | null
+          longitude: number | null
+          name: string
+          state: string | null
+          zip_code: string | null
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          latitude?: number | null
+          longitude?: number | null
+          name: string
+          state?: string | null
+          zip_code?: string | null
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          latitude?: number | null
+          longitude?: number | null
+          name?: string
+          state?: string | null
+          zip_code?: string | null
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          case_id: string | null
+          created_at: string | null
+          id: string
+          is_read: boolean | null
+          message: string
+          notification_type: string | null
+          title: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          case_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          message: string
+          notification_type?: string | null
+          title: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          case_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          message?: string
+          notification_type?: string | null
+          title?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       permissions: {
         Row: {
           can_delete: boolean | null
