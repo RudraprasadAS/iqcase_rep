@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -151,7 +150,7 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
         throw error;
       }
 
-      // Log activity
+      // Log activity only once
       await supabase
         .from('case_activities')
         .insert({
@@ -194,13 +193,13 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
         throw error;
       }
 
-      // Log activity
+      // Log activity only once with clear description
       await supabase
         .from('case_activities')
         .insert({
           case_id: caseId,
-          activity_type: 'task_updated',
-          description: `Task ${newStatus === 'done' ? 'completed' : 'reopened'}`,
+          activity_type: 'task_status_updated',
+          description: `Task status changed to ${newStatus}`,
           performed_by: internalUserId
         });
       

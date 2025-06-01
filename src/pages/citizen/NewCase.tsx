@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Upload, MapPin, X, Map } from 'lucide-react';
+import { ArrowLeft, MapPin, X, Map } from 'lucide-react';
 import MapPickerModal from '@/components/citizen/MapPickerModal';
 
 interface Category {
@@ -42,6 +43,7 @@ const NewCase = () => {
   const [files, setFiles] = useState<File[]>([]);
   const [gettingLocation, setGettingLocation] = useState(false);
   const [showMapPicker, setShowMapPicker] = useState(false);
+  const [internalUserId, setInternalUserId] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
     title: '',
@@ -51,9 +53,33 @@ const NewCase = () => {
   });
 
   useEffect(() => {
+    if (user) {
+      fetchInternalUserId();
+    }
     fetchCategories();
     requestGeolocation();
-  }, []);
+  }, [user]);
+
+  const fetchInternalUserId = async () => {
+    if (!user) return;
+
+    try {
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (userError) {
+        console.error('User lookup error:', userError);
+        return;
+      }
+
+      setInternalUserId(userData.id);
+    } catch (error) {
+      console.error('Error fetching internal user ID:', error);
+    }
+  };
 
   const fetchCategories = async () => {
     try {
@@ -177,7 +203,7 @@ const NewCase = () => {
           file_name: file.name,
           file_url: publicUrl,
           file_type: file.type,
-          uploaded_by: user?.id,
+          uploaded_by: internalUserId,
           is_private: false
         });
 
@@ -197,9 +223,10 @@ const NewCase = () => {
     
     console.log('Starting case submission...');
     console.log('User:', user);
+    console.log('Internal User ID:', internalUserId);
     console.log('Form data:', formData);
     
-    if (!user) {
+    if (!user || !internalUserId) {
       toast({
         title: 'Error',
         description: 'You must be logged in to submit a case',
@@ -220,25 +247,6 @@ const NewCase = () => {
     setLoading(true);
     
     try {
-      // First, let's check if the user exists in our users table
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (userError) {
-        console.error('User lookup error:', userError);
-        toast({
-          title: 'Error',
-          description: 'User account not found. Please contact support.',
-          variant: 'destructive'
-        });
-        return;
-      }
-
-      console.log('User data found:', userData);
-
       const slaHours = 72;
       const slaDueAt = new Date();
       slaDueAt.setHours(slaDueAt.getHours() + slaHours);
@@ -250,7 +258,7 @@ const NewCase = () => {
         location: locationData.formatted_address || null,
         priority: formData.priority,
         status: 'open',
-        submitted_by: userData.id, // Use the internal user ID
+        submitted_by: internalUserId, // Use the internal user ID
         sla_due_at: slaDueAt.toISOString(),
         visibility: 'public',
         tags: tags.length > 0 ? tags : null
@@ -281,7 +289,7 @@ const NewCase = () => {
           case_id: newCase.id,
           activity_type: 'case_created',
           description: 'Case submitted by citizen',
-          performed_by: userData.id
+          performed_by: internalUserId
         });
 
       toast({
