@@ -36,6 +36,7 @@ interface RelatedCasesProps {
 const RelatedCases = ({ caseId }: RelatedCasesProps) => {
   const [relatedCases, setRelatedCases] = useState<RelatedCase[]>([]);
   const [availableCases, setAvailableCases] = useState<CaseOption[]>([]);
+  const [filteredCases, setFilteredCases] = useState<CaseOption[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedCaseId, setSelectedCaseId] = useState('');
   const [relationshipType, setRelationshipType] = useState('related');
@@ -58,6 +59,23 @@ const RelatedCases = ({ caseId }: RelatedCasesProps) => {
     }
   }, [caseId, internalUserId]);
 
+  useEffect(() => {
+    // Filter cases based on search term
+    if (searchTerm.trim()) {
+      const filtered = availableCases.filter(case_ => {
+        const searchLower = searchTerm.toLowerCase();
+        return (
+          case_.title.toLowerCase().includes(searchLower) ||
+          case_.id.toLowerCase().includes(searchLower) ||
+          case_.id.slice(0, 8).toLowerCase().includes(searchLower)
+        );
+      });
+      setFilteredCases(filtered);
+    } else {
+      setFilteredCases(availableCases);
+    }
+  }, [searchTerm, availableCases]);
+
   const fetchInternalUserId = async () => {
     if (!user) return;
 
@@ -66,14 +84,16 @@ const RelatedCases = ({ caseId }: RelatedCasesProps) => {
         .from('users')
         .select('id')
         .eq('auth_user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (userError) {
         console.error('User lookup error:', userError);
         return;
       }
 
-      setInternalUserId(userData.id);
+      if (userData) {
+        setInternalUserId(userData.id);
+      }
     } catch (error) {
       console.error('Error fetching internal user ID:', error);
     }
@@ -112,7 +132,7 @@ const RelatedCases = ({ caseId }: RelatedCasesProps) => {
       const { data, error } = await supabase
         .from('cases')
         .select('id, title, status')
-        .neq('id', caseId) // Exclude current case
+        .neq('id', caseId)
         .order('created_at', { ascending: false })
         .limit(100);
 
@@ -123,6 +143,7 @@ const RelatedCases = ({ caseId }: RelatedCasesProps) => {
 
       console.log('Available cases fetched:', data?.length || 0);
       setAvailableCases(data || []);
+      setFilteredCases(data || []);
     } catch (error) {
       console.error('Error fetching available cases:', error);
     }
@@ -221,17 +242,6 @@ const RelatedCases = ({ caseId }: RelatedCasesProps) => {
       });
     }
   };
-
-  const filteredCases = availableCases.filter(
-    c => {
-      const searchLower = searchTerm.toLowerCase();
-      return (
-        c.title.toLowerCase().includes(searchLower) ||
-        c.id.toLowerCase().includes(searchLower) ||
-        c.id.slice(0, 8).toLowerCase().includes(searchLower)
-      );
-    }
-  );
 
   const getRelationshipTypeColor = (type: string) => {
     switch (type) {
@@ -354,7 +364,7 @@ const RelatedCases = ({ caseId }: RelatedCasesProps) => {
                   </span>
                 </div>
                 <Link 
-                  to={`/cases/${relation.related_case_id}`}
+                  to={`/citizen/cases/${relation.related_case_id}`}
                   className="font-medium text-blue-600 hover:text-blue-800 hover:underline"
                 >
                   {relation.cases.title}

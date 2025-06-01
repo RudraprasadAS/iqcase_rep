@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -68,14 +67,16 @@ const NewCase = () => {
         .from('users')
         .select('id')
         .eq('auth_user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (userError) {
         console.error('User lookup error:', userError);
         return;
       }
 
-      setInternalUserId(userData.id);
+      if (userData) {
+        setInternalUserId(userData.id);
+      }
     } catch (error) {
       console.error('Error fetching internal user ID:', error);
     }
@@ -179,43 +180,56 @@ const NewCase = () => {
 
     console.log('Uploading files for case:', caseId);
 
-    const uploadPromises = files.map(async (file) => {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${caseId}/${Date.now()}-${file.name}`;
-      
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('case-attachments')
-        .upload(fileName, file);
+    for (const file of files) {
+      try {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${caseId}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+        
+        console.log('Uploading file:', fileName);
+        
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('case-attachments')
+          .upload(fileName, file);
 
-      if (uploadError) {
-        console.error('File upload error:', uploadError);
-        throw uploadError;
-      }
+        if (uploadError) {
+          console.error('File upload error:', uploadError);
+          throw uploadError;
+        }
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('case-attachments')
-        .getPublicUrl(fileName);
+        console.log('Upload successful:', uploadData);
 
-      const { error: attachmentError } = await supabase
-        .from('case_attachments')
-        .insert({
-          case_id: caseId,
-          file_name: file.name,
-          file_url: publicUrl,
-          file_type: file.type,
-          uploaded_by: internalUserId,
-          is_private: false
+        const { data: { publicUrl } } = supabase.storage
+          .from('case-attachments')
+          .getPublicUrl(fileName);
+
+        console.log('Public URL:', publicUrl);
+
+        const { error: attachmentError } = await supabase
+          .from('case_attachments')
+          .insert({
+            case_id: caseId,
+            file_name: file.name,
+            file_url: publicUrl,
+            file_type: file.type,
+            uploaded_by: internalUserId,
+            is_private: false
+          });
+
+        if (attachmentError) {
+          console.error('Attachment record error:', attachmentError);
+          throw attachmentError;
+        }
+
+        console.log('Attachment record created successfully');
+      } catch (error) {
+        console.error('Error uploading file:', file.name, error);
+        toast({
+          title: 'Warning',
+          description: `Failed to upload ${file.name}`,
+          variant: 'destructive'
         });
-
-      if (attachmentError) {
-        console.error('Attachment record error:', attachmentError);
-        throw attachmentError;
       }
-
-      console.log('File uploaded successfully:', fileName);
-    });
-
-    await Promise.all(uploadPromises);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -258,7 +272,7 @@ const NewCase = () => {
         location: locationData.formatted_address || null,
         priority: formData.priority,
         status: 'open',
-        submitted_by: internalUserId, // Use the internal user ID
+        submitted_by: internalUserId,
         sla_due_at: slaDueAt.toISOString(),
         visibility: 'public',
         tags: tags.length > 0 ? tags : null
@@ -279,10 +293,12 @@ const NewCase = () => {
 
       console.log('Case created successfully:', newCase);
 
+      // Upload files after case creation
       if (files.length > 0) {
         await uploadFiles(newCase.id);
       }
 
+      // Log activity
       await supabase
         .from('case_activities')
         .insert({

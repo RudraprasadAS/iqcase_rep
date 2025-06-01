@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { Send, MessageCircle } from 'lucide-react';
+import { Send, MessageCircle, Paperclip, X } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 interface Message {
@@ -33,6 +33,7 @@ const MessageCenter = ({ caseId, isInternal = false }: MessageCenterProps) => {
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [internalUserId, setInternalUserId] = useState<string | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
 
   useEffect(() => {
     if (user) {
@@ -54,14 +55,16 @@ const MessageCenter = ({ caseId, isInternal = false }: MessageCenterProps) => {
         .from('users')
         .select('id')
         .eq('auth_user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (userError) {
         console.error('User lookup error:', userError);
         return;
       }
 
-      setInternalUserId(userData.id);
+      if (userData) {
+        setInternalUserId(userData.id);
+      }
     } catch (error) {
       console.error('Error fetching internal user ID:', error);
     }
@@ -91,6 +94,68 @@ const MessageCenter = ({ caseId, isInternal = false }: MessageCenterProps) => {
     }
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const selectedFiles = Array.from(e.target.files);
+      setFiles(prev => [...prev, ...selectedFiles]);
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const uploadFiles = async () => {
+    if (files.length === 0) return;
+
+    for (const file of files) {
+      try {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${caseId}/messages/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+        
+        console.log('Uploading message file:', fileName);
+        
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('case-attachments')
+          .upload(fileName, file);
+
+        if (uploadError) {
+          console.error('File upload error:', uploadError);
+          throw uploadError;
+        }
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('case-attachments')
+          .getPublicUrl(fileName);
+
+        const { error: attachmentError } = await supabase
+          .from('case_attachments')
+          .insert({
+            case_id: caseId,
+            file_name: file.name,
+            file_url: publicUrl,
+            file_type: file.type,
+            uploaded_by: internalUserId,
+            is_private: isInternal
+          });
+
+        if (attachmentError) {
+          console.error('Attachment record error:', attachmentError);
+          throw attachmentError;
+        }
+
+        console.log('Message attachment uploaded successfully');
+      } catch (error) {
+        console.error('Error uploading file:', file.name, error);
+        toast({
+          title: 'Warning',
+          description: `Failed to upload ${file.name}`,
+          variant: 'destructive'
+        });
+      }
+    }
+  };
+
   const sendMessage = async () => {
     if (!newMessage.trim() || !internalUserId) return;
 
@@ -110,7 +175,13 @@ const MessageCenter = ({ caseId, isInternal = false }: MessageCenterProps) => {
         throw error;
       }
 
+      // Upload files if any
+      if (files.length > 0) {
+        await uploadFiles();
+      }
+
       setNewMessage('');
+      setFiles([]);
       fetchMessages();
       
       toast({
@@ -172,6 +243,47 @@ const MessageCenter = ({ caseId, isInternal = false }: MessageCenterProps) => {
             rows={3}
             disabled={loading || !internalUserId}
           />
+          
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <label htmlFor="message-files" className="cursor-pointer">
+                <Button type="button" variant="outline" size="sm" asChild>
+                  <span>
+                    <Paperclip className="h-4 w-4 mr-2" />
+                    Attach Files
+                  </span>
+                </Button>
+              </label>
+              <Input
+                id="message-files"
+                type="file"
+                multiple
+                accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.txt"
+                onChange={handleFileChange}
+                className="hidden"
+                disabled={loading}
+              />
+            </div>
+            
+            {files.length > 0 && (
+              <div className="space-y-2">
+                {files.map((file, index) => (
+                  <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
+                    <span className="text-sm">{file.name}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeFile(index)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          
           <Button 
             onClick={sendMessage}
             disabled={!newMessage.trim() || loading || !internalUserId}
