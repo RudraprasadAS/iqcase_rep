@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -221,6 +220,25 @@ const NewCase = () => {
     setLoading(true);
     
     try {
+      // First, let's check if the user exists in our users table
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (userError) {
+        console.error('User lookup error:', userError);
+        toast({
+          title: 'Error',
+          description: 'User account not found. Please contact support.',
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      console.log('User data found:', userData);
+
       const slaHours = 72;
       const slaDueAt = new Date();
       slaDueAt.setHours(slaDueAt.getHours() + slaHours);
@@ -232,7 +250,7 @@ const NewCase = () => {
         location: locationData.formatted_address || null,
         priority: formData.priority,
         status: 'open',
-        submitted_by: user.id,
+        submitted_by: userData.id, // Use the internal user ID
         sla_due_at: slaDueAt.toISOString(),
         visibility: 'public',
         tags: tags.length > 0 ? tags : null
@@ -263,7 +281,7 @@ const NewCase = () => {
           case_id: newCase.id,
           activity_type: 'case_created',
           description: 'Case submitted by citizen',
-          performed_by: user.id
+          performed_by: userData.id
         });
 
       toast({

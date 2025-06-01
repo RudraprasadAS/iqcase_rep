@@ -17,6 +17,7 @@ const MapPickerModal = ({ isOpen, onClose, onLocationSelect, currentLocation }: 
   const [searchAddress, setSearchAddress] = useState('');
   const [selectedLocation, setSelectedLocation] = useState(currentLocation);
   const [isSearching, setIsSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
 
   const searchLocation = async () => {
     if (!searchAddress.trim()) return;
@@ -24,22 +25,28 @@ const MapPickerModal = ({ isOpen, onClose, onLocationSelect, currentLocation }: 
     setIsSearching(true);
     try {
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchAddress)}&limit=1&addressdetails=1`
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchAddress)}&limit=5&addressdetails=1`
       );
       const data = await response.json();
       
       if (data && data.length > 0) {
-        const result = data[0];
-        setSelectedLocation({
-          latitude: parseFloat(result.lat),
-          longitude: parseFloat(result.lon),
-          formatted_address: result.display_name
-        });
+        setSearchResults(data);
       }
     } catch (error) {
       console.error('Geocoding error:', error);
     }
     setIsSearching(false);
+  };
+
+  const selectSearchResult = (result: any) => {
+    const location = {
+      latitude: parseFloat(result.lat),
+      longitude: parseFloat(result.lon),
+      formatted_address: result.display_name
+    };
+    setSelectedLocation(location);
+    setSearchResults([]);
+    setSearchAddress('');
   };
 
   const handleConfirm = () => {
@@ -53,34 +60,67 @@ const MapPickerModal = ({ isOpen, onClose, onLocationSelect, currentLocation }: 
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Pick Location on Map</DialogTitle>
+          <DialogTitle>Pick Location</DialogTitle>
         </DialogHeader>
         
         <div className="space-y-4">
-          <div className="flex gap-2">
-            <Input
-              placeholder="Search for an address..."
-              value={searchAddress}
-              onChange={(e) => setSearchAddress(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && searchLocation()}
-            />
-            <Button onClick={searchLocation} disabled={isSearching}>
-              <Search className="h-4 w-4" />
-            </Button>
+          <div className="space-y-2">
+            <Label>Search for an address</Label>
+            <div className="flex gap-2">
+              <Input
+                placeholder="Enter address or location..."
+                value={searchAddress}
+                onChange={(e) => setSearchAddress(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && searchLocation()}
+              />
+              <Button onClick={searchLocation} disabled={isSearching}>
+                <Search className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
 
-          {/* Simple map placeholder with coordinates */}
-          <div className="border rounded-lg p-4 bg-gray-50 min-h-[300px] flex items-center justify-center">
+          {/* Search Results */}
+          {searchResults.length > 0 && (
+            <div className="space-y-2">
+              <Label>Search Results</Label>
+              <div className="max-h-48 overflow-y-auto border rounded-lg">
+                {searchResults.map((result, index) => (
+                  <div
+                    key={index}
+                    className="p-3 hover:bg-gray-50 cursor-pointer border-b last:border-b-0"
+                    onClick={() => selectSearchResult(result)}
+                  >
+                    <div className="flex items-start gap-2">
+                      <MapPin className="h-4 w-4 mt-1 text-blue-600 flex-shrink-0" />
+                      <div className="text-sm">
+                        <p className="font-medium">{result.display_name}</p>
+                        <p className="text-gray-500 text-xs">
+                          {parseFloat(result.lat).toFixed(6)}, {parseFloat(result.lon).toFixed(6)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Selected Location Display */}
+          <div className="border rounded-lg p-4 bg-gray-50 min-h-[200px] flex items-center justify-center">
             <div className="text-center space-y-4">
               <MapPin className="h-12 w-12 mx-auto text-blue-600" />
-              <p className="text-sm text-gray-600">Interactive map would be here</p>
-              {selectedLocation?.latitude && selectedLocation?.longitude && (
+              {selectedLocation?.latitude && selectedLocation?.longitude ? (
                 <div className="space-y-2">
                   <p className="font-medium">Selected Location:</p>
-                  <p className="text-sm">{selectedLocation.formatted_address}</p>
+                  <p className="text-sm text-gray-700">{selectedLocation.formatted_address}</p>
                   <p className="text-xs text-gray-500">
                     Lat: {selectedLocation.latitude.toFixed(6)}, Lng: {selectedLocation.longitude.toFixed(6)}
                   </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-gray-600">No location selected</p>
+                  <p className="text-sm text-gray-500">Search for an address above to select a location</p>
                 </div>
               )}
             </div>
