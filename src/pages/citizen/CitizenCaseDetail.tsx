@@ -1,48 +1,34 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/textarea';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import {
-  ArrowLeft,
-  Calendar,
-  MapPin,
-  Clock,
-  MessageSquare,
-  Send,
-  AlertCircle,
-  CheckCircle,
-  User
-} from 'lucide-react';
+import { ArrowLeft, Calendar, MapPin, User, Tag, Clock } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
+import { StatusBadge } from '@/components/cases/StatusBadge';
+import { PriorityBadge } from '@/components/cases/PriorityBadge';
+import { SLABadge } from '@/components/cases/SLABadge';
+import MessageCenter from '@/components/messaging/MessageCenter';
 
-interface CaseDetail {
+interface CaseData {
   id: string;
   title: string;
   description: string;
   status: string;
   priority: string;
-  location: string | null;
+  location?: string;
+  tags?: string[];
   created_at: string;
   updated_at: string;
-  sla_due_at: string | null;
-}
-
-interface Message {
-  id: string;
-  message: string;
-  created_at: string;
-  sender_id: string;
-  is_internal: boolean;
-  users: {
-    name: string;
-    email: string;
-  } | null;
+  sla_due_at?: string;
+  category: { name: string } | null;
+  submitted_by_user: { name: string } | null;
+  assigned_to_user: { name: string } | null;
 }
 
 interface Activity {
@@ -50,54 +36,76 @@ interface Activity {
   activity_type: string;
   description: string;
   created_at: string;
-  users: {
-    name: string;
-  } | null;
+  users: { name: string } | null;
+}
+
+interface Message {
+  id: string;
+  message: string;
+  created_at: string;
+  is_internal: boolean;
+  users: { name: string } | null;
 }
 
 const CitizenCaseDetail = () => {
-  const { id } = useParams<{ id: string }>();
+  const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
-
-  const [loading, setLoading] = useState(true);
-  const [case_, setCase] = useState<CaseDetail | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
+  
+  const [caseData, setCaseData] = useState<CaseData | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
-  const [newMessage, setNewMessage] = useState('');
-  const [sendingMessage, setSendingMessage] = useState(false);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (id && user) {
-      fetchCaseDetails();
+    if (id) {
+      fetchCaseData();
     }
-  }, [id, user]);
+  }, [id]);
 
-  const fetchCaseDetails = async () => {
+  const fetchCaseData = async () => {
+    if (!id || !user) return;
+
     try {
-      setLoading(true);
-
-      // Fetch case details
       const { data: caseData, error: caseError } = await supabase
         .from('cases')
-        .select('*')
+        .select(`
+          *,
+          case_categories!category_id(name),
+          users!submitted_by(name),
+          assigned_users:users!assigned_to(name)
+        `)
         .eq('id', id)
-        .eq('submitted_by', user?.id)
+        .eq('submitted_by', user.id)
         .single();
 
       if (caseError) throw caseError;
-      setCase(caseData);
 
-      // Fetch messages (exclude internal messages)
+      setCaseData({
+        ...caseData,
+        category: caseData.case_categories,
+        submitted_by_user: caseData.users,
+        assigned_to_user: caseData.assigned_users
+      });
+
+      const { data: activitiesData, error: activitiesError } = await supabase
+        .from('case_activities')
+        .select(`
+          *,
+          users!case_activities_performed_by_fkey(name)
+        `)
+        .eq('case_id', id)
+        .order('created_at', { ascending: false });
+
+      if (activitiesError) throw activitiesError;
+      setActivities(activitiesData || []);
+
       const { data: messagesData, error: messagesError } = await supabase
         .from('case_messages')
         .select(`
           *,
-          users!case_messages_sender_id_fkey (
-            name,
-            email
-          )
+          users!case_messages_sender_id_fkey(name)
         `)
         .eq('case_id', id)
         .eq('is_internal', false)
@@ -106,24 +114,8 @@ const CitizenCaseDetail = () => {
       if (messagesError) throw messagesError;
       setMessages(messagesData || []);
 
-      // Fetch activities
-      const { data: activitiesData, error: activitiesError } = await supabase
-        .from('case_activities')
-        .select(`
-          *,
-          users!case_activities_performed_by_fkey (
-            name
-          )
-        `)
-        .eq('case_id', id)
-        .order('created_at', { ascending: false })
-        .limit(10);
-
-      if (activitiesError) throw activitiesError;
-      setActivities(activitiesData || []);
-
     } catch (error) {
-      console.error('Error fetching case details:', error);
+      console.error('Error fetching case data:', error);
       toast({
         title: 'Error',
         description: 'Failed to load case details',
@@ -135,104 +127,18 @@ const CitizenCaseDetail = () => {
     }
   };
 
-  const sendMessage = async () => {
-    if (!newMessage.trim() || !user || !case_) return;
-
-    setSendingMessage(true);
-    try {
-      const { error } = await supabase
-        .from('case_messages')
-        .insert({
-          case_id: case_.id,
-          message: newMessage.trim(),
-          sender_id: user.id,
-          is_internal: false
-        });
-
-      if (error) throw error;
-
-      // Add activity log
-      await supabase
-        .from('case_activities')
-        .insert({
-          case_id: case_.id,
-          activity_type: 'message_added',
-          description: 'Citizen sent a message',
-          performed_by: user.id
-        });
-
-      setNewMessage('');
-      await fetchCaseDetails();
-
-      toast({
-        title: 'Success',
-        description: 'Message sent successfully'
-      });
-
-    } catch (error) {
-      console.error('Error sending message:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to send message',
-        variant: 'destructive'
-      });
-    } finally {
-      setSendingMessage(false);
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'open':
-        return <AlertCircle className="h-5 w-5 text-red-500" />;
-      case 'in_progress':
-        return <Clock className="h-5 w-5 text-yellow-500" />;
-      case 'closed':
-        return <CheckCircle className="h-5 w-5 text-green-500" />;
-      default:
-        return <AlertCircle className="h-5 w-5" />;
-    }
-  };
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'high':
-        return 'bg-red-100 text-red-800';
-      case 'medium':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'low':
-        return 'bg-green-100 text-green-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const formatDateTime = (dateString: string) => {
-    return new Date(dateString).toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-4 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
+        <div className="text-lg">Loading case details...</div>
       </div>
     );
   }
 
-  if (!case_) {
+  if (!caseData) {
     return (
-      <div className="text-center py-12">
-        <h3 className="text-lg font-medium text-gray-900 mb-2">Case not found</h3>
-        <p className="text-gray-500 mb-4">The case you're looking for doesn't exist or you don't have access to it.</p>
-        <Button onClick={() => navigate('/citizen/cases')}>
-          Back to Cases
-        </Button>
+      <div className="flex items-center justify-center h-64">
+        <div className="text-lg">Case not found</div>
       </div>
     );
   }
@@ -250,148 +156,116 @@ const CitizenCaseDetail = () => {
         </Button>
       </div>
 
-      {/* Case Header */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <div className="flex items-center space-x-3 mb-2">
-                {getStatusIcon(case_.status)}
-                <CardTitle className="text-2xl">{case_.title}</CardTitle>
-              </div>
-              <CardDescription>Case ID: {case_.id}</CardDescription>
-            </div>
-            <div className="flex space-x-2">
-              <Badge className={getPriorityColor(case_.priority)}>
-                {case_.priority} priority
-              </Badge>
-              <Badge variant="outline">
-                {case_.status.replace('_', ' ')}
-              </Badge>
-            </div>
-          </div>
-        </CardHeader>
-        
-        <CardContent>
-          <div className="space-y-4">
-            <div>
-              <h4 className="font-medium mb-2">Description</h4>
-              <p className="text-gray-700">{case_.description}</p>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-              <div className="flex items-center space-x-2">
-                <Calendar className="h-4 w-4 text-gray-400" />
-                <span>Submitted: {formatDateTime(case_.created_at)}</span>
-              </div>
-              
-              {case_.location && (
-                <div className="flex items-center space-x-2">
-                  <MapPin className="h-4 w-4 text-gray-400" />
-                  <span>{case_.location}</span>
-                </div>
-              )}
-              
-              {case_.sla_due_at && (
-                <div className="flex items-center space-x-2">
-                  <Clock className="h-4 w-4 text-gray-400" />
-                  <span>Due: {formatDateTime(case_.sla_due_at)}</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Messages */}
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center">
-                <MessageSquare className="h-5 w-5 mr-2" />
-                Messages ({messages.length})
-              </CardTitle>
+              <div className="flex items-start justify-between">
+                <div>
+                  <CardTitle className="text-xl">{caseData.title}</CardTitle>
+                  <p className="text-sm text-gray-500 mt-1">Case #{caseData.id.slice(0, 8)}</p>
+                </div>
+                <div className="flex gap-2">
+                  <StatusBadge status={caseData.status} />
+                  <PriorityBadge priority={caseData.priority} />
+                </div>
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-4 max-h-96 overflow-y-auto">
-                {messages.map((message) => (
-                  <div key={message.id} className="flex space-x-3">
-                    <Avatar className="h-8 w-8">
-                      <AvatarFallback>
-                        {message.users?.name ? message.users.name.slice(0, 2).toUpperCase() : 'UN'}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <div className="text-sm">
-                        <span className="font-medium">{message.users?.name || 'Unknown User'}</span>
-                        <span className="text-muted-foreground ml-2">
-                          {formatDateTime(message.created_at)}
-                        </span>
-                      </div>
-                      <div className="mt-1 text-sm bg-gray-50 border rounded-lg p-3">
-                        {message.message}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {messages.length === 0 && (
-                  <div className="text-center text-muted-foreground py-4">
-                    No messages yet
-                  </div>
-                )}
+              <div>
+                <h4 className="font-medium mb-2">Description</h4>
+                <p className="text-gray-700 whitespace-pre-wrap">{caseData.description}</p>
               </div>
-              
-              {case_.status !== 'closed' && (
-                <div className="border-t pt-4 space-y-2">
-                  <Textarea
-                    placeholder="Type your message..."
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    className="mb-2"
-                    rows={3}
-                  />
-                  <Button 
-                    onClick={sendMessage} 
-                    size="sm"
-                    disabled={sendingMessage || !newMessage.trim()}
-                    className="w-full"
-                  >
-                    <Send className="h-4 w-4 mr-2" />
-                    {sendingMessage ? 'Sending...' : 'Send Message'}
-                  </Button>
+
+              {caseData.location && (
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <MapPin className="h-4 w-4" />
+                  {caseData.location}
+                </div>
+              )}
+
+              {caseData.tags && caseData.tags.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <Tag className="h-4 w-4 text-gray-500" />
+                  <div className="flex flex-wrap gap-1">
+                    {caseData.tags.map((tag) => (
+                      <Badge key={tag} variant="outline" className="text-xs">
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
                 </div>
               )}
             </CardContent>
           </Card>
+
+          <MessageCenter caseId={caseData.id} isInternal={false} />
         </div>
 
-        {/* Activity Timeline */}
-        <div>
+        <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Recent Activity</CardTitle>
+              <CardTitle className="text-lg">Case Information</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {caseData.category && (
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Category</p>
+                  <p className="text-sm">{caseData.category.name}</p>
+                </div>
+              )}
+
+              <div>
+                <p className="text-sm font-medium text-gray-500">Submitted By</p>
+                <p className="text-sm">{caseData.submitted_by_user?.name || 'Unknown'}</p>
+              </div>
+
+              {caseData.assigned_to_user && (
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Assigned To</p>
+                  <p className="text-sm">{caseData.assigned_to_user.name}</p>
+                </div>
+              )}
+
+              <div>
+                <p className="text-sm font-medium text-gray-500">Created</p>
+                <p className="text-sm">{formatDistanceToNow(new Date(caseData.created_at), { addSuffix: true })}</p>
+              </div>
+
+              <div>
+                <p className="text-sm font-medium text-gray-500">Last Updated</p>
+                <p className="text-sm">{formatDistanceToNow(new Date(caseData.updated_at), { addSuffix: true })}</p>
+              </div>
+
+              {caseData.sla_due_at && (
+                <div>
+                  <p className="text-sm font-medium text-gray-500">SLA Due</p>
+                  <SLABadge dueDate={caseData.sla_due_at} />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                Recent Activity
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {activities.map((activity) => (
-                  <div key={activity.id} className="flex space-x-3">
-                    <div className="flex-shrink-0">
-                      <div className="w-2 h-2 bg-blue-600 rounded-full mt-2"></div>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-gray-900">{activity.description}</p>
+              <div className="space-y-3 max-h-64 overflow-y-auto">
+                {activities.length === 0 ? (
+                  <p className="text-sm text-gray-500">No activity yet</p>
+                ) : (
+                  activities.slice(0, 5).map((activity) => (
+                    <div key={activity.id} className="border-l-2 border-gray-200 pl-3 pb-3">
+                      <p className="text-sm font-medium">{activity.description}</p>
                       <p className="text-xs text-gray-500">
-                        {formatDateTime(activity.created_at)}
-                        {activity.users?.name && ` by ${activity.users.name}`}
+                        {activity.users?.name || 'System'} • {formatDistanceToNow(new Date(activity.created_at), { addSuffix: true })}
                       </p>
                     </div>
-                  </div>
-                ))}
-                {activities.length === 0 && (
-                  <div className="text-center text-muted-foreground py-4 text-sm">
-                    No activity yet
-                  </div>
+                  ))
                 )}
               </div>
             </CardContent>

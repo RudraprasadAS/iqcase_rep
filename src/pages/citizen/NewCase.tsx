@@ -12,19 +12,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Upload, MapPin, X, Map } from 'lucide-react';
+import MapPickerModal from '@/components/citizen/MapPickerModal';
 
 interface Category {
   id: string;
   name: string;
   description: string;
-}
-
-interface Location {
-  id: string;
-  name: string;
-  address: string;
-  city: string;
-  state: string;
 }
 
 interface LocationData {
@@ -40,7 +33,6 @@ const NewCase = () => {
   
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [locations, setLocations] = useState<Location[]>([]);
   const [locationData, setLocationData] = useState<LocationData>({
     latitude: null,
     longitude: null,
@@ -50,6 +42,7 @@ const NewCase = () => {
   const [newTag, setNewTag] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [gettingLocation, setGettingLocation] = useState(false);
+  const [showMapPicker, setShowMapPicker] = useState(false);
   
   const [formData, setFormData] = useState({
     title: '',
@@ -59,37 +52,31 @@ const NewCase = () => {
   });
 
   useEffect(() => {
-    fetchFormData();
+    fetchCategories();
     requestGeolocation();
   }, []);
 
-  const fetchFormData = async () => {
+  const fetchCategories = async () => {
     try {
-      // Fetch categories
       const { data: categoriesData, error: categoriesError } = await supabase
         .from('case_categories')
         .select('id, name, description')
         .eq('is_active', true)
         .order('name');
 
-      if (categoriesError) throw categoriesError;
+      if (categoriesError) {
+        console.error('Categories fetch error:', categoriesError);
+        throw categoriesError;
+      }
+      
+      console.log('Categories fetched:', categoriesData);
       setCategories(categoriesData || []);
 
-      // Fetch locations
-      const { data: locationsData, error: locationsError } = await supabase
-        .from('locations')
-        .select('id, name, address, city, state')
-        .eq('is_active', true)
-        .order('name');
-
-      if (locationsError) throw locationsError;
-      setLocations(locationsData || []);
-
     } catch (error) {
-      console.error('Error fetching form data:', error);
+      console.error('Error fetching categories:', error);
       toast({
         title: 'Error',
-        description: 'Failed to load form data',
+        description: 'Failed to load categories',
         variant: 'destructive'
       });
     }
@@ -107,7 +94,6 @@ const NewCase = () => {
         const { latitude, longitude } = position.coords;
         console.log('Got location:', latitude, longitude);
         
-        // Reverse geocode using Nominatim API
         try {
           const response = await fetch(
             `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`
@@ -166,22 +152,25 @@ const NewCase = () => {
   const uploadFiles = async (caseId: string) => {
     if (files.length === 0) return;
 
+    console.log('Uploading files for case:', caseId);
+
     const uploadPromises = files.map(async (file) => {
       const fileExt = file.name.split('.').pop();
-      const fileName = `${caseId}/${Date.now()}.${fileExt}`;
+      const fileName = `${caseId}/${Date.now()}-${file.name}`;
       
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('case-attachments')
         .upload(fileName, file);
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('File upload error:', uploadError);
+        throw uploadError;
+      }
 
-      // Get public URL
       const { data: { publicUrl } } = supabase.storage
         .from('case-attachments')
         .getPublicUrl(fileName);
 
-      // Save to attachments table
       const { error: attachmentError } = await supabase
         .from('case_attachments')
         .insert({
@@ -193,7 +182,12 @@ const NewCase = () => {
           is_private: false
         });
 
-      if (attachmentError) throw attachmentError;
+      if (attachmentError) {
+        console.error('Attachment record error:', attachmentError);
+        throw attachmentError;
+      }
+
+      console.log('File uploaded successfully:', fileName);
     });
 
     await Promise.all(uploadPromises);
@@ -201,6 +195,10 @@ const NewCase = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    console.log('Starting case submission...');
+    console.log('User:', user);
+    console.log('Form data:', formData);
     
     if (!user) {
       toast({
@@ -223,7 +221,6 @@ const NewCase = () => {
     setLoading(true);
     
     try {
-      // Calculate SLA due date (default 72 hours for citizen cases)
       const slaHours = 72;
       const slaDueAt = new Date();
       slaDueAt.setHours(slaDueAt.getHours() + slaHours);
@@ -256,12 +253,10 @@ const NewCase = () => {
 
       console.log('Case created successfully:', newCase);
 
-      // Upload files if any
       if (files.length > 0) {
         await uploadFiles(newCase.id);
       }
 
-      // Create initial activity log
       await supabase
         .from('case_activities')
         .insert({
@@ -382,7 +377,6 @@ const NewCase = () => {
               </div>
             </div>
 
-            {/* Location Section */}
             <div className="space-y-2">
               <Label>Location</Label>
               <div className="space-y-2">
@@ -407,6 +401,7 @@ const NewCase = () => {
                     type="button"
                     variant="outline"
                     size="sm"
+                    onClick={() => setShowMapPicker(true)}
                     disabled={loading}
                   >
                     <Map className="h-4 w-4 mr-2" />
@@ -416,7 +411,6 @@ const NewCase = () => {
               </div>
             </div>
 
-            {/* Tags Section */}
             <div className="space-y-2">
               <Label>Tags (Optional)</Label>
               <div className="space-y-2">
@@ -453,7 +447,6 @@ const NewCase = () => {
               </div>
             </div>
 
-            {/* File Upload Section */}
             <div className="space-y-2">
               <Label>Attachments (Optional)</Label>
               <div className="space-y-2">
@@ -504,6 +497,13 @@ const NewCase = () => {
           </form>
         </CardContent>
       </Card>
+
+      <MapPickerModal
+        isOpen={showMapPicker}
+        onClose={() => setShowMapPicker(false)}
+        onLocationSelect={(location) => setLocationData(location)}
+        currentLocation={locationData}
+      />
     </div>
   );
 };

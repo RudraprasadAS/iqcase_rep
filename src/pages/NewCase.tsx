@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,52 +9,247 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { ArrowLeft, MapPin, X, Map } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
+import MapPickerModal from '@/components/citizen/MapPickerModal';
+
+interface Category {
+  id: string;
+  name: string;
+  description: string;
+}
+
+interface LocationData {
+  latitude: number | null;
+  longitude: number | null;
+  formatted_address: string;
+}
 
 const NewCase = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { toast } = useToast();
+  
+  const [loading, setLoading] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [locationData, setLocationData] = useState<LocationData>({
+    latitude: null,
+    longitude: null,
+    formatted_address: ''
+  });
+  const [tags, setTags] = useState<string[]>([]);
+  const [newTag, setNewTag] = useState('');
+  const [files, setFiles] = useState<File[]>([]);
+  const [gettingLocation, setGettingLocation] = useState(false);
+  const [showMapPicker, setShowMapPicker] = useState(false);
+  
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    priority: 'medium',
-    location: ''
+    category_id: '',
+    priority: 'medium'
   });
-  const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
-  const { toast } = useToast();
+
+  useEffect(() => {
+    fetchCategories();
+    requestGeolocation();
+  }, []);
+
+  const fetchCategories = async () => {
+    try {
+      const { data: categoriesData, error: categoriesError } = await supabase
+        .from('case_categories')
+        .select('id, name, description')
+        .eq('is_active', true)
+        .order('name');
+
+      if (categoriesError) throw categoriesError;
+      setCategories(categoriesData || []);
+
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load categories',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const requestGeolocation = () => {
+    if (!navigator.geolocation) return;
+
+    setGettingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        
+        try {
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`
+          );
+          const data = await response.json();
+          
+          setLocationData({
+            latitude,
+            longitude,
+            formatted_address: data.display_name || `${latitude}, ${longitude}`
+          });
+        } catch (error) {
+          console.error('Reverse geocoding failed:', error);
+          setLocationData({
+            latitude,
+            longitude,
+            formatted_address: `${latitude}, ${longitude}`
+          });
+        }
+        setGettingLocation(false);
+      },
+      (error) => {
+        console.error('Geolocation error:', error);
+        setGettingLocation(false);
+        toast({
+          title: 'Location Access',
+          description: 'Unable to get your location. You can manually enter or pick on map.',
+        });
+      },
+      { timeout: 10000, enableHighAccuracy: true }
+    );
+  };
+
+  const addTag = () => {
+    if (newTag.trim() && !tags.includes(newTag.trim())) {
+      setTags([...tags, newTag.trim()]);
+      setNewTag('');
+    }
+  };
+
+  const removeTag = (tagToRemove: string) => {
+    setTags(tags.filter(tag => tag !== tagToRemove));
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const selectedFiles = Array.from(e.target.files);
+      setFiles(prev => [...prev, ...selectedFiles]);
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const uploadFiles = async (caseId: string) => {
+    if (files.length === 0) return;
+
+    const uploadPromises = files.map(async (file) => {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${caseId}/${Date.now()}-${file.name}`;
+      
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('case-attachments')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('case-attachments')
+        .getPublicUrl(fileName);
+
+      const { error: attachmentError } = await supabase
+        .from('case_attachments')
+        .insert({
+          case_id: caseId,
+          file_name: file.name,
+          file_url: publicUrl,
+          file_type: file.type,
+          uploaded_by: user?.id,
+          is_private: false
+        });
+
+      if (attachmentError) throw attachmentError;
+    });
+
+    await Promise.all(uploadPromises);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    
+    if (!user) {
+      toast({
+        title: 'Error',
+        description: 'You must be logged in to submit a case',
+        variant: 'destructive'
+      });
+      return;
+    }
 
+    if (!formData.title.trim() || !formData.description.trim()) {
+      toast({
+        title: 'Error',
+        description: 'Please fill in all required fields',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setLoading(true);
+    
     try {
-      const { data, error } = await supabase
+      const slaHours = 72;
+      const slaDueAt = new Date();
+      slaDueAt.setHours(slaDueAt.getHours() + slaHours);
+
+      const caseData = {
+        title: formData.title.trim(),
+        description: formData.description.trim(),
+        category_id: formData.category_id || null,
+        location: locationData.formatted_address || null,
+        priority: formData.priority,
+        status: 'open',
+        submitted_by: user.id,
+        sla_due_at: slaDueAt.toISOString(),
+        visibility: 'internal',
+        tags: tags.length > 0 ? tags : null
+      };
+
+      const { data: newCase, error } = await supabase
         .from('cases')
-        .insert({
-          title: formData.title,
-          description: formData.description,
-          priority: formData.priority,
-          location: formData.location,
-          status: 'open',
-          submitted_by: 'current-user-id' // This should be the actual user ID from auth
-        })
+        .insert(caseData)
         .select()
         .single();
 
       if (error) throw error;
 
+      if (files.length > 0) {
+        await uploadFiles(newCase.id);
+      }
+
+      await supabase
+        .from('case_activities')
+        .insert({
+          case_id: newCase.id,
+          activity_type: 'case_created',
+          description: 'Case created',
+          performed_by: user.id
+        });
+
       toast({
-        title: "Success",
-        description: "Case created successfully"
+        title: 'Success',
+        description: 'Case created successfully'
       });
 
-      navigate(`/cases/${data.id}`);
+      navigate(`/cases/${newCase.id}`);
+
     } catch (error) {
       console.error('Error creating case:', error);
       toast({
-        title: "Error",
-        description: "Failed to create case",
-        variant: "destructive"
+        title: 'Error',
+        description: 'Failed to create case. Please try again.',
+        variant: 'destructive'
       });
     } finally {
       setLoading(false);
@@ -81,57 +276,174 @@ const NewCase = () => {
             <CardTitle>Case Details</CardTitle>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <Label htmlFor="title">Title *</Label>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="title">Subject *</Label>
                 <Input
                   id="title"
                   value={formData.title}
                   onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
                   required
                   placeholder="Brief description of the issue"
+                  disabled={loading}
                 />
               </div>
 
-              <div>
-                <Label htmlFor="description">Description</Label>
+              <div className="space-y-2">
+                <Label htmlFor="description">Description *</Label>
                 <Textarea
                   id="description"
                   value={formData.description}
                   onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                  rows={4}
+                  rows={6}
                   placeholder="Detailed description of the issue or request"
+                  required
+                  disabled={loading}
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="priority">Priority</Label>
-                  <Select value={formData.priority} onValueChange={(value) => setFormData(prev => ({ ...prev, priority: value }))}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="category">Category</Label>
+                  <Select
+                    value={formData.category_id}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, category_id: value }))}
+                    disabled={loading}
+                  >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select priority" />
+                      <SelectValue placeholder="Select a category" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="low">Low</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
+                      {categories.map((category) => (
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
 
-                <div>
-                  <Label htmlFor="location">Location</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="priority">Priority</Label>
+                  <Select
+                    value={formData.priority}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, priority: value }))}
+                    disabled={loading}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Low - General inquiry</SelectItem>
+                      <SelectItem value="medium">Medium - Standard request</SelectItem>
+                      <SelectItem value="high">High - Urgent issue</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Location</Label>
+                <div className="space-y-2">
                   <Input
-                    id="location"
-                    value={formData.location}
-                    onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
-                    placeholder="Office, department, or location"
+                    value={locationData.formatted_address}
+                    onChange={(e) => setLocationData(prev => ({ ...prev, formatted_address: e.target.value }))}
+                    placeholder="Enter address manually or use location services"
+                    disabled={loading}
                   />
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={requestGeolocation}
+                      disabled={gettingLocation || loading}
+                    >
+                      <MapPin className="h-4 w-4 mr-2" />
+                      {gettingLocation ? 'Getting Location...' : 'Use My Location'}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowMapPicker(true)}
+                      disabled={loading}
+                    >
+                      <Map className="h-4 w-4 mr-2" />
+                      Pick on Map
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Tags (Optional)</Label>
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <Input
+                      value={newTag}
+                      onChange={(e) => setNewTag(e.target.value)}
+                      placeholder="Add tag..."
+                      onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addTag())}
+                      disabled={loading}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={addTag}
+                      disabled={!newTag.trim() || loading}
+                    >
+                      Add
+                    </Button>
+                  </div>
+                  {tags.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {tags.map((tag) => (
+                        <Badge key={tag} variant="secondary" className="flex items-center gap-1">
+                          {tag}
+                          <X
+                            className="h-3 w-3 cursor-pointer"
+                            onClick={() => removeTag(tag)}
+                          />
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Attachments (Optional)</Label>
+                <div className="space-y-2">
+                  <Input
+                    type="file"
+                    multiple
+                    accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.txt"
+                    onChange={handleFileChange}
+                    disabled={loading}
+                  />
+                  {files.length > 0 && (
+                    <div className="space-y-2">
+                      {files.map((file, index) => (
+                        <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
+                          <span className="text-sm">{file.name}</span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeFile(index)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 
               <div className="flex justify-end space-x-2 pt-4">
-                <Button type="button" variant="outline" onClick={() => navigate('/cases')}>
+                <Button type="button" variant="outline" onClick={() => navigate('/cases')} disabled={loading}>
                   Cancel
                 </Button>
                 <Button type="submit" disabled={loading}>
@@ -142,6 +454,13 @@ const NewCase = () => {
           </CardContent>
         </Card>
       </div>
+
+      <MapPickerModal
+        isOpen={showMapPicker}
+        onClose={() => setShowMapPicker(false)}
+        onLocationSelect={(location) => setLocationData(location)}
+        currentLocation={locationData}
+      />
     </>
   );
 };
