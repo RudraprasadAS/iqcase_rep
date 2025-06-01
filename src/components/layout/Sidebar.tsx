@@ -1,3 +1,4 @@
+
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -17,12 +18,9 @@ import {
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
-interface SidebarProps {
-  isOpen: boolean;
-  setIsOpen: (open: boolean) => void;
-}
+const Sidebar = () => {
+  const isOpen = true; // Default to always open for now
 
-const Sidebar = ({ isOpen, setIsOpen }: SidebarProps) => {
   return (
     <div
       className={cn(
