@@ -59,19 +59,27 @@ const CitizenCases = () => {
     try {
       setLoading(true);
       
+      console.log('Fetching cases for user:', user.id);
+
       // Get internal user ID first
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('id')
         .eq('auth_user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (userError) {
         console.error('User lookup error:', userError);
         throw userError;
       }
 
-      console.log('Fetching cases for internal user ID:', userData.id);
+      if (!userData) {
+        console.log('No internal user found for auth user:', user.id);
+        setCases([]);
+        return;
+      }
+
+      console.log('Found internal user ID:', userData.id);
 
       const { data, error } = await supabase
         .from('cases')
@@ -84,7 +92,7 @@ const CitizenCases = () => {
         throw error;
       }
 
-      console.log('Cases fetched:', data);
+      console.log('Cases fetched successfully:', data?.length || 0, 'cases');
       setCases(data || []);
 
     } catch (error) {
@@ -94,6 +102,7 @@ const CitizenCases = () => {
         description: 'Failed to load cases',
         variant: 'destructive'
       });
+      setCases([]);
     } finally {
       setLoading(false);
     }

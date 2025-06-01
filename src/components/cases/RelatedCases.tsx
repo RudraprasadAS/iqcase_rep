@@ -114,14 +114,14 @@ const RelatedCases = ({ caseId }: RelatedCasesProps) => {
         .select('id, title, status')
         .neq('id', caseId) // Exclude current case
         .order('created_at', { ascending: false })
-        .limit(50);
+        .limit(100);
 
       if (error) {
         console.error('Cases fetch error:', error);
         throw error;
       }
 
-      console.log('Available cases fetched:', data);
+      console.log('Available cases fetched:', data?.length || 0);
       setAvailableCases(data || []);
     } catch (error) {
       console.error('Error fetching available cases:', error);
@@ -223,9 +223,14 @@ const RelatedCases = ({ caseId }: RelatedCasesProps) => {
   };
 
   const filteredCases = availableCases.filter(
-    c => 
-      c.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.id.toLowerCase().includes(searchTerm.toLowerCase())
+    c => {
+      const searchLower = searchTerm.toLowerCase();
+      return (
+        c.title.toLowerCase().includes(searchLower) ||
+        c.id.toLowerCase().includes(searchLower) ||
+        c.id.slice(0, 8).toLowerCase().includes(searchLower)
+      );
+    }
   );
 
   const getRelationshipTypeColor = (type: string) => {
@@ -286,17 +291,23 @@ const RelatedCases = ({ caseId }: RelatedCasesProps) => {
                   <SelectTrigger>
                     <SelectValue placeholder="Choose a case" />
                   </SelectTrigger>
-                  <SelectContent>
-                    {filteredCases.map((case_) => (
-                      <SelectItem key={case_.id} value={case_.id}>
-                        <div className="flex flex-col">
-                          <span className="font-medium">{case_.title}</span>
-                          <span className="text-xs text-muted-foreground">
-                            ID: {case_.id.slice(0, 8)}... | Status: {case_.status}
-                          </span>
-                        </div>
-                      </SelectItem>
-                    ))}
+                  <SelectContent className="max-h-60">
+                    {filteredCases.length === 0 ? (
+                      <div className="p-2 text-sm text-gray-500">
+                        {searchTerm ? 'No cases found matching your search' : 'No cases available'}
+                      </div>
+                    ) : (
+                      filteredCases.map((case_) => (
+                        <SelectItem key={case_.id} value={case_.id}>
+                          <div className="flex flex-col w-full">
+                            <span className="font-medium truncate">{case_.title}</span>
+                            <span className="text-xs text-muted-foreground">
+                              ID: {case_.id.slice(0, 8)}... | Status: {case_.status}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>

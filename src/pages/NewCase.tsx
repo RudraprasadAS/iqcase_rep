@@ -171,43 +171,59 @@ const NewCase = () => {
 
     console.log('Uploading files for case:', caseId);
 
-    const uploadPromises = files.map(async (file) => {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${caseId}/${Date.now()}-${file.name}`;
-      
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('case-attachments')
-        .upload(fileName, file);
+    for (const file of files) {
+      try {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${caseId}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+        
+        console.log('Uploading file:', fileName);
+        
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('case-attachments')
+          .upload(fileName, file, {
+            cacheControl: '3600',
+            upsert: false
+          });
 
-      if (uploadError) {
-        console.error('File upload error:', uploadError);
-        throw uploadError;
-      }
+        if (uploadError) {
+          console.error('File upload error:', uploadError);
+          throw uploadError;
+        }
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('case-attachments')
-        .getPublicUrl(fileName);
+        console.log('Upload successful:', uploadData);
 
-      const { error: attachmentError } = await supabase
-        .from('case_attachments')
-        .insert({
-          case_id: caseId,
-          file_name: file.name,
-          file_url: publicUrl,
-          file_type: file.type,
-          uploaded_by: internalUserId,
-          is_private: false
+        const { data: { publicUrl } } = supabase.storage
+          .from('case-attachments')
+          .getPublicUrl(fileName);
+
+        console.log('Public URL:', publicUrl);
+
+        const { error: attachmentError } = await supabase
+          .from('case_attachments')
+          .insert({
+            case_id: caseId,
+            file_name: file.name,
+            file_url: publicUrl,
+            file_type: file.type,
+            uploaded_by: internalUserId,
+            is_private: false
+          });
+
+        if (attachmentError) {
+          console.error('Attachment record error:', attachmentError);
+          throw attachmentError;
+        }
+
+        console.log('Attachment record created successfully');
+      } catch (error) {
+        console.error('Error uploading file:', file.name, error);
+        toast({
+          title: 'Warning',
+          description: `Failed to upload ${file.name}`,
+          variant: 'destructive'
         });
-
-      if (attachmentError) {
-        console.error('Attachment record error:', attachmentError);
-        throw attachmentError;
       }
-
-      console.log('File uploaded successfully:', fileName);
-    });
-
-    await Promise.all(uploadPromises);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -266,18 +282,30 @@ const NewCase = () => {
 
       console.log('Case created successfully:', newCase);
 
+      // Upload files after case creation
       if (files.length > 0) {
-        await uploadFiles(newCase.id);
+        try {
+          await uploadFiles(newCase.id);
+        } catch (uploadError) {
+          console.error('File upload failed:', uploadError);
+          // Continue even if file upload fails
+        }
       }
 
-      await supabase
-        .from('case_activities')
-        .insert({
-          case_id: newCase.id,
-          activity_type: 'case_created',
-          description: 'Case created',
-          performed_by: internalUserId
-        });
+      // Log activity
+      try {
+        await supabase
+          .from('case_activities')
+          .insert({
+            case_id: newCase.id,
+            activity_type: 'case_created',
+            description: 'Case created',
+            performed_by: internalUserId
+          });
+      } catch (activityError) {
+        console.error('Activity logging failed:', activityError);
+        // Continue even if activity logging fails
+      }
 
       toast({
         title: 'Success',

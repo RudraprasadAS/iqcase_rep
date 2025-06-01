@@ -60,25 +60,32 @@ const CitizenCaseDetail = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (id) {
+    if (id && user) {
       fetchCaseData();
     }
-  }, [id]);
+  }, [id, user]);
 
   const fetchCaseData = async () => {
     if (!id || !user) return;
 
     try {
+      console.log('Fetching case details for case:', id, 'user:', user.id);
+
       // Get internal user ID first
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('id')
         .eq('auth_user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (userError) {
         console.error('User lookup error:', userError);
         throw userError;
+      }
+
+      if (!userData) {
+        console.log('No internal user found');
+        throw new Error('User not found');
       }
 
       console.log('Internal user ID:', userData.id);
@@ -93,14 +100,19 @@ const CitizenCaseDetail = () => {
         `)
         .eq('id', id)
         .eq('submitted_by', userData.id)
-        .single();
+        .maybeSingle();
 
       if (caseError) {
         console.error('Case fetch error:', caseError);
         throw caseError;
       }
 
-      console.log('Case data:', caseData);
+      if (!caseData) {
+        console.log('Case not found or access denied');
+        throw new Error('Case not found');
+      }
+
+      console.log('Case data loaded:', caseData);
 
       setCaseData({
         ...caseData,
@@ -122,6 +134,7 @@ const CitizenCaseDetail = () => {
       if (activitiesError) {
         console.error('Activities fetch error:', activitiesError);
       } else {
+        console.log('Activities loaded:', activitiesData?.length || 0);
         setActivities(activitiesData || []);
       }
 
@@ -136,7 +149,7 @@ const CitizenCaseDetail = () => {
       if (attachmentsError) {
         console.error('Attachments fetch error:', attachmentsError);
       } else {
-        console.log('Attachments data:', attachmentsData);
+        console.log('Attachments loaded:', attachmentsData?.length || 0);
         setAttachments(attachmentsData || []);
       }
 
