@@ -37,13 +37,43 @@ const CaseWatchers = ({ caseId }: CaseWatchersProps) => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState('');
   const [loading, setLoading] = useState(true);
+  const [internalUserId, setInternalUserId] = useState<string | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
 
   useEffect(() => {
-    fetchWatchers();
-    fetchAvailableUsers();
-  }, [caseId]);
+    if (user) {
+      fetchInternalUserId();
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (internalUserId) {
+      fetchWatchers();
+      fetchAvailableUsers();
+    }
+  }, [caseId, internalUserId]);
+
+  const fetchInternalUserId = async () => {
+    if (!user) return;
+
+    try {
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (userError) {
+        console.error('User lookup error:', userError);
+        return;
+      }
+
+      setInternalUserId(userData.id);
+    } catch (error) {
+      console.error('Error fetching internal user ID:', error);
+    }
+  };
 
   const fetchWatchers = async () => {
     try {
@@ -59,7 +89,12 @@ const CaseWatchers = ({ caseId }: CaseWatchersProps) => {
         `)
         .eq('case_id', caseId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Watchers fetch error:', error);
+        throw error;
+      }
+
+      console.log('Watchers fetched:', data);
       setWatchers(data || []);
     } catch (error) {
       console.error('Error fetching watchers:', error);
@@ -75,7 +110,12 @@ const CaseWatchers = ({ caseId }: CaseWatchersProps) => {
         .select('id, name, email')
         .eq('is_active', true);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Users fetch error:', error);
+        throw error;
+      }
+
+      console.log('Available users fetched:', data);
       setAvailableUsers(data || []);
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -83,7 +123,14 @@ const CaseWatchers = ({ caseId }: CaseWatchersProps) => {
   };
 
   const addWatcher = async () => {
-    if (!selectedUserId || !user) return;
+    if (!selectedUserId || !internalUserId) {
+      toast({
+        title: "Error",
+        description: "Please select a user",
+        variant: "destructive"
+      });
+      return;
+    }
 
     try {
       const { error } = await supabase
@@ -91,10 +138,23 @@ const CaseWatchers = ({ caseId }: CaseWatchersProps) => {
         .insert({
           case_id: caseId,
           user_id: selectedUserId,
-          added_by: user.id
+          added_by: internalUserId
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Watcher insert error:', error);
+        throw error;
+      }
+
+      // Log activity
+      await supabase
+        .from('case_activities')
+        .insert({
+          case_id: caseId,
+          activity_type: 'watcher_added',
+          description: 'Watcher added to case',
+          performed_by: internalUserId
+        });
 
       await fetchWatchers();
       setIsAddDialogOpen(false);
@@ -115,13 +175,28 @@ const CaseWatchers = ({ caseId }: CaseWatchersProps) => {
   };
 
   const removeWatcher = async (watcherId: string) => {
+    if (!internalUserId) return;
+
     try {
       const { error } = await supabase
         .from('case_watchers')
         .delete()
         .eq('id', watcherId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Watcher delete error:', error);
+        throw error;
+      }
+
+      // Log activity
+      await supabase
+        .from('case_activities')
+        .insert({
+          case_id: caseId,
+          activity_type: 'watcher_removed',
+          description: 'Watcher removed from case',
+          performed_by: internalUserId
+        });
       
       await fetchWatchers();
       toast({

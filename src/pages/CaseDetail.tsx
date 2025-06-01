@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
@@ -8,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Edit, MessageSquare, Clock, FileText, AlertTriangle, Sparkles, Send } from 'lucide-react';
+import { ArrowLeft, Edit, MessageSquare, Clock, FileText, AlertTriangle, Sparkles, Send, Download, Paperclip } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import SLABadge from '@/components/cases/SLABadge';
 import StatusBadge from '@/components/cases/StatusBadge';
@@ -21,6 +22,7 @@ import CaseWatchers from '@/components/cases/CaseWatchers';
 import CaseTasks from '@/components/cases/CaseTasks';
 import CaseFeedback from '@/components/cases/CaseFeedback';
 import InternalNotes from '@/components/cases/InternalNotes';
+import { formatDistanceToNow } from 'date-fns';
 
 interface CaseData {
   id: string;
@@ -36,6 +38,10 @@ interface CaseData {
   sla_due_at?: string;
   location?: string;
   tags?: string[];
+  // Joined user data
+  submitted_by_user?: { name: string; email: string };
+  assigned_to_user?: { name: string; email: string };
+  category?: { name: string };
 }
 
 interface Message {
@@ -44,7 +50,7 @@ interface Message {
   sender_id: string;
   created_at: string;
   is_internal: boolean;
-  sender_name?: string;
+  users?: { name: string; email: string };
 }
 
 interface Attachment {
@@ -64,6 +70,7 @@ interface Activity {
   travel_minutes?: number;
   performed_by: string;
   created_at: string;
+  users?: { name: string; email: string };
 }
 
 const CaseDetail = () => {
@@ -80,25 +87,63 @@ const CaseDetail = () => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [sendingMessage, setSendingMessage] = useState(false);
   const [generatingAI, setGeneratingAI] = useState(false);
+  const [internalUserId, setInternalUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (id) {
+    if (user) {
+      fetchInternalUserId();
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (id && internalUserId) {
       fetchCaseData();
       fetchMessages();
       fetchAttachments();
       fetchActivities();
     }
-  }, [id]);
+  }, [id, internalUserId]);
+
+  const fetchInternalUserId = async () => {
+    if (!user) return;
+
+    try {
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (userError) {
+        console.error('User lookup error:', userError);
+        return;
+      }
+
+      setInternalUserId(userData.id);
+    } catch (error) {
+      console.error('Error fetching internal user ID:', error);
+    }
+  };
 
   const fetchCaseData = async () => {
     try {
       const { data, error } = await supabase
         .from('cases')
-        .select('*')
+        .select(`
+          *,
+          submitted_by_user:users!cases_submitted_by_fkey(name, email),
+          assigned_to_user:users!cases_assigned_to_fkey(name, email),
+          category:case_categories!cases_category_id_fkey(name)
+        `)
         .eq('id', id)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Case fetch error:', error);
+        throw error;
+      }
+
+      console.log('Case data fetched:', data);
       setCaseData(data);
     } catch (error) {
       console.error('Error fetching case:', error);
@@ -118,23 +163,18 @@ const CaseDetail = () => {
         .from('case_messages')
         .select(`
           *,
-          users:sender_id (
-            name,
-            email
-          )
+          users!case_messages_sender_id_fkey(name, email)
         `)
         .eq('case_id', id)
         .order('created_at', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Messages fetch error:', error);
+        throw error;
+      }
       
-      // Transform the data to include sender names
-      const messagesWithSenders = (data || []).map(msg => ({
-        ...msg,
-        sender_name: msg.users?.name || msg.users?.email || msg.sender_id
-      }));
-      
-      setMessages(messagesWithSenders);
+      console.log('Messages fetched:', data);
+      setMessages(data || []);
     } catch (error) {
       console.error('Error fetching messages:', error);
     }
@@ -148,7 +188,12 @@ const CaseDetail = () => {
         .eq('case_id', id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Attachments fetch error:', error);
+        throw error;
+      }
+
+      console.log('Attachments fetched:', data);
       setAttachments(data || []);
     } catch (error) {
       console.error('Error fetching attachments:', error);
@@ -159,11 +204,19 @@ const CaseDetail = () => {
     try {
       const { data, error } = await supabase
         .from('case_activities')
-        .select('*')
+        .select(`
+          *,
+          users!case_activities_performed_by_fkey(name, email)
+        `)
         .eq('case_id', id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Activities fetch error:', error);
+        throw error;
+      }
+
+      console.log('Activities fetched:', data);
       setActivities(data || []);
     } catch (error) {
       console.error('Error fetching activities:', error);
@@ -171,7 +224,7 @@ const CaseDetail = () => {
   };
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !user) {
+    if (!newMessage.trim() || !internalUserId) {
       toast({
         title: "Error",
         description: "Please enter a message and ensure you're logged in",
@@ -187,14 +240,30 @@ const CaseDetail = () => {
         .insert({
           case_id: id,
           message: newMessage.trim(),
-          sender_id: user.id,
+          sender_id: internalUserId,
           is_internal: false
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Message send error:', error);
+        throw error;
+      }
       
       setNewMessage('');
       await fetchMessages();
+      
+      // Log activity
+      await supabase
+        .from('case_activities')
+        .insert({
+          case_id: id,
+          activity_type: 'message_added',
+          description: `Message posted: ${newMessage.substring(0, 50)}...`,
+          performed_by: internalUserId
+        });
+      
+      await fetchActivities();
+      
       toast({
         title: "Message sent successfully"
       });
@@ -210,15 +279,24 @@ const CaseDetail = () => {
     }
   };
 
+  const downloadAttachment = (fileUrl: string, fileName: string) => {
+    const link = document.createElement('a');
+    link.href = fileUrl;
+    link.download = fileName;
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const generateAIResponse = async () => {
     if (!caseData) return;
 
     setGeneratingAI(true);
     try {
-      // Create context from case data and recent messages
-      const recentMessages = messages.slice(-5); // Last 5 messages for context
+      const recentMessages = messages.slice(-5);
       const conversationContext = recentMessages.map(msg => 
-        `${msg.sender_name}: ${msg.message}`
+        `${msg.users?.name || 'User'}: ${msg.message}`
       ).join('\n');
 
       const caseContext = `
@@ -420,11 +498,11 @@ ${conversationContext}
                   </div>
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Submitted By</label>
-                    <div className="mt-1">{caseData.submitted_by}</div>
+                    <div className="mt-1">{caseData.submitted_by_user?.name || caseData.submitted_by_user?.email || 'Unknown'}</div>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Assigned To</label>
-                    <div className="mt-1">{caseData.assigned_to || 'Unassigned'}</div>
+                    <div className="mt-1">{caseData.assigned_to_user?.name || 'Unassigned'}</div>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Created Date</label>
@@ -437,9 +515,15 @@ ${conversationContext}
                     </div>
                   </div>
                   {caseData.location && (
-                    <div>
+                    <div className="col-span-2">
                       <label className="text-sm font-medium text-muted-foreground">Location</label>
                       <div className="mt-1">{caseData.location}</div>
+                    </div>
+                  )}
+                  {caseData.category && (
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">Category</label>
+                      <div className="mt-1">{caseData.category.name}</div>
                     </div>
                   )}
                 </div>
@@ -449,7 +533,7 @@ ${conversationContext}
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Description</label>
-                  <div className="mt-1">{caseData.description || 'No description provided'}</div>
+                  <div className="mt-1 whitespace-pre-wrap">{caseData.description || 'No description provided'}</div>
                 </div>
                 {caseData.tags && caseData.tags.length > 0 && (
                   <div>
@@ -466,10 +550,8 @@ ${conversationContext}
               </CardContent>
             </Card>
 
-            {/* New Related Cases Section */}
             <RelatedCases caseId={caseData.id} />
 
-            {/* New Tasks Section */}
             <CaseTasks caseId={caseData.id} />
           </div>
 
@@ -495,13 +577,13 @@ ${conversationContext}
                         <div key={message.id} className="flex space-x-3">
                           <Avatar className="h-8 w-8">
                             <AvatarFallback>
-                              {(message.sender_name || message.sender_id).slice(0, 2).toUpperCase()}
+                              {(message.users?.name || message.sender_id).slice(0, 2).toUpperCase()}
                             </AvatarFallback>
                           </Avatar>
                           <div className="flex-1">
                             <div className="text-sm">
                               <span className="font-medium">
-                                {message.sender_name || message.sender_id}
+                                {message.users?.name || message.users?.email || message.sender_id}
                               </span>
                               <span className="text-muted-foreground ml-2">
                                 {formatDateTime(message.created_at)}
@@ -562,12 +644,12 @@ ${conversationContext}
                     <div className="space-y-3 max-h-96 overflow-y-auto">
                       {activities.map((activity) => (
                         <div key={activity.id} className="border-l-2 border-muted pl-4">
-                          <div className="text-sm font-medium">{activity.activity_type}</div>
+                          <div className="text-sm font-medium">{activity.activity_type.replace('_', ' ')}</div>
                           {activity.description && (
                             <div className="text-sm text-muted-foreground">{activity.description}</div>
                           )}
                           <div className="text-xs text-muted-foreground mt-1">
-                            {formatDateTime(activity.created_at)} by {activity.performed_by}
+                            {formatDateTime(activity.created_at)} by {activity.users?.name || activity.users?.email || activity.performed_by}
                             {activity.duration_minutes && (
                               <span className="ml-2">({activity.duration_minutes} min)</span>
                             )}
@@ -597,14 +679,24 @@ ${conversationContext}
               </CardHeader>
               <CardContent className="space-y-2">
                 {attachments.map((attachment) => (
-                  <div key={attachment.id} className="flex items-center justify-between p-2 border rounded">
-                    <div className="flex items-center space-x-2 text-sm">
-                      <FileText className="h-4 w-4" />
-                      <span>{attachment.file_name}</span>
+                  <div key={attachment.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <Paperclip className="h-4 w-4 text-gray-400" />
+                      <div>
+                        <p className="text-sm font-medium">{attachment.file_name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Uploaded {formatDistanceToNow(new Date(attachment.created_at), { addSuffix: true })}
+                        </p>
+                      </div>
                     </div>
-                    <div className="text-xs text-muted-foreground">
-                      {formatDate(attachment.created_at)}
-                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => downloadAttachment(attachment.file_url, attachment.file_name)}
+                    >
+                      <Download className="h-4 w-4 mr-1" />
+                      Download
+                    </Button>
                   </div>
                 ))}
                 {attachments.length === 0 && (
@@ -615,16 +707,13 @@ ${conversationContext}
               </CardContent>
             </Card>
 
-            {/* New Watchers Section */}
             <CaseWatchers caseId={caseData.id} />
 
-            {/* New Feedback Section */}
             <CaseFeedback caseId={caseData.id} caseStatus={caseData.status} />
           </div>
         </div>
       </div>
 
-      {/* Add the AI Assistant component */}
       <CaseAIAssistant 
         caseContext={{
           title: caseData.title,

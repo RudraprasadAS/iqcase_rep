@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { CheckSquare, Plus, Calendar, User } from 'lucide-react';
+import { CheckSquare, Plus, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -41,13 +41,43 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
   const [newTaskName, setNewTaskName] = useState('');
   const [selectedAssignee, setSelectedAssignee] = useState('unassigned');
   const [loading, setLoading] = useState(true);
+  const [internalUserId, setInternalUserId] = useState<string | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
 
   useEffect(() => {
-    fetchTasks();
-    fetchUsers();
-  }, [caseId]);
+    if (user) {
+      fetchInternalUserId();
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (internalUserId) {
+      fetchTasks();
+      fetchUsers();
+    }
+  }, [caseId, internalUserId]);
+
+  const fetchInternalUserId = async () => {
+    if (!user) return;
+
+    try {
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (userError) {
+        console.error('User lookup error:', userError);
+        return;
+      }
+
+      setInternalUserId(userData.id);
+    } catch (error) {
+      console.error('Error fetching internal user ID:', error);
+    }
+  };
 
   const fetchTasks = async () => {
     try {
@@ -63,7 +93,12 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
         .eq('case_id', caseId)
         .order('created_at');
 
-      if (error) throw error;
+      if (error) {
+        console.error('Tasks fetch error:', error);
+        throw error;
+      }
+
+      console.log('Tasks fetched:', data);
       setTasks(data || []);
     } catch (error) {
       console.error('Error fetching tasks:', error);
@@ -79,7 +114,12 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
         .select('id, name, email')
         .eq('is_active', true);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Users fetch error:', error);
+        throw error;
+      }
+
+      console.log('Users fetched:', data);
       setAvailableUsers(data || []);
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -87,7 +127,14 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
   };
 
   const addTask = async () => {
-    if (!newTaskName.trim() || !user) return;
+    if (!newTaskName.trim() || !internalUserId) {
+      toast({
+        title: "Error",
+        description: "Please enter a task name",
+        variant: "destructive"
+      });
+      return;
+    }
 
     try {
       const { error } = await supabase
@@ -96,10 +143,23 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
           case_id: caseId,
           task_name: newTaskName.trim(),
           assigned_to: selectedAssignee === 'unassigned' ? null : selectedAssignee,
-          created_by: user.id
+          created_by: internalUserId
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Task insert error:', error);
+        throw error;
+      }
+
+      // Log activity
+      await supabase
+        .from('case_activities')
+        .insert({
+          case_id: caseId,
+          activity_type: 'task_created',
+          description: `Task created: ${newTaskName.trim()}`,
+          performed_by: internalUserId
+        });
 
       await fetchTasks();
       setIsAddDialogOpen(false);
@@ -121,13 +181,28 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
   };
 
   const updateTaskStatus = async (taskId: string, newStatus: string) => {
+    if (!internalUserId) return;
+
     try {
       const { error } = await supabase
         .from('case_tasks')
         .update({ status: newStatus })
         .eq('id', taskId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Task update error:', error);
+        throw error;
+      }
+
+      // Log activity
+      await supabase
+        .from('case_activities')
+        .insert({
+          case_id: caseId,
+          activity_type: 'task_updated',
+          description: `Task ${newStatus === 'done' ? 'completed' : 'reopened'}`,
+          performed_by: internalUserId
+        });
       
       await fetchTasks();
     } catch (error) {
@@ -141,13 +216,28 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
   };
 
   const deleteTask = async (taskId: string) => {
+    if (!internalUserId) return;
+
     try {
       const { error } = await supabase
         .from('case_tasks')
         .delete()
         .eq('id', taskId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Task delete error:', error);
+        throw error;
+      }
+
+      // Log activity
+      await supabase
+        .from('case_activities')
+        .insert({
+          case_id: caseId,
+          activity_type: 'task_deleted',
+          description: 'Task deleted',
+          performed_by: internalUserId
+        });
       
       await fetchTasks();
       toast({
