@@ -10,9 +10,9 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Calendar, MapPin, User, Tag, Clock } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { StatusBadge } from '@/components/cases/StatusBadge';
-import { PriorityBadge } from '@/components/cases/PriorityBadge';
-import { SLABadge } from '@/components/cases/SLABadge';
+import StatusBadge from '@/components/cases/StatusBadge';
+import PriorityBadge from '@/components/cases/PriorityBadge';
+import SLABadge from '@/components/cases/SLABadge';
 import MessageCenter from '@/components/messaging/MessageCenter';
 
 interface CaseData {

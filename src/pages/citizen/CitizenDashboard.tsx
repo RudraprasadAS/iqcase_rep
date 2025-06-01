@@ -7,8 +7,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, FileText, Clock, CheckCircle, AlertCircle, MessageCircle, Bell } from 'lucide-react';
-import { StatusBadge } from '@/components/cases/StatusBadge';
-import { PriorityBadge } from '@/components/cases/PriorityBadge';
+import StatusBadge from '@/components/cases/StatusBadge';
+import PriorityBadge from '@/components/cases/PriorityBadge';
 import { formatDistanceToNow } from 'date-fns';
 import NotificationCenter from '@/components/notifications/NotificationCenter';
 
