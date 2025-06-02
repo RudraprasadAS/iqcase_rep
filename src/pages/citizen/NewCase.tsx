@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, MapPin, X, Map, Paperclip, Upload } from 'lucide-react';
+import { ArrowLeft, MapPin, X, Map, Paperclip, Upload, AlertCircle } from 'lucide-react';
 import MapPickerModal from '@/components/citizen/MapPickerModal';
 
 interface Category {
@@ -31,7 +31,7 @@ const NewCase = () => {
   const { toast } = useToast();
   
   const [loading, setLoading] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const [uploadingFiles, setUploadingFiles] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [locationData, setLocationData] = useState<LocationData>({
     latitude: null,
@@ -44,6 +44,7 @@ const NewCase = () => {
   const [gettingLocation, setGettingLocation] = useState(false);
   const [showMapPicker, setShowMapPicker] = useState(false);
   const [internalUserId, setInternalUserId] = useState<string | null>(null);
+  const [submitAttempted, setSubmitAttempted] = useState(false);
   
   const [formData, setFormData] = useState({
     title: '',
@@ -168,7 +169,43 @@ const NewCase = () => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const selectedFiles = Array.from(e.target.files);
-      setFiles(prev => [...prev, ...selectedFiles]);
+      
+      // Validate files
+      const validFiles = selectedFiles.filter(file => {
+        // Check file size (10MB limit)
+        if (file.size > 10 * 1024 * 1024) {
+          toast({
+            title: 'File Too Large',
+            description: `${file.name} exceeds 10MB limit`,
+            variant: 'destructive'
+          });
+          return false;
+        }
+        
+        // Check file type
+        const allowedTypes = [
+          'image/jpeg', 'image/jpg', 'image/png', 
+          'application/pdf', 
+          'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'text/plain'
+        ];
+        
+        if (!allowedTypes.includes(file.type)) {
+          toast({
+            title: 'Invalid File Type',
+            description: `${file.name} is not a supported file type`,
+            variant: 'destructive'
+          });
+          return false;
+        }
+        
+        return true;
+      });
+      
+      setFiles(prev => [...prev, ...validFiles]);
+      
+      // Clear the input
+      e.target.value = '';
     }
   };
 
@@ -176,31 +213,29 @@ const NewCase = () => {
     setFiles(prev => prev.filter((_, i) => i !== index));
   };
 
-  const uploadFiles = async (caseId: string) => {
+  const uploadFiles = async (caseId: string): Promise<boolean> => {
     if (files.length === 0) return true;
 
     console.log('Starting file upload for case:', caseId);
-    setUploading(true);
-    let uploadCount = 0;
+    setUploadingFiles(true);
+    
+    let successCount = 0;
+    let errorCount = 0;
 
     try {
       for (const file of files) {
         try {
-          // Validate file size (10MB limit)
-          if (file.size > 10 * 1024 * 1024) {
-            toast({
-              title: 'File too large',
-              description: `${file.name} exceeds 10MB limit`,
-              variant: 'destructive'
-            });
-            continue;
-          }
-
+          console.log('Uploading file:', file.name, 'Size:', file.size, 'Type:', file.type);
+          
+          // Generate unique filename
           const fileExt = file.name.split('.').pop();
-          const fileName = `${caseId}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+          const timestamp = Date.now();
+          const randomId = Math.random().toString(36).substring(2);
+          const fileName = `${caseId}/${timestamp}-${randomId}.${fileExt}`;
           
-          console.log('Uploading file:', fileName, 'Size:', file.size);
+          console.log('Storage path:', fileName);
           
+          // Upload to Supabase Storage
           const { data: uploadData, error: uploadError } = await supabase.storage
             .from('case-attachments')
             .upload(fileName, file, {
@@ -209,23 +244,26 @@ const NewCase = () => {
             });
 
           if (uploadError) {
-            console.error('File upload error:', uploadError);
+            console.error('Storage upload error:', uploadError);
+            errorCount++;
             toast({
-              title: 'Upload failed',
+              title: 'Upload Failed',
               description: `Failed to upload ${file.name}: ${uploadError.message}`,
               variant: 'destructive'
             });
             continue;
           }
 
-          console.log('Upload successful:', uploadData);
+          console.log('File uploaded to storage:', uploadData);
 
+          // Get public URL
           const { data: { publicUrl } } = supabase.storage
             .from('case-attachments')
             .getPublicUrl(fileName);
 
           console.log('Public URL generated:', publicUrl);
 
+          // Create database record
           const { error: attachmentError } = await supabase
             .from('case_attachments')
             .insert({
@@ -238,43 +276,49 @@ const NewCase = () => {
             });
 
           if (attachmentError) {
-            console.error('Attachment record error:', attachmentError);
+            console.error('Database record error:', attachmentError);
+            errorCount++;
             toast({
-              title: 'Database error',
+              title: 'Database Error',
               description: `Failed to save attachment record for ${file.name}`,
               variant: 'destructive'
             });
             continue;
           }
 
-          uploadCount++;
-          console.log('Attachment record created successfully for:', file.name);
+          successCount++;
+          console.log('File upload completed successfully:', file.name);
+          
         } catch (error) {
           console.error('Error uploading file:', file.name, error);
+          errorCount++;
           toast({
-            title: 'Upload error',
-            description: `Failed to upload ${file.name}`,
+            title: 'Upload Error',
+            description: `Unexpected error uploading ${file.name}`,
             variant: 'destructive'
           });
         }
       }
 
-      if (uploadCount > 0) {
+      if (successCount > 0) {
         toast({
-          title: 'Files uploaded',
-          description: `Successfully uploaded ${uploadCount} out of ${files.length} files`,
+          title: 'Files Uploaded',
+          description: `Successfully uploaded ${successCount} out of ${files.length} files`,
         });
       }
 
-      console.log(`Successfully uploaded ${uploadCount} out of ${files.length} files`);
-      return uploadCount > 0;
+      console.log(`Upload summary: ${successCount} success, ${errorCount} errors`);
+      return successCount > 0;
+      
     } finally {
-      setUploading(false);
+      setUploadingFiles(false);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    setSubmitAttempted(true);
     
     console.log('Starting case submission...');
     console.log('User:', user);
@@ -284,7 +328,7 @@ const NewCase = () => {
     
     if (!user || !internalUserId) {
       toast({
-        title: 'Error',
+        title: 'Authentication Error',
         description: 'You must be logged in to submit a case',
         variant: 'destructive'
       });
@@ -293,7 +337,7 @@ const NewCase = () => {
 
     if (!formData.title.trim() || !formData.description.trim()) {
       toast({
-        title: 'Error',
+        title: 'Validation Error',
         description: 'Please fill in all required fields',
         variant: 'destructive'
       });
@@ -303,6 +347,7 @@ const NewCase = () => {
     setLoading(true);
     
     try {
+      // Calculate SLA due date
       const slaHours = 72;
       const slaDueAt = new Date();
       slaDueAt.setHours(slaDueAt.getHours() + slaHours);
@@ -320,17 +365,17 @@ const NewCase = () => {
         tags: tags.length > 0 ? tags : null
       };
 
-      console.log('Submitting case data:', caseData);
+      console.log('Creating case with data:', caseData);
 
-      const { data: newCase, error } = await supabase
+      const { data: newCase, error: caseError } = await supabase
         .from('cases')
         .insert(caseData)
         .select()
         .single();
 
-      if (error) {
-        console.error('Case creation error:', error);
-        throw error;
+      if (caseError) {
+        console.error('Case creation error:', caseError);
+        throw new Error(`Failed to create case: ${caseError.message}`);
       }
 
       console.log('Case created successfully:', newCase);
@@ -342,8 +387,8 @@ const NewCase = () => {
           await uploadFiles(newCase.id);
           console.log('File uploads completed');
         } catch (uploadError) {
-          console.error('File upload failed:', uploadError);
-          // Continue even if file upload fails
+          console.error('File upload failed but case was created:', uploadError);
+          // Don't fail the entire submission if file upload fails
         }
       }
 
@@ -367,12 +412,13 @@ const NewCase = () => {
         description: 'Your case has been submitted successfully',
       });
 
+      // Navigate to the case detail page
       navigate(`/citizen/cases/${newCase.id}`);
 
     } catch (error: any) {
       console.error('Error submitting case:', error);
       toast({
-        title: 'Error',
+        title: 'Submission Failed',
         description: error.message || 'Failed to submit case. Please try again.',
         variant: 'destructive'
       });
@@ -416,8 +462,15 @@ const NewCase = () => {
                 value={formData.title}
                 onChange={(e) => handleInputChange('title', e.target.value)}
                 required
-                disabled={loading}
+                disabled={loading || uploadingFiles}
+                className={submitAttempted && !formData.title.trim() ? 'border-red-500' : ''}
               />
+              {submitAttempted && !formData.title.trim() && (
+                <p className="text-sm text-red-500 flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  Subject is required
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -429,8 +482,15 @@ const NewCase = () => {
                 onChange={(e) => handleInputChange('description', e.target.value)}
                 rows={6}
                 required
-                disabled={loading}
+                disabled={loading || uploadingFiles}
+                className={submitAttempted && !formData.description.trim() ? 'border-red-500' : ''}
               />
+              {submitAttempted && !formData.description.trim() && (
+                <p className="text-sm text-red-500 flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  Description is required
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -439,7 +499,7 @@ const NewCase = () => {
                 <Select
                   value={formData.category_id}
                   onValueChange={(value) => handleInputChange('category_id', value)}
-                  disabled={loading}
+                  disabled={loading || uploadingFiles}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select a category" />
@@ -459,7 +519,7 @@ const NewCase = () => {
                 <Select
                   value={formData.priority}
                   onValueChange={(value) => handleInputChange('priority', value)}
-                  disabled={loading}
+                  disabled={loading || uploadingFiles}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -480,7 +540,7 @@ const NewCase = () => {
                   value={locationData.formatted_address}
                   onChange={(e) => setLocationData(prev => ({ ...prev, formatted_address: e.target.value }))}
                   placeholder="Enter address manually or use location services"
-                  disabled={loading}
+                  disabled={loading || uploadingFiles}
                 />
                 <div className="flex gap-2">
                   <Button
@@ -488,7 +548,7 @@ const NewCase = () => {
                     variant="outline"
                     size="sm"
                     onClick={requestGeolocation}
-                    disabled={gettingLocation || loading}
+                    disabled={gettingLocation || loading || uploadingFiles}
                   >
                     <MapPin className="h-4 w-4 mr-2" />
                     {gettingLocation ? 'Getting Location...' : 'Use My Location'}
@@ -498,7 +558,7 @@ const NewCase = () => {
                     variant="outline"
                     size="sm"
                     onClick={() => setShowMapPicker(true)}
-                    disabled={loading}
+                    disabled={loading || uploadingFiles}
                   >
                     <Map className="h-4 w-4 mr-2" />
                     Pick on Map
@@ -516,13 +576,13 @@ const NewCase = () => {
                     onChange={(e) => setNewTag(e.target.value)}
                     placeholder="Add tag..."
                     onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addTag())}
-                    disabled={loading}
+                    disabled={loading || uploadingFiles}
                   />
                   <Button
                     type="button"
                     variant="outline"
                     onClick={addTag}
-                    disabled={!newTag.trim() || loading}
+                    disabled={!newTag.trim() || loading || uploadingFiles}
                   >
                     Add
                   </Button>
@@ -548,10 +608,10 @@ const NewCase = () => {
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <label htmlFor="file-upload" className="cursor-pointer">
-                    <Button type="button" variant="outline" size="sm" asChild disabled={uploading}>
+                    <Button type="button" variant="outline" size="sm" asChild disabled={uploadingFiles || loading}>
                       <span>
                         <Upload className="h-4 w-4 mr-2" />
-                        {uploading ? 'Uploading...' : 'Choose Files'}
+                        {uploadingFiles ? 'Processing...' : 'Choose Files'}
                       </span>
                     </Button>
                   </label>
@@ -562,7 +622,7 @@ const NewCase = () => {
                     accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.txt"
                     onChange={handleFileChange}
                     className="hidden"
-                    disabled={loading || uploading}
+                    disabled={loading || uploadingFiles}
                   />
                   <span className="text-sm text-gray-500">
                     Max 10MB per file. Supported: JPG, PNG, PDF, DOC, TXT
@@ -572,7 +632,7 @@ const NewCase = () => {
                   <div className="space-y-2">
                     <p className="text-sm font-medium">Selected files ({files.length}):</p>
                     {files.map((file, index) => (
-                      <div key={index} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
+                      <div key={index} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg border">
                         <div className="flex items-center gap-2">
                           <Paperclip className="h-4 w-4 text-gray-400" />
                           <div>
@@ -587,7 +647,7 @@ const NewCase = () => {
                           variant="ghost"
                           size="sm"
                           onClick={() => removeFile(index)}
-                          disabled={uploading}
+                          disabled={uploadingFiles || loading}
                         >
                           <X className="h-4 w-4" />
                         </Button>
@@ -603,16 +663,16 @@ const NewCase = () => {
                 type="button"
                 variant="outline"
                 onClick={() => navigate('/citizen/dashboard')}
-                disabled={loading || uploading}
+                disabled={loading || uploadingFiles}
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
-                disabled={loading || uploading}
+                disabled={loading || uploadingFiles}
                 className="bg-blue-600 hover:bg-blue-700"
               >
-                {loading ? 'Submitting...' : uploading ? 'Uploading files...' : 'Submit Case'}
+                {loading ? 'Submitting...' : uploadingFiles ? 'Processing files...' : 'Submit Case'}
               </Button>
             </div>
           </form>

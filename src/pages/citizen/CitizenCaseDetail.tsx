@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,7 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Calendar, MapPin, User, Tag, Clock, Paperclip, Download, FileText } from 'lucide-react';
+import { ArrowLeft, Calendar, MapPin, User, Tag, Clock, Paperclip, Download, FileText, AlertCircle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import StatusBadge from '@/components/cases/StatusBadge';
 import PriorityBadge from '@/components/cases/PriorityBadge';
@@ -57,6 +58,7 @@ const CitizenCaseDetail = () => {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [downloading, setDownloading] = useState<string | null>(null);
 
   useEffect(() => {
     if (id && user) {
@@ -138,24 +140,7 @@ const CitizenCaseDetail = () => {
       }
 
       // Fetch case attachments - only non-private ones for citizens
-      const { data: attachmentsData, error: attachmentsError } = await supabase
-        .from('case_attachments')
-        .select('*')
-        .eq('case_id', id)
-        .eq('is_private', false)
-        .order('created_at', { ascending: false });
-
-      if (attachmentsError) {
-        console.error('Attachments fetch error:', attachmentsError);
-        toast({
-          title: 'Warning',
-          description: 'Failed to load attachments',
-          variant: 'destructive'
-        });
-      } else {
-        console.log('Attachments loaded:', attachmentsData?.length || 0);
-        setAttachments(attachmentsData || []);
-      }
+      await fetchAttachments(id);
 
     } catch (error) {
       console.error('Error fetching case data:', error);
@@ -170,35 +155,78 @@ const CitizenCaseDetail = () => {
     }
   };
 
-  const downloadAttachment = async (fileUrl: string, fileName: string) => {
+  const fetchAttachments = async (caseId: string) => {
     try {
-      // Create a temporary link to download the file
+      console.log('Fetching attachments for case:', caseId);
+      
+      const { data: attachmentsData, error: attachmentsError } = await supabase
+        .from('case_attachments')
+        .select('*')
+        .eq('case_id', caseId)
+        .eq('is_private', false)
+        .order('created_at', { ascending: false });
+
+      if (attachmentsError) {
+        console.error('Attachments fetch error:', attachmentsError);
+        toast({
+          title: 'Warning',
+          description: 'Failed to load attachments',
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      console.log('Attachments loaded:', attachmentsData?.length || 0);
+      setAttachments(attachmentsData || []);
+      
+    } catch (error) {
+      console.error('Error fetching attachments:', error);
+    }
+  };
+
+  const downloadAttachment = async (fileUrl: string, fileName: string, attachmentId: string) => {
+    setDownloading(attachmentId);
+    
+    try {
+      console.log('Starting download:', fileName, fileUrl);
+      
+      // Try to download directly from the public URL
       const response = await fetch(fileUrl);
+      
       if (!response.ok) {
-        throw new Error('Failed to fetch file');
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
       
       const blob = await response.blob();
+      
+      // Create download link
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       link.download = fileName;
+      
+      // Trigger download
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      
+      // Cleanup
       window.URL.revokeObjectURL(url);
       
       toast({
-        title: 'Download started',
-        description: `Downloading ${fileName}`,
+        title: 'Download Complete',
+        description: `${fileName} has been downloaded`,
       });
+      
     } catch (error) {
       console.error('Download error:', error);
       toast({
-        title: 'Download failed',
-        description: 'Failed to download the file',
+        title: 'Download Failed',
+        description: `Failed to download ${fileName}. Please try again.`,
         variant: 'destructive'
       });
+    } finally {
+      setDownloading(null);
     }
   };
 
@@ -213,6 +241,14 @@ const CitizenCaseDetail = () => {
       return '📃';
     }
     return '📎';
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   if (loading) {
@@ -302,7 +338,7 @@ const CitizenCaseDetail = () => {
                             <p className="text-sm font-medium text-gray-900">{attachment.file_name}</p>
                             <p className="text-xs text-gray-500">
                               {attachment.file_type && (
-                                <span className="mr-2">{attachment.file_type}</span>
+                                <span className="mr-3">{attachment.file_type}</span>
                               )}
                               Uploaded {formatDistanceToNow(new Date(attachment.created_at), { addSuffix: true })}
                             </p>
@@ -311,11 +347,21 @@ const CitizenCaseDetail = () => {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => downloadAttachment(attachment.file_url, attachment.file_name)}
+                          onClick={() => downloadAttachment(attachment.file_url, attachment.file_name, attachment.id)}
+                          disabled={downloading === attachment.id}
                           className="hover:bg-blue-50 hover:border-blue-200"
                         >
-                          <Download className="h-4 w-4 mr-1" />
-                          Download
+                          {downloading === attachment.id ? (
+                            <>
+                              <Clock className="h-4 w-4 mr-1 animate-spin" />
+                              Downloading...
+                            </>
+                          ) : (
+                            <>
+                              <Download className="h-4 w-4 mr-1" />
+                              Download
+                            </>
+                          )}
                         </Button>
                       </div>
                     ))}
