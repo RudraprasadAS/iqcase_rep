@@ -1,26 +1,27 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { CheckSquare, Plus, User } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { CheckSquare, Plus, Calendar, User, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { formatDistanceToNow } from 'date-fns';
 
 interface Task {
   id: string;
   task_name: string;
   status: string;
-  assigned_to?: string;
   due_date?: string;
+  assigned_to?: string;
   created_at: string;
-  users?: {
-    name: string;
-    email: string;
-  };
+  created_by?: string;
+  users?: { name: string };
+  assigned_user?: { name: string };
 }
 
 interface User {
@@ -35,10 +36,11 @@ interface CaseTasksProps {
 
 const CaseTasks = ({ caseId }: CaseTasksProps) => {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [availableUsers, setAvailableUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newTaskName, setNewTaskName] = useState('');
-  const [selectedAssignee, setSelectedAssignee] = useState('unassigned');
+  const [newTaskAssignee, setNewTaskAssignee] = useState('');
+  const [newTaskDueDate, setNewTaskDueDate] = useState('');
   const [loading, setLoading] = useState(true);
   const [internalUserId, setInternalUserId] = useState<string | null>(null);
   const { toast } = useToast();
@@ -65,14 +67,16 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
         .from('users')
         .select('id')
         .eq('auth_user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (userError) {
         console.error('User lookup error:', userError);
         return;
       }
 
-      setInternalUserId(userData.id);
+      if (userData) {
+        setInternalUserId(userData.id);
+      }
     } catch (error) {
       console.error('Error fetching internal user ID:', error);
     }
@@ -84,13 +88,11 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
         .from('case_tasks')
         .select(`
           *,
-          users!case_tasks_assigned_to_fkey (
-            name,
-            email
-          )
+          users!case_tasks_assigned_to_fkey(name),
+          assigned_user:users!case_tasks_created_by_fkey(name)
         `)
         .eq('case_id', caseId)
-        .order('created_at');
+        .order('created_at', { ascending: false });
 
       if (error) {
         console.error('Tasks fetch error:', error);
@@ -111,7 +113,8 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
       const { data, error } = await supabase
         .from('users')
         .select('id, name, email')
-        .eq('is_active', true);
+        .eq('is_active', true)
+        .order('name');
 
       if (error) {
         console.error('Users fetch error:', error);
@@ -119,7 +122,7 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
       }
 
       console.log('Users fetched:', data);
-      setAvailableUsers(data || []);
+      setUsers(data || []);
     } catch (error) {
       console.error('Error fetching users:', error);
     }
@@ -136,21 +139,25 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
     }
 
     try {
+      const taskData = {
+        case_id: caseId,
+        task_name: newTaskName.trim(),
+        assigned_to: newTaskAssignee || null,
+        due_date: newTaskDueDate || null,
+        created_by: internalUserId,
+        status: 'open'
+      };
+
       const { error } = await supabase
         .from('case_tasks')
-        .insert({
-          case_id: caseId,
-          task_name: newTaskName.trim(),
-          assigned_to: selectedAssignee === 'unassigned' ? null : selectedAssignee,
-          created_by: internalUserId
-        });
+        .insert(taskData);
 
       if (error) {
         console.error('Task insert error:', error);
         throw error;
       }
 
-      // Log activity only once
+      // Log activity
       await supabase
         .from('case_activities')
         .insert({
@@ -163,17 +170,18 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
       await fetchTasks();
       setIsAddDialogOpen(false);
       setNewTaskName('');
-      setSelectedAssignee('unassigned');
+      setNewTaskAssignee('');
+      setNewTaskDueDate('');
       
       toast({
         title: "Success",
-        description: "Task added successfully"
+        description: "Task created successfully"
       });
     } catch (error) {
-      console.error('Error adding task:', error);
+      console.error('Error creating task:', error);
       toast({
         title: "Error",
-        description: "Failed to add task",
+        description: "Failed to create task",
         variant: "destructive"
       });
     }
@@ -193,22 +201,26 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
         throw error;
       }
 
-      // Log activity only once with clear description
+      // Log activity
       await supabase
         .from('case_activities')
         .insert({
           case_id: caseId,
-          activity_type: 'task_status_updated',
-          description: `Task status changed to ${newStatus}`,
+          activity_type: 'task_updated',
+          description: `Task status changed to: ${newStatus}`,
           performed_by: internalUserId
         });
-      
+
       await fetchTasks();
+      toast({
+        title: "Success",
+        description: "Task status updated"
+      });
     } catch (error) {
-      console.error('Error updating task status:', error);
+      console.error('Error updating task:', error);
       toast({
         title: "Error",
-        description: "Failed to update task status",
+        description: "Failed to update task",
         variant: "destructive"
       });
     }
@@ -237,7 +249,7 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
           description: 'Task deleted',
           performed_by: internalUserId
         });
-      
+
       await fetchTasks();
       toast({
         title: "Success",
@@ -255,14 +267,13 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'done': return 'text-green-600';
-      case 'in_progress': return 'text-blue-600';
-      default: return 'text-gray-600';
+      case 'open': return 'bg-blue-100 text-blue-800';
+      case 'in_progress': return 'bg-yellow-100 text-yellow-800';
+      case 'completed': return 'bg-green-100 text-green-800';
+      case 'cancelled': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
-
-  const completedTasks = tasks.filter(t => t.status === 'done').length;
-  const progressPercent = tasks.length > 0 ? (completedTasks / tasks.length) * 100 : 0;
 
   if (loading) {
     return <div>Loading tasks...</div>;
@@ -271,18 +282,10 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
-        <div>
-          <CardTitle className="flex items-center">
-            <CheckSquare className="h-5 w-5 mr-2" />
-            Tasks ({completedTasks}/{tasks.length})
-          </CardTitle>
-          <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-            <div 
-              className="bg-green-600 h-2 rounded-full transition-all duration-300" 
-              style={{ width: `${progressPercent}%` }}
-            />
-          </div>
-        </div>
+        <CardTitle className="flex items-center">
+          <CheckSquare className="h-5 w-5 mr-2" />
+          Tasks ({tasks.length})
+        </CardTitle>
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
             <Button size="sm" variant="outline">
@@ -290,7 +293,7 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
               Add Task
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Add New Task</DialogTitle>
             </DialogHeader>
@@ -300,31 +303,38 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
                 <Input
                   value={newTaskName}
                   onChange={(e) => setNewTaskName(e.target.value)}
-                  placeholder="Enter task description"
+                  placeholder="Enter task description..."
                 />
               </div>
               <div>
-                <label className="text-sm font-medium">Assign To (Optional)</label>
-                <Select value={selectedAssignee} onValueChange={setSelectedAssignee}>
+                <label className="text-sm font-medium">Assign To</label>
+                <Select value={newTaskAssignee} onValueChange={setNewTaskAssignee}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Choose assignee" />
+                    <SelectValue placeholder="Select assignee (optional)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="unassigned">Unassigned</SelectItem>
-                    {availableUsers.map((user) => (
+                    {users.map((user) => (
                       <SelectItem key={user.id} value={user.id}>
-                        {user.name} ({user.email})
+                        {user.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Due Date</label>
+                <Input
+                  type="datetime-local"
+                  value={newTaskDueDate}
+                  onChange={(e) => setNewTaskDueDate(e.target.value)}
+                />
               </div>
               <div className="flex justify-end space-x-2">
                 <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                   Cancel
                 </Button>
                 <Button onClick={addTask} disabled={!newTaskName.trim()}>
-                  Add Task
+                  Create Task
                 </Button>
               </div>
             </div>
@@ -334,38 +344,59 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
       <CardContent className="space-y-3">
         {tasks.length === 0 ? (
           <div className="text-center text-muted-foreground py-4">
-            No tasks yet
+            No tasks created
           </div>
         ) : (
           tasks.map((task) => (
-            <div key={task.id} className="flex items-center space-x-3 p-3 border rounded-lg">
-              <Checkbox
-                checked={task.status === 'done'}
-                onCheckedChange={(checked) => 
-                  updateTaskStatus(task.id, checked ? 'done' : 'open')
-                }
-              />
-              <div className="flex-1">
-                <div className={`font-medium ${task.status === 'done' ? 'line-through text-muted-foreground' : ''}`}>
-                  {task.task_name}
+            <div key={task.id} className="p-3 border rounded-lg space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Badge className={getStatusColor(task.status)}>
+                    {task.status.replace('_', ' ')}
+                  </Badge>
+                  <span className="font-medium">{task.task_name}</span>
                 </div>
-                {task.users && (
-                  <div className="flex items-center text-sm text-muted-foreground mt-1">
-                    <User className="h-3 w-3 mr-1" />
-                    {task.users.name}
-                  </div>
-                )}
-                <div className={`text-xs ${getStatusColor(task.status)}`}>
-                  {task.status.replace('_', ' ').toUpperCase()}
+                <div className="flex items-center gap-2">
+                  <Select
+                    value={task.status}
+                    onValueChange={(value) => updateTaskStatus(task.id, value)}
+                  >
+                    <SelectTrigger className="w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="open">Open</SelectItem>
+                      <SelectItem value="in_progress">In Progress</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => deleteTask(task.id)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => deleteTask(task.id)}
-              >
-                Delete
-              </Button>
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                {task.assigned_to && (
+                  <div className="flex items-center gap-1">
+                    <User className="h-4 w-4" />
+                    {task.users?.name || 'Assigned'}
+                  </div>
+                )}
+                {task.due_date && (
+                  <div className="flex items-center gap-1">
+                    <Calendar className="h-4 w-4" />
+                    Due: {new Date(task.due_date).toLocaleDateString()}
+                  </div>
+                )}
+                <div>
+                  Created {formatDistanceToNow(new Date(task.created_at), { addSuffix: true })}
+                </div>
+              </div>
             </div>
           ))
         )}

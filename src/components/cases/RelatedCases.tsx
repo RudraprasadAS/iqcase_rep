@@ -133,8 +133,9 @@ const RelatedCases = ({ caseId }: RelatedCasesProps) => {
         .from('cases')
         .select('id, title, status')
         .neq('id', caseId)
+        .in('status', ['open', 'in_progress', 'pending'])
         .order('created_at', { ascending: false })
-        .limit(100);
+        .limit(200);
 
       if (error) {
         console.error('Cases fetch error:', error);
@@ -297,14 +298,18 @@ const RelatedCases = ({ caseId }: RelatedCasesProps) => {
               </div>
               <div>
                 <label className="text-sm font-medium">Select Case</label>
-                <Select value={selectedCaseId} onValueChange={setSelectedCaseId}>
+                <Select 
+                  value={selectedCaseId} 
+                  onValueChange={setSelectedCaseId}
+                  open={filteredCases.length > 0}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Choose a case" />
                   </SelectTrigger>
                   <SelectContent className="max-h-60">
                     {filteredCases.length === 0 ? (
                       <div className="p-2 text-sm text-gray-500">
-                        {searchTerm ? 'No cases found matching your search' : 'No cases available'}
+                        {searchTerm ? 'No cases found matching your search' : 'No open cases available'}
                       </div>
                     ) : (
                       filteredCases.map((case_) => (
@@ -364,7 +369,7 @@ const RelatedCases = ({ caseId }: RelatedCasesProps) => {
                   </span>
                 </div>
                 <Link 
-                  to={`/citizen/cases/${relation.related_case_id}`}
+                  to={`/cases/${relation.related_case_id}`}
                   className="font-medium text-blue-600 hover:text-blue-800 hover:underline"
                 >
                   {relation.cases.title}

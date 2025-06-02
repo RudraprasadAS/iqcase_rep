@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, MapPin, X, Map } from 'lucide-react';
+import { ArrowLeft, MapPin, X, Map, Paperclip } from 'lucide-react';
 import MapPickerModal from '@/components/citizen/MapPickerModal';
 
 interface Category {
@@ -176,9 +177,10 @@ const NewCase = () => {
   };
 
   const uploadFiles = async (caseId: string) => {
-    if (files.length === 0) return;
+    if (files.length === 0) return true;
 
-    console.log('Uploading files for case:', caseId);
+    console.log('Starting file upload for case:', caseId);
+    let uploadCount = 0;
 
     for (const file of files) {
       try {
@@ -202,7 +204,7 @@ const NewCase = () => {
           .from('case-attachments')
           .getPublicUrl(fileName);
 
-        console.log('Public URL:', publicUrl);
+        console.log('Public URL generated:', publicUrl);
 
         const { error: attachmentError } = await supabase
           .from('case_attachments')
@@ -220,7 +222,8 @@ const NewCase = () => {
           throw attachmentError;
         }
 
-        console.log('Attachment record created successfully');
+        uploadCount++;
+        console.log('Attachment record created successfully for:', file.name);
       } catch (error) {
         console.error('Error uploading file:', file.name, error);
         toast({
@@ -230,6 +233,9 @@ const NewCase = () => {
         });
       }
     }
+
+    console.log(`Successfully uploaded ${uploadCount} out of ${files.length} files`);
+    return uploadCount > 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -239,6 +245,7 @@ const NewCase = () => {
     console.log('User:', user);
     console.log('Internal User ID:', internalUserId);
     console.log('Form data:', formData);
+    console.log('Files to upload:', files.length);
     
     if (!user || !internalUserId) {
       toast({
@@ -293,9 +300,11 @@ const NewCase = () => {
 
       console.log('Case created successfully:', newCase);
 
-      // Upload files after case creation
+      // Upload files if any
       if (files.length > 0) {
+        console.log('Starting file uploads...');
         await uploadFiles(newCase.id);
+        console.log('File uploads completed');
       }
 
       // Log activity
@@ -492,18 +501,33 @@ const NewCase = () => {
             <div className="space-y-2">
               <Label>Attachments (Optional)</Label>
               <div className="space-y-2">
-                <Input
-                  type="file"
-                  multiple
-                  accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.txt"
-                  onChange={handleFileChange}
-                  disabled={loading}
-                />
+                <div className="flex items-center gap-2">
+                  <label htmlFor="file-upload" className="cursor-pointer">
+                    <Button type="button" variant="outline" size="sm" asChild>
+                      <span>
+                        <Paperclip className="h-4 w-4 mr-2" />
+                        Choose Files
+                      </span>
+                    </Button>
+                  </label>
+                  <Input
+                    id="file-upload"
+                    type="file"
+                    multiple
+                    accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.txt"
+                    onChange={handleFileChange}
+                    className="hidden"
+                    disabled={loading}
+                  />
+                  <span className="text-sm text-gray-500">
+                    Max 10MB per file. Supported: JPG, PNG, PDF, DOC, TXT
+                  </span>
+                </div>
                 {files.length > 0 && (
                   <div className="space-y-2">
                     {files.map((file, index) => (
                       <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
-                        <span className="text-sm">{file.name}</span>
+                        <span className="text-sm">{file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
                         <Button
                           type="button"
                           variant="ghost"

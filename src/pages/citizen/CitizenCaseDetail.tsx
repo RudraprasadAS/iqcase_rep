@@ -138,7 +138,7 @@ const CitizenCaseDetail = () => {
         setActivities(activitiesData || []);
       }
 
-      // Fetch case attachments
+      // Fetch case attachments - only non-private ones for citizens
       const { data: attachmentsData, error: attachmentsError } = await supabase
         .from('case_attachments')
         .select('*')
