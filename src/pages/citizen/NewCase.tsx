@@ -263,25 +263,6 @@ const NewCase = () => {
     let errorCount = 0;
 
     try {
-      // Test storage connection and bucket existence first
-      console.log('[NewCase] Testing storage connection...');
-      const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
-      
-      if (bucketsError) {
-        console.error('[NewCase] Storage connection error:', bucketsError);
-        throw new Error(`Storage connection failed: ${bucketsError.message}`);
-      }
-      
-      console.log('[NewCase] Available buckets:', buckets?.map(b => b.name));
-      
-      const targetBucket = buckets?.find(b => b.name === 'case-attachments');
-      if (!targetBucket) {
-        console.error('[NewCase] case-attachments bucket not found');
-        throw new Error('Storage bucket "case-attachments" not found');
-      }
-      
-      console.log('[NewCase] Storage bucket confirmed:', targetBucket);
-
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         try {
@@ -289,24 +270,35 @@ const NewCase = () => {
           console.log('[NewCase] File details:', {
             name: file.name,
             size: file.size,
-            type: file.type
+            type: file.type,
+            lastModified: file.lastModified
           });
           
           // Generate unique filename
-          const fileExt = file.name.split('.').pop();
+          const fileExt = file.name.split('.').pop() || 'unknown';
           const timestamp = Date.now();
           const randomId = Math.random().toString(36).substring(2, 8);
           const fileName = `cases/${caseId}/${timestamp}-${randomId}.${fileExt}`;
           
           console.log('[NewCase] Storage path:', fileName);
           
+          // Convert file to ArrayBuffer to ensure proper handling
+          const fileArrayBuffer = await file.arrayBuffer();
+          const fileBlob = new Blob([fileArrayBuffer], { type: file.type });
+          
+          console.log('[NewCase] File converted to blob:', {
+            size: fileBlob.size,
+            type: fileBlob.type
+          });
+          
           // Upload to Supabase Storage
           console.log('[NewCase] Uploading to storage...');
           const { data: uploadData, error: uploadError } = await supabase.storage
             .from('case-attachments')
-            .upload(fileName, file, {
+            .upload(fileName, fileBlob, {
               cacheControl: '3600',
-              upsert: false
+              upsert: false,
+              contentType: file.type
             });
 
           if (uploadError) {
