@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
@@ -118,7 +119,6 @@ const CaseDetail = () => {
         return;
       }
 
-      console.log('Internal user ID found:', userData.id);
       setInternalUserId(userData.id);
     } catch (error) {
       console.error('Error fetching internal user ID:', error);
@@ -127,7 +127,6 @@ const CaseDetail = () => {
 
   const fetchCaseData = async () => {
     try {
-      console.log('Fetching case data for ID:', id);
       const { data, error } = await supabase
         .from('cases')
         .select(`
@@ -160,7 +159,6 @@ const CaseDetail = () => {
 
   const fetchMessages = async () => {
     try {
-      console.log('Fetching messages for case:', id);
       const { data, error } = await supabase
         .from('case_messages')
         .select(`
@@ -175,7 +173,7 @@ const CaseDetail = () => {
         throw error;
       }
       
-      console.log('Messages fetched:', data?.length || 0);
+      console.log('Messages fetched:', data);
       setMessages(data || []);
     } catch (error) {
       console.error('Error fetching messages:', error);
@@ -184,7 +182,6 @@ const CaseDetail = () => {
 
   const fetchAttachments = async () => {
     try {
-      console.log('Fetching attachments for case:', id);
       const { data, error } = await supabase
         .from('case_attachments')
         .select('*')
@@ -196,7 +193,7 @@ const CaseDetail = () => {
         throw error;
       }
 
-      console.log('Attachments fetched:', data?.length || 0, data);
+      console.log('Attachments fetched:', data);
       setAttachments(data || []);
     } catch (error) {
       console.error('Error fetching attachments:', error);
@@ -205,7 +202,6 @@ const CaseDetail = () => {
 
   const fetchActivities = async () => {
     try {
-      console.log('Fetching activities for case:', id);
       const { data, error } = await supabase
         .from('case_activities')
         .select(`
@@ -220,7 +216,7 @@ const CaseDetail = () => {
         throw error;
       }
 
-      console.log('Activities fetched:', data?.length || 0, data);
+      console.log('Activities fetched:', data);
       setActivities(data || []);
     } catch (error) {
       console.error('Error fetching activities:', error);
@@ -284,23 +280,13 @@ const CaseDetail = () => {
   };
 
   const downloadAttachment = (fileUrl: string, fileName: string) => {
-    try {
-      console.log('Downloading attachment:', fileName, fileUrl);
-      const link = document.createElement('a');
-      link.href = fileUrl;
-      link.download = fileName;
-      link.target = '_blank';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } catch (error) {
-      console.error('Download error:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to download file',
-        variant: 'destructive'
-      });
-    }
+    const link = document.createElement('a');
+    link.href = fileUrl;
+    link.download = fileName;
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const generateAIResponse = async () => {
@@ -656,22 +642,21 @@ ${conversationContext}
                   </TabsContent>
                   <TabsContent value="activities" className="space-y-4">
                     <div className="space-y-3 max-h-96 overflow-y-auto">
-                      {activities.length > 0 ? (
-                        activities.map((activity) => (
-                          <div key={activity.id} className="border-l-2 border-muted pl-4">
-                            <div className="text-sm font-medium">{activity.activity_type.replace('_', ' ')}</div>
-                            {activity.description && (
-                              <div className="text-sm text-muted-foreground">{activity.description}</div>
+                      {activities.map((activity) => (
+                        <div key={activity.id} className="border-l-2 border-muted pl-4">
+                          <div className="text-sm font-medium">{activity.activity_type.replace('_', ' ')}</div>
+                          {activity.description && (
+                            <div className="text-sm text-muted-foreground">{activity.description}</div>
+                          )}
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {formatDateTime(activity.created_at)} by {activity.users?.name || activity.users?.email || activity.performed_by}
+                            {activity.duration_minutes && (
+                              <span className="ml-2">({activity.duration_minutes} min)</span>
                             )}
-                            <div className="text-xs text-muted-foreground mt-1">
-                              {formatDateTime(activity.created_at)} by {activity.users?.name || activity.users?.email || activity.performed_by}
-                              {activity.duration_minutes && (
-                                <span className="ml-2">({activity.duration_minutes} min)</span>
-                              )}
-                            </div>
                           </div>
-                        ))
-                      ) : (
+                        </div>
+                      ))}
+                      {activities.length === 0 && (
                         <div className="text-center text-muted-foreground py-4">
                           No activities yet
                         </div>
@@ -693,29 +678,28 @@ ${conversationContext}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                {attachments.length > 0 ? (
-                  attachments.map((attachment) => (
-                    <div key={attachment.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div className="flex items-center space-x-3">
-                        <Paperclip className="h-4 w-4 text-gray-400" />
-                        <div>
-                          <p className="text-sm font-medium">{attachment.file_name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            Uploaded {formatDistanceToNow(new Date(attachment.created_at), { addSuffix: true })}
-                          </p>
-                        </div>
+                {attachments.map((attachment) => (
+                  <div key={attachment.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <Paperclip className="h-4 w-4 text-gray-400" />
+                      <div>
+                        <p className="text-sm font-medium">{attachment.file_name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Uploaded {formatDistanceToNow(new Date(attachment.created_at), { addSuffix: true })}
+                        </p>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => downloadAttachment(attachment.file_url, attachment.file_name)}
-                      >
-                        <Download className="h-4 w-4 mr-1" />
-                        Download
-                      </Button>
                     </div>
-                  ))
-                ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => downloadAttachment(attachment.file_url, attachment.file_name)}
+                    >
+                      <Download className="h-4 w-4 mr-1" />
+                      Download
+                    </Button>
+                  </div>
+                ))}
+                {attachments.length === 0 && (
                   <div className="text-center text-muted-foreground py-4">
                     No attachments
                   </div>
