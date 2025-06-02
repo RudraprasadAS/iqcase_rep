@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -352,7 +351,7 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
           tasks.map((task) => (
             <div key={task.id} className="p-3 border rounded-lg space-y-2">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-1">
                   <Button
                     variant="ghost"
                     size="sm"
@@ -365,12 +364,21 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
                   >
                     <Check className={`h-4 w-4 ${task.status === 'completed' ? 'opacity-100' : 'opacity-30'}`} />
                   </Button>
-                  <span className={`font-medium ${task.status === 'completed' ? 'line-through text-gray-500' : ''}`}>
+                  <span 
+                    className={`font-medium cursor-pointer flex-1 ${
+                      task.status === 'completed' 
+                        ? 'line-through text-green-600' 
+                        : 'text-gray-900 hover:text-gray-700'
+                    }`}
+                    onClick={() => toggleTaskComplete(task.id, task.status)}
+                  >
                     {task.task_name}
                   </span>
-                  <Badge className={getStatusColor(task.status)} variant="secondary">
-                    {task.status.replace('_', ' ')}
-                  </Badge>
+                  {task.status === 'completed' && (
+                    <Badge className="bg-green-100 text-green-800" variant="secondary">
+                      Completed
+                    </Badge>
+                  )}
                 </div>
                 <Button
                   size="sm"
