@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -187,11 +186,15 @@ const NewCase = () => {
         const fileExt = file.name.split('.').pop();
         const fileName = `${caseId}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
         
-        console.log('Uploading file:', fileName);
+        console.log('Uploading file to bucket:', fileName);
         
+        // Upload to Supabase storage
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('case-attachments')
-          .upload(fileName, file);
+          .upload(fileName, file, {
+            cacheControl: '3600',
+            upsert: false
+          });
 
         if (uploadError) {
           console.error('File upload error:', uploadError);
@@ -200,12 +203,14 @@ const NewCase = () => {
 
         console.log('Upload successful:', uploadData);
 
+        // Get public URL
         const { data: { publicUrl } } = supabase.storage
           .from('case-attachments')
           .getPublicUrl(fileName);
 
         console.log('Public URL generated:', publicUrl);
 
+        // Insert attachment record
         const { error: attachmentError } = await supabase
           .from('case_attachments')
           .insert({
@@ -303,13 +308,8 @@ const NewCase = () => {
       // Upload files if any
       if (files.length > 0) {
         console.log('Starting file uploads...');
-        try {
-          await uploadFiles(newCase.id);
-          console.log('File uploads completed');
-        } catch (uploadError) {
-          console.error('File upload failed:', uploadError);
-          // Continue even if file upload fails
-        }
+        await uploadFiles(newCase.id);
+        console.log('File uploads completed');
       }
 
       // Log activity

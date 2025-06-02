@@ -120,23 +120,6 @@ const CitizenCaseDetail = () => {
         assigned_to_user: caseData.assigned_users
       });
 
-      // Fetch case activities
-      const { data: activitiesData, error: activitiesError } = await supabase
-        .from('case_activities')
-        .select(`
-          *,
-          users!case_activities_performed_by_fkey(name)
-        `)
-        .eq('case_id', id)
-        .order('created_at', { ascending: false });
-
-      if (activitiesError) {
-        console.error('Activities fetch error:', activitiesError);
-      } else {
-        console.log('Activities loaded:', activitiesData?.length || 0);
-        setActivities(activitiesData || []);
-      }
-
       // Fetch case attachments - only non-private ones for citizens
       const { data: attachmentsData, error: attachmentsError } = await supabase
         .from('case_attachments')
