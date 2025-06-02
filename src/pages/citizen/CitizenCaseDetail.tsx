@@ -7,7 +7,7 @@ import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Calendar, MapPin, User, Tag, Clock, Paperclip, Download } from 'lucide-react';
+import { ArrowLeft, Calendar, MapPin, User, Tag, Clock, Paperclip, Download, FileText } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import StatusBadge from '@/components/cases/StatusBadge';
 import PriorityBadge from '@/components/cases/PriorityBadge';
@@ -147,6 +147,11 @@ const CitizenCaseDetail = () => {
 
       if (attachmentsError) {
         console.error('Attachments fetch error:', attachmentsError);
+        toast({
+          title: 'Warning',
+          description: 'Failed to load attachments',
+          variant: 'destructive'
+        });
       } else {
         console.log('Attachments loaded:', attachmentsData?.length || 0);
         setAttachments(attachmentsData || []);
@@ -165,14 +170,49 @@ const CitizenCaseDetail = () => {
     }
   };
 
-  const downloadAttachment = (fileUrl: string, fileName: string) => {
-    const link = document.createElement('a');
-    link.href = fileUrl;
-    link.download = fileName;
-    link.target = '_blank';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const downloadAttachment = async (fileUrl: string, fileName: string) => {
+    try {
+      // Create a temporary link to download the file
+      const response = await fetch(fileUrl);
+      if (!response.ok) {
+        throw new Error('Failed to fetch file');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      toast({
+        title: 'Download started',
+        description: `Downloading ${fileName}`,
+      });
+    } catch (error) {
+      console.error('Download error:', error);
+      toast({
+        title: 'Download failed',
+        description: 'Failed to download the file',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const getFileIcon = (fileType: string) => {
+    if (fileType?.startsWith('image/')) {
+      return '🖼️';
+    } else if (fileType?.includes('pdf')) {
+      return '📄';
+    } else if (fileType?.includes('word') || fileType?.includes('document')) {
+      return '📝';
+    } else if (fileType?.includes('text')) {
+      return '📃';
+    }
+    return '📎';
   };
 
   if (loading) {
@@ -247,18 +287,23 @@ const CitizenCaseDetail = () => {
 
               {attachments.length > 0 && (
                 <div>
-                  <h4 className="font-medium mb-2 flex items-center gap-2">
-                    <Paperclip className="h-4 w-4" />
+                  <h4 className="font-medium mb-3 flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
                     Attachments ({attachments.length})
                   </h4>
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {attachments.map((attachment) => (
-                      <div key={attachment.id} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
-                        <div className="flex items-center gap-2">
-                          <Paperclip className="h-4 w-4 text-gray-400" />
+                      <div key={attachment.id} className="flex items-center justify-between bg-gray-50 border border-gray-200 p-4 rounded-lg hover:bg-gray-100 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className="text-2xl">
+                            {getFileIcon(attachment.file_type)}
+                          </div>
                           <div>
-                            <p className="text-sm font-medium">{attachment.file_name}</p>
+                            <p className="text-sm font-medium text-gray-900">{attachment.file_name}</p>
                             <p className="text-xs text-gray-500">
+                              {attachment.file_type && (
+                                <span className="mr-2">{attachment.file_type}</span>
+                              )}
                               Uploaded {formatDistanceToNow(new Date(attachment.created_at), { addSuffix: true })}
                             </p>
                           </div>
@@ -267,6 +312,7 @@ const CitizenCaseDetail = () => {
                           variant="outline"
                           size="sm"
                           onClick={() => downloadAttachment(attachment.file_url, attachment.file_name)}
+                          className="hover:bg-blue-50 hover:border-blue-200"
                         >
                           <Download className="h-4 w-4 mr-1" />
                           Download

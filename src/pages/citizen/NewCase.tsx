@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, MapPin, X, Map, Paperclip } from 'lucide-react';
+import { ArrowLeft, MapPin, X, Map, Paperclip, Upload } from 'lucide-react';
 import MapPickerModal from '@/components/citizen/MapPickerModal';
 
 interface Category {
@@ -32,6 +31,7 @@ const NewCase = () => {
   const { toast } = useToast();
   
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [locationData, setLocationData] = useState<LocationData>({
     latitude: null,
@@ -180,62 +180,97 @@ const NewCase = () => {
     if (files.length === 0) return true;
 
     console.log('Starting file upload for case:', caseId);
+    setUploading(true);
     let uploadCount = 0;
 
-    for (const file of files) {
-      try {
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${caseId}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-        
-        console.log('Uploading file:', fileName);
-        
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('case-attachments')
-          .upload(fileName, file);
+    try {
+      for (const file of files) {
+        try {
+          // Validate file size (10MB limit)
+          if (file.size > 10 * 1024 * 1024) {
+            toast({
+              title: 'File too large',
+              description: `${file.name} exceeds 10MB limit`,
+              variant: 'destructive'
+            });
+            continue;
+          }
 
-        if (uploadError) {
-          console.error('File upload error:', uploadError);
-          throw uploadError;
-        }
+          const fileExt = file.name.split('.').pop();
+          const fileName = `${caseId}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+          
+          console.log('Uploading file:', fileName, 'Size:', file.size);
+          
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('case-attachments')
+            .upload(fileName, file, {
+              cacheControl: '3600',
+              upsert: false
+            });
 
-        console.log('Upload successful:', uploadData);
+          if (uploadError) {
+            console.error('File upload error:', uploadError);
+            toast({
+              title: 'Upload failed',
+              description: `Failed to upload ${file.name}: ${uploadError.message}`,
+              variant: 'destructive'
+            });
+            continue;
+          }
 
-        const { data: { publicUrl } } = supabase.storage
-          .from('case-attachments')
-          .getPublicUrl(fileName);
+          console.log('Upload successful:', uploadData);
 
-        console.log('Public URL generated:', publicUrl);
+          const { data: { publicUrl } } = supabase.storage
+            .from('case-attachments')
+            .getPublicUrl(fileName);
 
-        const { error: attachmentError } = await supabase
-          .from('case_attachments')
-          .insert({
-            case_id: caseId,
-            file_name: file.name,
-            file_url: publicUrl,
-            file_type: file.type,
-            uploaded_by: internalUserId,
-            is_private: false
+          console.log('Public URL generated:', publicUrl);
+
+          const { error: attachmentError } = await supabase
+            .from('case_attachments')
+            .insert({
+              case_id: caseId,
+              file_name: file.name,
+              file_url: publicUrl,
+              file_type: file.type,
+              uploaded_by: internalUserId,
+              is_private: false
+            });
+
+          if (attachmentError) {
+            console.error('Attachment record error:', attachmentError);
+            toast({
+              title: 'Database error',
+              description: `Failed to save attachment record for ${file.name}`,
+              variant: 'destructive'
+            });
+            continue;
+          }
+
+          uploadCount++;
+          console.log('Attachment record created successfully for:', file.name);
+        } catch (error) {
+          console.error('Error uploading file:', file.name, error);
+          toast({
+            title: 'Upload error',
+            description: `Failed to upload ${file.name}`,
+            variant: 'destructive'
           });
-
-        if (attachmentError) {
-          console.error('Attachment record error:', attachmentError);
-          throw attachmentError;
         }
+      }
 
-        uploadCount++;
-        console.log('Attachment record created successfully for:', file.name);
-      } catch (error) {
-        console.error('Error uploading file:', file.name, error);
+      if (uploadCount > 0) {
         toast({
-          title: 'Warning',
-          description: `Failed to upload ${file.name}`,
-          variant: 'destructive'
+          title: 'Files uploaded',
+          description: `Successfully uploaded ${uploadCount} out of ${files.length} files`,
         });
       }
-    }
 
-    console.log(`Successfully uploaded ${uploadCount} out of ${files.length} files`);
-    return uploadCount > 0;
+      console.log(`Successfully uploaded ${uploadCount} out of ${files.length} files`);
+      return uploadCount > 0;
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -513,10 +548,10 @@ const NewCase = () => {
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <label htmlFor="file-upload" className="cursor-pointer">
-                    <Button type="button" variant="outline" size="sm" asChild>
+                    <Button type="button" variant="outline" size="sm" asChild disabled={uploading}>
                       <span>
-                        <Paperclip className="h-4 w-4 mr-2" />
-                        Choose Files
+                        <Upload className="h-4 w-4 mr-2" />
+                        {uploading ? 'Uploading...' : 'Choose Files'}
                       </span>
                     </Button>
                   </label>
@@ -527,7 +562,7 @@ const NewCase = () => {
                     accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.txt"
                     onChange={handleFileChange}
                     className="hidden"
-                    disabled={loading}
+                    disabled={loading || uploading}
                   />
                   <span className="text-sm text-gray-500">
                     Max 10MB per file. Supported: JPG, PNG, PDF, DOC, TXT
@@ -535,14 +570,24 @@ const NewCase = () => {
                 </div>
                 {files.length > 0 && (
                   <div className="space-y-2">
+                    <p className="text-sm font-medium">Selected files ({files.length}):</p>
                     {files.map((file, index) => (
-                      <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
-                        <span className="text-sm">{file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+                      <div key={index} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <Paperclip className="h-4 w-4 text-gray-400" />
+                          <div>
+                            <p className="text-sm font-medium">{file.name}</p>
+                            <p className="text-xs text-gray-500">
+                              {(file.size / 1024 / 1024).toFixed(2)} MB • {file.type || 'Unknown type'}
+                            </p>
+                          </div>
+                        </div>
                         <Button
                           type="button"
                           variant="ghost"
                           size="sm"
                           onClick={() => removeFile(index)}
+                          disabled={uploading}
                         >
                           <X className="h-4 w-4" />
                         </Button>
@@ -558,16 +603,16 @@ const NewCase = () => {
                 type="button"
                 variant="outline"
                 onClick={() => navigate('/citizen/dashboard')}
-                disabled={loading}
+                disabled={loading || uploading}
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
-                disabled={loading}
+                disabled={loading || uploading}
                 className="bg-blue-600 hover:bg-blue-700"
               >
-                {loading ? 'Submitting...' : 'Submit Case'}
+                {loading ? 'Submitting...' : uploading ? 'Uploading files...' : 'Submit Case'}
               </Button>
             </div>
           </form>
