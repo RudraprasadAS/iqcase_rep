@@ -260,7 +260,7 @@ const NewCase = () => {
           const fileExt = file.name.split('.').pop();
           const timestamp = Date.now();
           const randomId = Math.random().toString(36).substring(2, 8);
-          const fileName = `${caseId}/${timestamp}-${randomId}.${fileExt}`;
+          const fileName = `cases/${caseId}/${timestamp}-${randomId}.${fileExt}`;
           
           console.log('[NewCase] Storage path:', fileName);
           
