@@ -3,9 +3,10 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, Clock, CheckCircle, FileText, Search, Users, Settings } from 'lucide-react';
+import { AlertCircle, Clock, CheckCircle, FileText, Search, Users, Settings, TrendingUp, Calendar } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 
 interface DashboardStats {
   totalCases: number;
@@ -13,6 +14,12 @@ interface DashboardStats {
   inProgressCases: number;
   resolvedCases: number;
   overdueCases: number;
+}
+
+interface ChartData {
+  name: string;
+  value: number;
+  color?: string;
 }
 
 const Dashboard = () => {
@@ -23,12 +30,15 @@ const Dashboard = () => {
     resolvedCases: 0,
     overdueCases: 0
   });
+  const [priorityData, setPriorityData] = useState<ChartData[]>([]);
+  const [monthlyData, setMonthlyData] = useState<ChartData[]>([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchDashboardStats();
+    fetchChartData();
   }, []);
 
   const fetchDashboardStats = async () => {
@@ -72,6 +82,53 @@ const Dashboard = () => {
       console.error('Error fetching dashboard stats:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchChartData = async () => {
+    try {
+      // Fetch priority distribution
+      const { data: priorityStats } = await supabase
+        .from('cases')
+        .select('priority')
+        .not('status', 'eq', 'closed');
+
+      const priorityCounts = priorityStats?.reduce((acc: Record<string, number>, case_) => {
+        acc[case_.priority] = (acc[case_.priority] || 0) + 1;
+        return acc;
+      }, {});
+
+      const priorityChartData = Object.entries(priorityCounts || {}).map(([priority, count]) => ({
+        name: priority,
+        value: count as number,
+        color: priority === 'high' ? '#ef4444' : priority === 'medium' ? '#f59e0b' : '#10b981'
+      }));
+
+      setPriorityData(priorityChartData);
+
+      // Fetch monthly case creation trend (last 6 months)
+      const sixMonthsAgo = new Date();
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+      const { data: monthlyCases } = await supabase
+        .from('cases')
+        .select('created_at')
+        .gte('created_at', sixMonthsAgo.toISOString());
+
+      const monthlyStats = monthlyCases?.reduce((acc: Record<string, number>, case_) => {
+        const month = new Date(case_.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        acc[month] = (acc[month] || 0) + 1;
+        return acc;
+      }, {});
+
+      const monthlyChartData = Object.entries(monthlyStats || {}).map(([month, count]) => ({
+        name: month,
+        value: count as number
+      }));
+
+      setMonthlyData(monthlyChartData);
+    } catch (error) {
+      console.error('Error fetching chart data:', error);
     }
   };
 
@@ -132,6 +189,7 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalCases}</div>
+            <p className="text-xs text-muted-foreground">All time</p>
           </CardContent>
         </Card>
 
@@ -142,6 +200,7 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-600">{stats.openCases}</div>
+            <p className="text-xs text-muted-foreground">Needs attention</p>
           </CardContent>
         </Card>
 
@@ -152,6 +211,7 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-yellow-600">{stats.inProgressCases}</div>
+            <p className="text-xs text-muted-foreground">Being worked on</p>
           </CardContent>
         </Card>
 
@@ -162,6 +222,7 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">{stats.resolvedCases}</div>
+            <p className="text-xs text-muted-foreground">Completed</p>
           </CardContent>
         </Card>
 
@@ -172,6 +233,66 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-600">{stats.overdueCases}</div>
+            <p className="text-xs text-muted-foreground">Past SLA</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <TrendingUp className="h-5 w-5 mr-2" />
+              Case Priority Distribution
+            </CardTitle>
+            <CardDescription>Current open cases by priority level</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={priorityData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {priorityData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Calendar className="h-5 w-5 mr-2" />
+              Monthly Case Trend
+            </CardTitle>
+            <CardDescription>Cases created over the last 6 months</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={monthlyData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Line type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={2} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -190,7 +311,7 @@ const Dashboard = () => {
               <Button
                 key={index}
                 variant="outline"
-                className="h-auto p-4 flex flex-col items-center space-y-2"
+                className="h-auto p-4 flex flex-col items-center space-y-2 hover:shadow-md transition-shadow"
                 onClick={action.action}
               >
                 <div className={`p-2 rounded-full ${action.color}`}>

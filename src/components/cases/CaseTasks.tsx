@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { CheckSquare, Plus, Calendar, User, X } from 'lucide-react';
+import { CheckSquare, Plus, Calendar, User, X, Check } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { formatDistanceToNow } from 'date-fns';
@@ -187,8 +187,10 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
     }
   };
 
-  const updateTaskStatus = async (taskId: string, newStatus: string) => {
+  const toggleTaskComplete = async (taskId: string, currentStatus: string) => {
     if (!internalUserId) return;
+
+    const newStatus = currentStatus === 'completed' ? 'open' : 'completed';
 
     try {
       const { error } = await supabase
@@ -207,14 +209,14 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
         .insert({
           case_id: caseId,
           activity_type: 'task_updated',
-          description: `Task status changed to: ${newStatus}`,
+          description: `Task marked as ${newStatus}`,
           performed_by: internalUserId
         });
 
       await fetchTasks();
       toast({
         title: "Success",
-        description: "Task status updated"
+        description: `Task marked as ${newStatus}`
       });
     } catch (error) {
       console.error('Error updating task:', error);
@@ -350,37 +352,36 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
           tasks.map((task) => (
             <div key={task.id} className="p-3 border rounded-lg space-y-2">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Badge className={getStatusColor(task.status)}>
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => toggleTaskComplete(task.id, task.status)}
+                    className={`p-1 h-8 w-8 ${
+                      task.status === 'completed' 
+                        ? 'bg-green-100 text-green-600 hover:bg-green-200' 
+                        : 'hover:bg-gray-100'
+                    }`}
+                  >
+                    <Check className={`h-4 w-4 ${task.status === 'completed' ? 'opacity-100' : 'opacity-30'}`} />
+                  </Button>
+                  <span className={`font-medium ${task.status === 'completed' ? 'line-through text-gray-500' : ''}`}>
+                    {task.task_name}
+                  </span>
+                  <Badge className={getStatusColor(task.status)} variant="secondary">
                     {task.status.replace('_', ' ')}
                   </Badge>
-                  <span className="font-medium">{task.task_name}</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Select
-                    value={task.status}
-                    onValueChange={(value) => updateTaskStatus(task.id, value)}
-                  >
-                    <SelectTrigger className="w-32">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="open">Open</SelectItem>
-                      <SelectItem value="in_progress">In Progress</SelectItem>
-                      <SelectItem value="completed">Completed</SelectItem>
-                      <SelectItem value="cancelled">Cancelled</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => deleteTask(task.id)}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => deleteTask(task.id)}
+                  className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <div className="flex items-center gap-4 text-sm text-muted-foreground ml-11">
                 {task.assigned_to && (
                   <div className="flex items-center gap-1">
                     <User className="h-4 w-4" />

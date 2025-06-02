@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
@@ -638,7 +637,7 @@ ${conversationContext}
                     </div>
                   </TabsContent>
                   <TabsContent value="notes" className="space-y-4">
-                    <InternalNotes caseId={caseData.id} />
+                    <InternalNotes caseId={caseData.id} onActivityUpdate={fetchActivities} />
                   </TabsContent>
                   <TabsContent value="activities" className="space-y-4">
                     <div className="space-y-3 max-h-96 overflow-y-auto">

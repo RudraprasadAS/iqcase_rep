@@ -23,9 +23,10 @@ interface Note {
 
 interface InternalNotesProps {
   caseId: string;
+  onActivityUpdate?: () => void;
 }
 
-const InternalNotes = ({ caseId }: InternalNotesProps) => {
+const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
   const [notes, setNotes] = useState<Note[]>([]);
   const [newNote, setNewNote] = useState('');
   const [loading, setLoading] = useState(true);
@@ -134,6 +135,11 @@ const InternalNotes = ({ caseId }: InternalNotesProps) => {
 
       setNewNote('');
       await fetchNotes();
+      
+      // Call the callback to refresh activities in the parent component
+      if (onActivityUpdate) {
+        onActivityUpdate();
+      }
       
       toast({
         title: "Success",
