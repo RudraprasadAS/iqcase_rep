@@ -317,7 +317,7 @@ const CitizenDashboard = () => {
             </Button>
           </div>
         </CardContent>
-      </div>
+      </Card>
     </div>
   );
 };
