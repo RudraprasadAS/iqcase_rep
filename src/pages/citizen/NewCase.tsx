@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -100,6 +99,33 @@ const NewCase = () => {
       toast({
         title: 'Error',
         description: 'Failed to load user information',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      console.log('[NewCase] Fetching categories...');
+      const { data: categoriesData, error: categoriesError } = await supabase
+        .from('case_categories')
+        .select('id, name, description')
+        .eq('is_active', true)
+        .order('name');
+
+      if (categoriesError) {
+        console.error('[NewCase] Categories fetch error:', categoriesError);
+        throw categoriesError;
+      }
+
+      console.log('[NewCase] Categories fetched:', categoriesData?.length || 0);
+      setCategories(categoriesData || []);
+
+    } catch (error) {
+      console.error('[NewCase] Error fetching categories:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load categories',
         variant: 'destructive'
       });
     }
