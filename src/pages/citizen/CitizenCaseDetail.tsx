@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,14 +31,6 @@ interface CaseData {
   assigned_to_user: { name: string } | null;
 }
 
-interface Activity {
-  id: string;
-  activity_type: string;
-  description: string;
-  created_at: string;
-  users: { name: string } | null;
-}
-
 interface Attachment {
   id: string;
   file_name: string;
@@ -54,7 +47,6 @@ const CitizenCaseDetail = () => {
   const { toast } = useToast();
   
   const [caseData, setCaseData] = useState<CaseData | null>(null);
-  const [activities, setActivities] = useState<Activity[]>([]);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -121,6 +113,7 @@ const CitizenCaseDetail = () => {
       });
 
       // Fetch case attachments - only non-private ones for citizens
+      console.log('Fetching attachments for case:', id);
       const { data: attachmentsData, error: attachmentsError } = await supabase
         .from('case_attachments')
         .select('*')
@@ -131,7 +124,7 @@ const CitizenCaseDetail = () => {
       if (attachmentsError) {
         console.error('Attachments fetch error:', attachmentsError);
       } else {
-        console.log('Attachments loaded:', attachmentsData?.length || 0);
+        console.log('Attachments loaded:', attachmentsData?.length || 0, attachmentsData);
         setAttachments(attachmentsData || []);
       }
 
@@ -149,13 +142,23 @@ const CitizenCaseDetail = () => {
   };
 
   const downloadAttachment = (fileUrl: string, fileName: string) => {
-    const link = document.createElement('a');
-    link.href = fileUrl;
-    link.download = fileName;
-    link.target = '_blank';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    try {
+      console.log('Downloading attachment:', fileName, fileUrl);
+      const link = document.createElement('a');
+      link.href = fileUrl;
+      link.download = fileName;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Download error:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to download file',
+        variant: 'destructive'
+      });
+    }
   };
 
   if (loading) {

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -76,6 +77,7 @@ const NewCase = () => {
 
       if (userData) {
         setInternalUserId(userData.id);
+        console.log('Internal user ID found:', userData.id);
       }
     } catch (error) {
       console.error('Error fetching internal user ID:', error);
@@ -167,6 +169,7 @@ const NewCase = () => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const selectedFiles = Array.from(e.target.files);
+      console.log('Files selected:', selectedFiles.length);
       setFiles(prev => [...prev, ...selectedFiles]);
     }
   };
@@ -176,19 +179,24 @@ const NewCase = () => {
   };
 
   const uploadFiles = async (caseId: string) => {
-    if (files.length === 0) return true;
+    if (files.length === 0) {
+      console.log('No files to upload');
+      return true;
+    }
 
-    console.log('Starting file upload for case:', caseId);
+    console.log('Starting file upload for case:', caseId, 'Files:', files.length);
     let uploadCount = 0;
 
     for (const file of files) {
       try {
         const fileExt = file.name.split('.').pop();
-        const fileName = `${caseId}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+        const timestamp = Date.now();
+        const randomId = Math.random().toString(36).substring(2);
+        const fileName = `${caseId}/${timestamp}-${randomId}.${fileExt}`;
         
-        console.log('Uploading file to bucket:', fileName);
+        console.log('Uploading file to bucket case-attachments:', fileName, 'Size:', file.size);
         
-        // Upload to Supabase storage
+        // Upload to Supabase storage with proper error handling
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('case-attachments')
           .upload(fileName, file, {
@@ -210,7 +218,7 @@ const NewCase = () => {
 
         console.log('Public URL generated:', publicUrl);
 
-        // Insert attachment record
+        // Insert attachment record with proper user ID
         const { error: attachmentError } = await supabase
           .from('case_attachments')
           .insert({
@@ -219,7 +227,7 @@ const NewCase = () => {
             file_url: publicUrl,
             file_type: file.type,
             uploaded_by: internalUserId,
-            is_private: false
+            is_private: false // Make sure it's not private for citizens
           });
 
         if (attachmentError) {
@@ -308,8 +316,8 @@ const NewCase = () => {
       // Upload files if any
       if (files.length > 0) {
         console.log('Starting file uploads...');
-        await uploadFiles(newCase.id);
-        console.log('File uploads completed');
+        const uploadSuccess = await uploadFiles(newCase.id);
+        console.log('File uploads completed, success:', uploadSuccess);
       }
 
       // Log activity
@@ -322,6 +330,7 @@ const NewCase = () => {
             description: 'Case submitted by citizen',
             performed_by: internalUserId
           });
+        console.log('Activity logged successfully');
       } catch (activityError) {
         console.error('Activity logging failed:', activityError);
         // Continue even if activity logging fails
@@ -535,6 +544,7 @@ const NewCase = () => {
                 </div>
                 {files.length > 0 && (
                   <div className="space-y-2">
+                    <p className="text-sm font-medium">{files.length} file(s) selected:</p>
                     {files.map((file, index) => (
                       <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
                         <span className="text-sm">{file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
