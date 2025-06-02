@@ -54,6 +54,7 @@ const NewCase = () => {
   });
 
   useEffect(() => {
+    console.log('[NewCase] Component mounted, user:', user?.id);
     if (user) {
       fetchInternalUserId();
     }
@@ -62,7 +63,10 @@ const NewCase = () => {
   }, [user]);
 
   const fetchInternalUserId = async () => {
-    if (!user) return;
+    if (!user) {
+      console.log('[NewCase] No user available for internal ID lookup');
+      return;
+    }
 
     try {
       console.log('[NewCase] Fetching internal user ID for auth user:', user.id);
@@ -72,6 +76,8 @@ const NewCase = () => {
         .select('id')
         .eq('auth_user_id', user.id)
         .maybeSingle();
+
+      console.log('[NewCase] User lookup response:', { userData, userError });
 
       if (userError) {
         console.error('[NewCase] User lookup error:', userError);
@@ -113,6 +119,8 @@ const NewCase = () => {
         .eq('is_active', true)
         .order('name');
 
+      console.log('[NewCase] Categories response:', { categoriesData, categoriesError });
+
       if (categoriesError) {
         console.error('[NewCase] Categories fetch error:', categoriesError);
         throw categoriesError;
@@ -133,7 +141,7 @@ const NewCase = () => {
 
   const requestGeolocation = () => {
     if (!navigator.geolocation) {
-      console.log('Geolocation is not supported by this browser');
+      console.log('[NewCase] Geolocation is not supported by this browser');
       return;
     }
 
@@ -141,7 +149,7 @@ const NewCase = () => {
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude, longitude } = position.coords;
-        console.log('Got location:', latitude, longitude);
+        console.log('[NewCase] Got location:', latitude, longitude);
         
         try {
           const response = await fetch(
@@ -155,7 +163,7 @@ const NewCase = () => {
             formatted_address: data.display_name || `${latitude}, ${longitude}`
           });
         } catch (error) {
-          console.error('Reverse geocoding failed:', error);
+          console.error('[NewCase] Reverse geocoding failed:', error);
           setLocationData({
             latitude,
             longitude,
@@ -165,7 +173,7 @@ const NewCase = () => {
         setGettingLocation(false);
       },
       (error) => {
-        console.error('Geolocation error:', error);
+        console.error('[NewCase] Geolocation error:', error);
         setGettingLocation(false);
         toast({
           title: 'Location Access',
@@ -244,17 +252,45 @@ const NewCase = () => {
       return true;
     }
 
-    console.log('[NewCase] Starting file upload for case:', caseId, 'Files:', files.length);
+    console.log('[NewCase] ==================== STARTING FILE UPLOAD ====================');
+    console.log('[NewCase] Case ID:', caseId);
+    console.log('[NewCase] Files to upload:', files.length);
+    console.log('[NewCase] Internal User ID:', internalUserId);
+    
     setUploadingFiles(true);
     
     let successCount = 0;
     let errorCount = 0;
 
     try {
+      // Test storage connection and bucket existence first
+      console.log('[NewCase] Testing storage connection...');
+      const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
+      
+      if (bucketsError) {
+        console.error('[NewCase] Storage connection error:', bucketsError);
+        throw new Error(`Storage connection failed: ${bucketsError.message}`);
+      }
+      
+      console.log('[NewCase] Available buckets:', buckets?.map(b => b.name));
+      
+      const targetBucket = buckets?.find(b => b.name === 'case-attachments');
+      if (!targetBucket) {
+        console.error('[NewCase] case-attachments bucket not found');
+        throw new Error('Storage bucket "case-attachments" not found');
+      }
+      
+      console.log('[NewCase] Storage bucket confirmed:', targetBucket);
+
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         try {
-          console.log(`[NewCase] Uploading file ${i + 1}/${files.length}:`, file.name);
+          console.log(`[NewCase] ========== Processing file ${i + 1}/${files.length} ==========`);
+          console.log('[NewCase] File details:', {
+            name: file.name,
+            size: file.size,
+            type: file.type
+          });
           
           // Generate unique filename
           const fileExt = file.name.split('.').pop();
@@ -263,22 +299,6 @@ const NewCase = () => {
           const fileName = `cases/${caseId}/${timestamp}-${randomId}.${fileExt}`;
           
           console.log('[NewCase] Storage path:', fileName);
-          
-          // Test storage connection first
-          const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
-          if (bucketsError) {
-            console.error('[NewCase] Storage connection error:', bucketsError);
-            throw new Error(`Storage connection failed: ${bucketsError.message}`);
-          }
-          
-          console.log('[NewCase] Available buckets:', buckets?.map(b => b.name));
-          
-          // Check if case-attachments bucket exists
-          const targetBucket = buckets?.find(b => b.name === 'case-attachments');
-          if (!targetBucket) {
-            console.error('[NewCase] case-attachments bucket not found');
-            throw new Error('Storage bucket not found');
-          }
           
           // Upload to Supabase Storage
           console.log('[NewCase] Uploading to storage...');
@@ -311,16 +331,20 @@ const NewCase = () => {
 
           // Create database record
           console.log('[NewCase] Creating attachment record in database...');
+          const attachmentRecord = {
+            case_id: caseId,
+            file_name: file.name,
+            file_url: publicUrl,
+            file_type: file.type,
+            uploaded_by: internalUserId,
+            is_private: false
+          };
+          
+          console.log('[NewCase] Attachment record data:', attachmentRecord);
+          
           const { data: attachmentData, error: attachmentError } = await supabase
             .from('case_attachments')
-            .insert({
-              case_id: caseId,
-              file_name: file.name,
-              file_url: publicUrl,
-              file_type: file.type,
-              uploaded_by: internalUserId,
-              is_private: false
-            })
+            .insert(attachmentRecord)
             .select()
             .single();
 
@@ -329,7 +353,7 @@ const NewCase = () => {
             throw new Error(`Database error: ${attachmentError.message}`);
           }
 
-          console.log('[NewCase] Attachment record created:', attachmentData);
+          console.log('[NewCase] Attachment record created successfully:', attachmentData);
           successCount++;
           
         } catch (error: any) {
@@ -343,6 +367,11 @@ const NewCase = () => {
         }
       }
 
+      console.log(`[NewCase] ==================== UPLOAD SUMMARY ====================`);
+      console.log(`[NewCase] Successful uploads: ${successCount}`);
+      console.log(`[NewCase] Failed uploads: ${errorCount}`);
+      console.log(`[NewCase] Total files processed: ${files.length}`);
+
       if (successCount > 0) {
         toast({
           title: 'Files Uploaded',
@@ -350,7 +379,6 @@ const NewCase = () => {
         });
       }
 
-      console.log(`[NewCase] Upload summary: ${successCount} success, ${errorCount} errors`);
       return successCount > 0;
       
     } catch (error: any) {
@@ -371,13 +399,16 @@ const NewCase = () => {
     
     setSubmitAttempted(true);
     
-    console.log('[NewCase] Starting case submission...');
+    console.log('[NewCase] ==================== STARTING CASE SUBMISSION ====================');
     console.log('[NewCase] User:', user?.id);
     console.log('[NewCase] Internal User ID:', internalUserId);
     console.log('[NewCase] Form data:', formData);
     console.log('[NewCase] Files to upload:', files.length);
+    console.log('[NewCase] Location data:', locationData);
+    console.log('[NewCase] Tags:', tags);
     
     if (!user || !internalUserId) {
+      console.error('[NewCase] Missing authentication data:', { user: !!user, internalUserId: !!internalUserId });
       toast({
         title: 'Authentication Error',
         description: 'You must be logged in to submit a case',
@@ -387,6 +418,10 @@ const NewCase = () => {
     }
 
     if (!formData.title.trim() || !formData.description.trim()) {
+      console.error('[NewCase] Missing required form data:', {
+        title: formData.title.trim(),
+        description: formData.description.trim()
+      });
       toast({
         title: 'Validation Error',
         description: 'Please fill in all required fields',
@@ -416,7 +451,8 @@ const NewCase = () => {
         tags: tags.length > 0 ? tags : null
       };
 
-      console.log('[NewCase] Creating case with data:', caseData);
+      console.log('[NewCase] ========== CREATING CASE ==========');
+      console.log('[NewCase] Case data:', caseData);
 
       const { data: newCase, error: caseError } = await supabase
         .from('cases')
@@ -436,22 +472,39 @@ const NewCase = () => {
         console.log('[NewCase] Starting file uploads...');
         const uploadSuccess = await uploadFiles(newCase.id);
         console.log('[NewCase] File uploads completed, success:', uploadSuccess);
+      } else {
+        console.log('[NewCase] No files to upload, skipping file upload step');
       }
 
       // Log activity
       try {
-        await supabase
+        console.log('[NewCase] ========== LOGGING ACTIVITY ==========');
+        const activityData = {
+          case_id: newCase.id,
+          activity_type: 'case_created',
+          description: 'Case submitted by citizen',
+          performed_by: internalUserId
+        };
+        
+        console.log('[NewCase] Activity data:', activityData);
+        
+        const { data: activityResult, error: activityError } = await supabase
           .from('case_activities')
-          .insert({
-            case_id: newCase.id,
-            activity_type: 'case_created',
-            description: 'Case submitted by citizen',
-            performed_by: internalUserId
-          });
+          .insert(activityData);
+          
+        if (activityError) {
+          console.error('[NewCase] Activity logging error:', activityError);
+        } else {
+          console.log('[NewCase] Activity logged successfully:', activityResult);
+        }
       } catch (activityError) {
         console.error('[NewCase] Activity logging failed:', activityError);
         // Continue even if activity logging fails
       }
+
+      console.log('[NewCase] ========== SUBMISSION COMPLETE ==========');
+      console.log('[NewCase] Case ID:', newCase.id);
+      console.log('[NewCase] Navigating to case detail page...');
 
       toast({
         title: 'Success',
@@ -462,6 +515,7 @@ const NewCase = () => {
       navigate(`/citizen/cases/${newCase.id}`);
 
     } catch (error: any) {
+      console.error('[NewCase] ========== SUBMISSION FAILED ==========');
       console.error('[NewCase] Error submitting case:', error);
       toast({
         title: 'Submission Failed',
