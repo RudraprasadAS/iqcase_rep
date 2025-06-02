@@ -45,25 +45,78 @@ const CitizenDashboard = () => {
   });
   const [recentCases, setRecentCases] = useState<RecentCase[]>([]);
   const [loading, setLoading] = useState(true);
+  const [internalUserId, setInternalUserId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
-      fetchDashboardData();
+      fetchInternalUserId();
     }
   }, [user]);
 
-  const fetchDashboardData = async () => {
+  useEffect(() => {
+    if (internalUserId) {
+      fetchDashboardData();
+    }
+  }, [internalUserId]);
+
+  const fetchInternalUserId = async () => {
     if (!user) return;
 
     try {
+      console.log('Fetching internal user ID for auth user:', user.id);
+      
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .maybeSingle();
+
+      if (userError) {
+        console.error('User lookup error:', userError);
+        throw userError;
+      }
+
+      if (!userData) {
+        console.log('No internal user found for auth user:', user.id);
+        toast({
+          title: 'User Setup Required',
+          description: 'Please contact support to set up your account.',
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      console.log('Internal user ID found:', userData.id);
+      setInternalUserId(userData.id);
+    } catch (error) {
+      console.error('Error fetching internal user ID:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load user information',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const fetchDashboardData = async () => {
+    if (!internalUserId) return;
+
+    try {
+      console.log('Fetching dashboard data for internal user:', internalUserId);
+
       // Fetch case statistics
       const { data: casesData, error: casesError } = await supabase
         .from('cases')
         .select('id, status, title, priority, created_at, updated_at')
-        .eq('submitted_by', user.id)
+        .eq('submitted_by', internalUserId)
         .order('updated_at', { ascending: false });
 
-      if (casesError) throw casesError;
+      if (casesError) {
+        console.error('Cases fetch error:', casesError);
+        throw casesError;
+      }
+
+      console.log('Cases data fetched:', casesData?.length || 0, 'cases');
 
       const totalCases = casesData?.length || 0;
       const openCases = casesData?.filter(c => c.status === 'open').length || 0;
@@ -76,7 +129,7 @@ const CitizenDashboard = () => {
         .select('*', { count: 'exact', head: true })
         .in('case_id', casesData?.map(c => c.id) || [])
         .eq('is_internal', false)
-        .neq('sender_id', user.id);
+        .neq('sender_id', internalUserId);
 
       if (messagesError) {
         console.error('Messages count error:', messagesError);
@@ -86,7 +139,7 @@ const CitizenDashboard = () => {
       const { count: unreadNotificationsCount, error: notificationsError } = await supabase
         .from('notifications')
         .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
+        .eq('user_id', internalUserId)
         .eq('is_read', false);
 
       if (notificationsError) {
@@ -264,7 +317,7 @@ const CitizenDashboard = () => {
             </Button>
           </div>
         </CardContent>
-      </Card>
+      </div>
     </div>
   );
 };
