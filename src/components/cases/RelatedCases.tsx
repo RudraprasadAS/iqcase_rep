@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -43,6 +42,7 @@ const RelatedCases = ({ caseId }: RelatedCasesProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [internalUserId, setInternalUserId] = useState<string | null>(null);
+  const [isSearchDropdownOpen, setIsSearchDropdownOpen] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -71,8 +71,10 @@ const RelatedCases = ({ caseId }: RelatedCasesProps) => {
         );
       });
       setFilteredCases(filtered);
+      setIsSearchDropdownOpen(true);
     } else {
-      setFilteredCases(availableCases);
+      setFilteredCases(availableCases.slice(0, 20)); // Show first 20 cases when no search
+      setIsSearchDropdownOpen(false);
     }
   }, [searchTerm, availableCases]);
 
@@ -190,6 +192,7 @@ const RelatedCases = ({ caseId }: RelatedCasesProps) => {
       setSelectedCaseId('');
       setRelationshipType('related');
       setSearchTerm('');
+      setIsSearchDropdownOpen(false);
       
       toast({
         title: "Success",
@@ -265,6 +268,15 @@ const RelatedCases = ({ caseId }: RelatedCasesProps) => {
     }
   };
 
+  const handleCaseSelect = (caseId: string) => {
+    setSelectedCaseId(caseId);
+    setIsSearchDropdownOpen(false);
+    const selectedCase = availableCases.find(c => c.id === caseId);
+    if (selectedCase) {
+      setSearchTerm(selectedCase.title);
+    }
+  };
+
   if (loading) {
     return <div>Loading related cases...</div>;
   }
@@ -288,43 +300,36 @@ const RelatedCases = ({ caseId }: RelatedCasesProps) => {
               <DialogTitle>Add Related Case</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium">Search Case</label>
+              <div className="relative">
+                <label className="text-sm font-medium">Search and Select Case</label>
                 <Input
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Search by title or case ID..."
+                  onFocus={() => setIsSearchDropdownOpen(true)}
                 />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Select Case</label>
-                <Select 
-                  value={selectedCaseId} 
-                  onValueChange={setSelectedCaseId}
-                  open={filteredCases.length > 0}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose a case" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-60">
+                {isSearchDropdownOpen && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
                     {filteredCases.length === 0 ? (
                       <div className="p-2 text-sm text-gray-500">
                         {searchTerm ? 'No cases found matching your search' : 'No open cases available'}
                       </div>
                     ) : (
                       filteredCases.map((case_) => (
-                        <SelectItem key={case_.id} value={case_.id}>
-                          <div className="flex flex-col w-full">
-                            <span className="font-medium truncate">{case_.title}</span>
-                            <span className="text-xs text-muted-foreground">
-                              ID: {case_.id.slice(0, 8)}... | Status: {case_.status}
-                            </span>
+                        <div
+                          key={case_.id}
+                          className="p-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100"
+                          onClick={() => handleCaseSelect(case_.id)}
+                        >
+                          <div className="font-medium text-sm truncate">{case_.title}</div>
+                          <div className="text-xs text-gray-500">
+                            ID: {case_.id.slice(0, 8)}... | Status: {case_.status}
                           </div>
-                        </SelectItem>
+                        </div>
                       ))
                     )}
-                  </SelectContent>
-                </Select>
+                  </div>
+                )}
               </div>
               <div>
                 <label className="text-sm font-medium">Relationship Type</label>
@@ -343,7 +348,12 @@ const RelatedCases = ({ caseId }: RelatedCasesProps) => {
                 </Select>
               </div>
               <div className="flex justify-end space-x-2">
-                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                <Button variant="outline" onClick={() => {
+                  setIsAddDialogOpen(false);
+                  setSearchTerm('');
+                  setSelectedCaseId('');
+                  setIsSearchDropdownOpen(false);
+                }}>
                   Cancel
                 </Button>
                 <Button onClick={addRelatedCase} disabled={!selectedCaseId}>

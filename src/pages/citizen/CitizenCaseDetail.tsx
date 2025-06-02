@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -324,31 +323,6 @@ const CitizenCaseDetail = () => {
                   <SLABadge sla_due_at={caseData.sla_due_at} status={caseData.status} />
                 </div>
               )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Clock className="h-5 w-5" />
-                Recent Activity
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3 max-h-64 overflow-y-auto">
-                {activities.length === 0 ? (
-                  <p className="text-sm text-gray-500">No activity yet</p>
-                ) : (
-                  activities.slice(0, 5).map((activity) => (
-                    <div key={activity.id} className="border-l-2 border-gray-200 pl-3 pb-3">
-                      <p className="text-sm font-medium">{activity.description}</p>
-                      <p className="text-xs text-gray-500">
-                        {activity.users?.name || 'System'} • {formatDistanceToNow(new Date(activity.created_at), { addSuffix: true })}
-                      </p>
-                    </div>
-                  ))
-                )}
-              </div>
             </CardContent>
           </Card>
         </div>

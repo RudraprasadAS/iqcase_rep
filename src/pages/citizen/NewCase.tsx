@@ -303,19 +303,29 @@ const NewCase = () => {
       // Upload files if any
       if (files.length > 0) {
         console.log('Starting file uploads...');
-        await uploadFiles(newCase.id);
-        console.log('File uploads completed');
+        try {
+          await uploadFiles(newCase.id);
+          console.log('File uploads completed');
+        } catch (uploadError) {
+          console.error('File upload failed:', uploadError);
+          // Continue even if file upload fails
+        }
       }
 
       // Log activity
-      await supabase
-        .from('case_activities')
-        .insert({
-          case_id: newCase.id,
-          activity_type: 'case_created',
-          description: 'Case submitted by citizen',
-          performed_by: internalUserId
-        });
+      try {
+        await supabase
+          .from('case_activities')
+          .insert({
+            case_id: newCase.id,
+            activity_type: 'case_created',
+            description: 'Case submitted by citizen',
+            performed_by: internalUserId
+          });
+      } catch (activityError) {
+        console.error('Activity logging failed:', activityError);
+        // Continue even if activity logging fails
+      }
 
       toast({
         title: 'Success',
@@ -324,11 +334,11 @@ const NewCase = () => {
 
       navigate(`/citizen/cases/${newCase.id}`);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting case:', error);
       toast({
         title: 'Error',
-        description: 'Failed to submit case. Please try again.',
+        description: error.message || 'Failed to submit case. Please try again.',
         variant: 'destructive'
       });
     } finally {
