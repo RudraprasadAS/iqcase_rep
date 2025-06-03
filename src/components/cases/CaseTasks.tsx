@@ -165,7 +165,14 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
   }, [toast]);
 
   const createTask = async (data: z.infer<typeof taskFormSchema>) => {
-    if (!user) return;
+    if (!user) {
+      toast({
+        title: 'Error',
+        description: 'User not authenticated',
+        variant: 'destructive'
+      });
+      return;
+    }
 
     try {
       console.log('Creating task with data:', data);
@@ -189,14 +196,16 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
 
       const taskData = {
         case_id: caseId,
-        task_name: data.title, // Use task_name instead of title
+        task_name: data.title,
         description: data.description || '',
         assigned_to: data.assigned_to || null,
         due_date: data.due_date?.toISOString() || null,
         priority: data.priority,
         status: 'open' as const,
-        created_by: currentUserData.id // Use internal user ID
+        created_by: currentUserData.id
       };
+
+      console.log('Task data to insert:', taskData);
 
       const { data: newTask, error } = await supabase
         .from('case_tasks')
@@ -210,22 +219,32 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
 
       if (error) {
         console.error('Error creating task:', error);
-        throw error;
+        toast({
+          title: 'Error',
+          description: `Failed to create task: ${error.message}`,
+          variant: 'destructive'
+        });
+        return;
       }
 
       console.log('Task created successfully:', newTask);
 
       // Create notification if task is assigned to someone other than the creator
       if (newTask.assigned_to && newTask.assigned_to !== currentUserData.id) {
-        await createTaskAssignmentNotification(
-          newTask.assigned_to,
-          newTask.task_name,
-          caseId,
-          currentUserData.id
-        );
+        try {
+          await createTaskAssignmentNotification(
+            newTask.assigned_to,
+            newTask.task_name,
+            caseId,
+            currentUserData.id
+          );
+        } catch (notificationError) {
+          console.error('Error creating notification:', notificationError);
+          // Don't fail task creation if notification fails
+        }
       }
 
-      setTasks(prev => [...prev, newTask]);
+      setTasks(prev => [newTask, ...prev]);
       setIsCreating(false);
       form.reset();
       
@@ -326,7 +345,7 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
             </Button>
           ) : (
             <Card className="mb-4">
-              <CardContent>
+              <CardContent className="pt-6">
                 <Form {...form}>
                   <form onSubmit={form.handleSubmit(createTask)} className="space-y-4">
                     <FormField
