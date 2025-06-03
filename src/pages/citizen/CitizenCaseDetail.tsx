@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,6 +13,7 @@ import StatusBadge from '@/components/cases/StatusBadge';
 import PriorityBadge from '@/components/cases/PriorityBadge';
 import SLABadge from '@/components/cases/SLABadge';
 import MessageCenter from '@/components/messaging/MessageCenter';
+import CaseFeedback from '@/components/cases/CaseFeedback';
 
 interface CaseData {
   id: string;
@@ -372,6 +372,14 @@ const CitizenCaseDetail = () => {
           </Card>
 
           <MessageCenter caseId={caseData.id} isInternal={false} />
+          
+          {/* Add feedback component for citizen view */}
+          <CaseFeedback 
+            caseId={caseData.id} 
+            caseTitle={caseData.title}
+            caseStatus={caseData.status}
+            isInternal={false}
+          />
         </div>
 
         <div className="space-y-6">

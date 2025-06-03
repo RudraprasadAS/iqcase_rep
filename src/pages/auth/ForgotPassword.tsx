@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 const ForgotPassword = () => {
   const { toast } = useToast();
@@ -20,17 +21,22 @@ const ForgotPassword = () => {
     setIsLoading(true);
 
     try {
-      // This is a placeholder - will be replaced with actual Supabase auth call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/reset-password`,
+      });
+
+      if (error) {
+        throw error;
+      }
       
       setIsSent(true);
       toast({
         title: "Reset link sent",
         description: "Check your email for password reset instructions.",
       });
-    } catch (err) {
-      setError("An error occurred while sending the reset link");
+    } catch (err: any) {
       console.error("Password reset error:", err);
+      setError(err.message || "An error occurred while sending the reset link");
     } finally {
       setIsLoading(false);
     }
@@ -82,9 +88,13 @@ const ForgotPassword = () => {
           <Button
             variant="outline"
             className="mt-2"
-            onClick={() => setIsSent(false)}
+            onClick={() => {
+              setIsSent(false);
+              setEmail("");
+              setError("");
+            }}
           >
-            Resend Email
+            Send Another Email
           </Button>
         </div>
       )}

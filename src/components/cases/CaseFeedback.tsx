@@ -26,9 +26,10 @@ interface CaseFeedbackProps {
   caseId: string;
   caseTitle?: string;
   caseStatus: string;
+  isInternal?: boolean; // Add prop to determine if this is internal view
 }
 
-const CaseFeedback = ({ caseId, caseTitle, caseStatus }: CaseFeedbackProps) => {
+const CaseFeedback = ({ caseId, caseTitle, caseStatus, isInternal = true }: CaseFeedbackProps) => {
   const [feedback, setFeedback] = useState<Feedback[]>([]);
   const [showFeedbackForm, setShowFeedbackForm] = useState(false);
   const [canSubmitFeedback, setCanSubmitFeedback] = useState(false);
@@ -41,9 +42,11 @@ const CaseFeedback = ({ caseId, caseTitle, caseStatus }: CaseFeedbackProps) => {
   useEffect(() => {
     if (caseId) {
       fetchFeedback();
-      checkFeedbackEligibility();
+      if (!isInternal) {
+        checkFeedbackEligibility();
+      }
     }
-  }, [caseId, user]);
+  }, [caseId, user, isInternal]);
 
   const fetchFeedback = async () => {
     try {
@@ -83,7 +86,7 @@ const CaseFeedback = ({ caseId, caseTitle, caseStatus }: CaseFeedbackProps) => {
   };
 
   const checkFeedbackEligibility = async () => {
-    if (!user || !isCaseClosed) {
+    if (!user || !isCaseClosed || isInternal) {
       setCanSubmitFeedback(false);
       return;
     }
@@ -101,10 +104,16 @@ const CaseFeedback = ({ caseId, caseTitle, caseStatus }: CaseFeedbackProps) => {
         return;
       }
 
-      // Check if user is related to this case (submitted it or assigned to it)
+      // Only external/citizen users should be able to submit feedback
+      if (userData.user_type !== 'external') {
+        setCanSubmitFeedback(false);
+        return;
+      }
+
+      // Check if user is related to this case (submitted it)
       const { data: caseData, error: caseError } = await supabase
         .from('cases')
-        .select('submitted_by, assigned_to')
+        .select('submitted_by')
         .eq('id', caseId)
         .single();
 
@@ -113,11 +122,7 @@ const CaseFeedback = ({ caseId, caseTitle, caseStatus }: CaseFeedbackProps) => {
         return;
       }
 
-      const isEligible = 
-        caseData.submitted_by === userData.id || 
-        caseData.assigned_to === userData.id ||
-        userData.user_type === 'internal';
-
+      const isEligible = caseData.submitted_by === userData.id;
       setCanSubmitFeedback(isEligible);
       
     } catch (error) {
@@ -169,10 +174,11 @@ const CaseFeedback = ({ caseId, caseTitle, caseStatus }: CaseFeedbackProps) => {
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center">
               <MessageSquare className="h-5 w-5 mr-2" />
-              Case Feedback ({feedback.length})
+              {isInternal ? 'Customer Feedback' : 'Case Feedback'} ({feedback.length})
             </CardTitle>
             
-            {canSubmitFeedback && !showFeedbackForm && (
+            {/* Only show feedback form button for non-internal users */}
+            {!isInternal && canSubmitFeedback && !showFeedbackForm && (
               <Button 
                 onClick={() => setShowFeedbackForm(true)}
                 size="sm"
@@ -186,8 +192,8 @@ const CaseFeedback = ({ caseId, caseTitle, caseStatus }: CaseFeedbackProps) => {
         </CardHeader>
         
         <CardContent className="space-y-4">
-          {/* Feedback Form */}
-          {showFeedbackForm && (
+          {/* Feedback Form - only for citizen portal */}
+          {!isInternal && showFeedbackForm && (
             <div className="border rounded-lg p-4 bg-blue-50">
               <FeedbackWidget
                 caseId={caseId}
@@ -205,11 +211,13 @@ const CaseFeedback = ({ caseId, caseTitle, caseStatus }: CaseFeedbackProps) => {
           {/* Display existing feedback */}
           {feedback.length === 0 ? (
             <div className="text-center text-muted-foreground py-8">
-              {isCaseClosed 
-                ? 'No feedback submitted yet' 
-                : 'Feedback will be available when case is closed'
+              {isInternal 
+                ? 'No customer feedback received yet'
+                : isCaseClosed 
+                  ? 'No feedback submitted yet' 
+                  : 'Feedback will be available when case is closed'
               }
-              {canSubmitFeedback && isCaseClosed && (
+              {!isInternal && canSubmitFeedback && isCaseClosed && (
                 <div className="mt-4">
                   <Button 
                     onClick={() => setShowFeedbackForm(true)}
@@ -275,8 +283,8 @@ const CaseFeedback = ({ caseId, caseTitle, caseStatus }: CaseFeedbackProps) => {
                   )}
                 </div>
 
-                {/* Submitted by */}
-                {fb.users && (
+                {/* Submitted by - only show in internal view */}
+                {isInternal && fb.users && (
                   <div className="text-xs text-muted-foreground border-t pt-2">
                     Submitted by {fb.users.name || fb.users.email}
                   </div>
