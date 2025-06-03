@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -48,6 +47,15 @@ const CalendarView = () => {
     }
   }, [selectedDate, events]);
 
+  const normalizePriority = (priority: string | null): 'high' | 'medium' | 'low' => {
+    if (!priority) return 'medium';
+    const normalizedPriority = priority.toLowerCase();
+    if (normalizedPriority === 'high' || normalizedPriority === 'medium' || normalizedPriority === 'low') {
+      return normalizedPriority as 'high' | 'medium' | 'low';
+    }
+    return 'medium';
+  };
+
   const fetchCalendarEvents = async () => {
     try {
       setLoading(true);
@@ -74,7 +82,7 @@ const CalendarView = () => {
             title: `SLA Due: ${case_.title}`,
             date: new Date(case_.sla_due_at),
             type: 'sla_due',
-            priority: case_.priority,
+            priority: normalizePriority(case_.priority),
             status: case_.status,
             caseId: case_.id
           });
@@ -106,7 +114,7 @@ const CalendarView = () => {
             title: `Task: ${task.task_name}`,
             date: new Date(task.due_date),
             type: 'task_due',
-            priority: task.cases?.priority || 'medium',
+            priority: normalizePriority(task.cases?.priority),
             status: task.status,
             caseId: task.case_id,
             taskId: task.id
