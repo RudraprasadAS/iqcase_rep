@@ -11,7 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
 interface FeedbackWidgetProps {
-  caseId: string;
+  caseId?: string;
   caseTitle?: string;
   context?: 'general' | 'case' | 'portal';
   onSubmit?: () => void;
@@ -55,7 +55,7 @@ const FeedbackWidget = ({
           return;
         }
 
-        // Check for existing feedback
+        // Check for existing feedback - now selecting all fields
         const { data: feedback, error } = await supabase
           .from('case_feedback')
           .select('*')
@@ -213,7 +213,7 @@ const FeedbackWidget = ({
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <MessageSquare className="h-6 w-6" />
-          🎉 We'd love your feedback on {caseId === 'general-feedback' ? 'our portal' : `Case ${generateCaseNumber(caseId)}`}
+          🎉 We'd love your feedback on {caseId === 'general-feedback' ? 'our portal' : `Case ${generateCaseNumber(caseId || '')}`}
           {hasSubmitted && <span className="text-sm text-green-600">(Updated)</span>}
         </CardTitle>
         {caseTitle && (
