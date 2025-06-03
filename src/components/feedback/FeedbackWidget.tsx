@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Star, MessageSquare, Send, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -58,7 +59,15 @@ const FeedbackWidget = ({
         // Check for existing feedback - now selecting all fields
         const { data: feedback, error } = await supabase
           .from('case_feedback')
-          .select('*')
+          .select(`
+            id,
+            rating,
+            comment,
+            resolved_satisfaction,
+            staff_score,
+            would_use_again,
+            context
+          `)
           .eq('case_id', caseId)
           .eq('submitted_by', userData.id)
           .maybeSingle();

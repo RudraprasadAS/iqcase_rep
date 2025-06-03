@@ -15,6 +15,7 @@ interface Feedback {
   staff_score: string | null;
   would_use_again: boolean | null;
   submitted_at: string;
+  context: string | null;
   users?: {
     name: string;
     email: string;
@@ -49,7 +50,14 @@ const CaseFeedback = ({ caseId, caseTitle, caseStatus }: CaseFeedbackProps) => {
       const { data, error } = await supabase
         .from('case_feedback')
         .select(`
-          *,
+          id,
+          rating,
+          comment,
+          resolved_satisfaction,
+          staff_score,
+          would_use_again,
+          submitted_at,
+          context,
           users:submitted_by (
             name,
             email

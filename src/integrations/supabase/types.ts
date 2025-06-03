@@ -294,26 +294,38 @@ export type Database = {
         Row: {
           case_id: string
           comment: string | null
+          context: string | null
           id: string
           rating: number | null
+          resolved_satisfaction: boolean | null
+          staff_score: string | null
           submitted_at: string | null
           submitted_by: string | null
+          would_use_again: boolean | null
         }
         Insert: {
           case_id: string
           comment?: string | null
+          context?: string | null
           id?: string
           rating?: number | null
+          resolved_satisfaction?: boolean | null
+          staff_score?: string | null
           submitted_at?: string | null
           submitted_by?: string | null
+          would_use_again?: boolean | null
         }
         Update: {
           case_id?: string
           comment?: string | null
+          context?: string | null
           id?: string
           rating?: number | null
+          resolved_satisfaction?: boolean | null
+          staff_score?: string | null
           submitted_at?: string | null
           submitted_by?: string | null
+          would_use_again?: boolean | null
         }
         Relationships: [
           {
