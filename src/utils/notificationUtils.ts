@@ -78,3 +78,33 @@ export const createCaseAssignmentNotification = async (
     caseId
   );
 };
+
+export const createCaseStatusChangeNotification = async (
+  userId: string,
+  caseTitle: string,
+  newStatus: string,
+  caseId: string
+) => {
+  return await createNotification(
+    userId,
+    'Case Status Updated',
+    `Case "${caseTitle}" status changed to: ${newStatus}`,
+    'case_status_change',
+    caseId
+  );
+};
+
+export const createNewMessageNotification = async (
+  userId: string,
+  caseTitle: string,
+  senderName: string,
+  caseId: string
+) => {
+  return await createNotification(
+    userId,
+    'New Message',
+    `New message from ${senderName} in case: ${caseTitle}`,
+    'new_message',
+    caseId
+  );
+};
