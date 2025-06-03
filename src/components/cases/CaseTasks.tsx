@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { useForm } from 'react-hook-form';
@@ -31,20 +32,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
-import { CalendarIcon, Plus, Trash2 } from 'lucide-react';
+import { CalendarIcon, Plus, Trash2, Check } from 'lucide-react';
 import { format } from 'date-fns';
-import { Badge } from '../ui/badge';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -67,14 +59,7 @@ const taskFormSchema = z.object({
   }),
   assigned_to: z.string().optional(),
   due_date: z.date().optional(),
-  priority: z.enum(['low', 'medium', 'high']),
 });
-
-const priorityOptions = [
-  { value: 'low', label: 'Low' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'high', label: 'High' },
-];
 
 const CaseTasks = ({ caseId }: CaseTasksProps) => {
   const { user } = useAuth();
@@ -88,7 +73,6 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
     defaultValues: {
       title: "",
       assigned_to: "",
-      priority: 'medium',
     },
   });
 
@@ -138,27 +122,17 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
 
         if (error) {
           console.error('Error fetching users:', error);
-          toast({
-            title: 'Error',
-            description: 'Failed to load available users',
-            variant: 'destructive'
-          });
           return;
         }
 
         setAvailableUsers(data || []);
       } catch (error) {
         console.error('Error fetching users:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load available users',
-          variant: 'destructive'
-        });
       }
     };
 
     fetchAvailableUsers();
-  }, [toast]);
+  }, []);
 
   const createTask = async (data: z.infer<typeof taskFormSchema>) => {
     if (!user) {
@@ -171,7 +145,7 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
     }
 
     try {
-      console.log('Creating task with data:', data);
+      console.log('🔔 Creating task with data:', data);
       
       // Get internal user ID for the current user
       const { data: currentUserData, error: currentUserError } = await supabase
@@ -199,7 +173,7 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
         created_by: currentUserData.id
       };
 
-      console.log('Task data to insert:', taskData);
+      console.log('🔔 Task data to insert:', taskData);
 
       const { data: newTask, error } = await supabase
         .from('case_tasks')
@@ -212,7 +186,7 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
         .single();
 
       if (error) {
-        console.error('Error creating task:', error);
+        console.error('🔔 Error creating task:', error);
         toast({
           title: 'Error',
           description: `Failed to create task: ${error.message}`,
@@ -221,21 +195,25 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
         return;
       }
 
-      console.log('Task created successfully:', newTask);
+      console.log('🔔 Task created successfully:', newTask);
 
       // Create notification if task is assigned to someone other than the creator
       if (newTask.assigned_to && newTask.assigned_to !== currentUserData.id) {
         try {
-          await createTaskAssignmentNotification(
+          console.log('🔔 Creating notification for assigned user:', newTask.assigned_to);
+          const notificationResult = await createTaskAssignmentNotification(
             newTask.assigned_to,
             newTask.task_name,
             caseId,
             currentUserData.id
           );
+          console.log('🔔 Notification creation result:', notificationResult);
         } catch (notificationError) {
-          console.error('Error creating notification:', notificationError);
+          console.error('🔔 Error creating notification:', notificationError);
           // Don't fail task creation if notification fails
         }
+      } else {
+        console.log('🔔 Skipping notification - task assigned to creator or unassigned');
       }
 
       setTasks(prev => [newTask, ...prev]);
@@ -247,10 +225,49 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
         description: `Task "${newTask.task_name}" has been created successfully.`,
       });
     } catch (error) {
-      console.error('Error creating task:', error);
+      console.error('🔔 Error creating task:', error);
       toast({
         title: 'Error',
         description: 'Failed to create task. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const toggleTaskStatus = async (taskId: string, currentStatus: string) => {
+    try {
+      const newStatus = currentStatus === 'completed' ? 'open' : 'completed';
+      
+      const { error } = await supabase
+        .from('case_tasks')
+        .update({ status: newStatus })
+        .eq('id', taskId);
+
+      if (error) {
+        console.error('Error updating task status:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to update task status',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      setTasks(prev =>
+        prev.map(task =>
+          task.id === taskId ? { ...task, status: newStatus } : task
+        )
+      );
+      
+      toast({
+        title: 'Task Updated',
+        description: `Task marked as ${newStatus}`,
+      });
+    } catch (error) {
+      console.error('Error updating task status:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update task status',
         variant: 'destructive',
       });
     }
@@ -267,7 +284,7 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
         console.error('Error deleting task:', error);
         toast({
           title: 'Error',
-          description: 'Failed to delete task. Please try again.',
+          description: 'Failed to delete task',
           variant: 'destructive',
         });
         return;
@@ -276,49 +293,13 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
       setTasks(prev => prev.filter(task => task.id !== taskId));
       toast({
         title: 'Task Deleted',
-        description: 'Task deleted successfully.',
+        description: 'Task deleted successfully',
       });
     } catch (error) {
       console.error('Error deleting task:', error);
       toast({
         title: 'Error',
-        description: 'Failed to delete task. Please try again.',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const updateTaskStatus = async (taskId: string, newStatus: 'open' | 'in_progress' | 'completed') => {
-    try {
-      const { error } = await supabase
-        .from('case_tasks')
-        .update({ status: newStatus })
-        .eq('id', taskId);
-
-      if (error) {
-        console.error('Error updating task status:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to update task status. Please try again.',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      setTasks(prev =>
-        prev.map(task =>
-          task.id === taskId ? { ...task, status: newStatus } : task
-        )
-      );
-      toast({
-        title: 'Task Updated',
-        description: 'Task status updated successfully.',
-      });
-    } catch (error) {
-      console.error('Error updating task status:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to update task status. Please try again.',
+        description: 'Failed to delete task',
         variant: 'destructive',
       });
     }
@@ -411,34 +392,9 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
                                 onSelect={field.onChange}
                                 disabled={false}
                                 initialFocus
-                                className="pointer-events-auto"
                               />
                             </PopoverContent>
                           </Popover>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="priority"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Priority</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select priority" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {priorityOptions.map((option) => (
-                                <SelectItem key={option.value} value={option.value}>
-                                  {option.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -457,67 +413,61 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
         </div>
 
         {tasks.length > 0 ? (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Title</TableHead>
-                <TableHead>Assigned To</TableHead>
-                <TableHead>Due Date</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {tasks.map((task) => (
-                <TableRow key={task.id}>
-                  <TableCell>{task.task_name}</TableCell>
-                  <TableCell>
-                    {task.assigned_user ? `${task.assigned_user.name} (${task.assigned_user.email})` : 'Unassigned'}
-                  </TableCell>
-                  <TableCell>
-                    {task.due_date ? format(new Date(task.due_date), "PPP") : 'No Due Date'}
-                  </TableCell>
-                  <TableCell>
-                    <Select
-                      value={task.status}
-                      onValueChange={(value) => updateTaskStatus(task.id, value as 'open' | 'in_progress' | 'completed')}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder={task.status} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="open">Open</SelectItem>
-                        <SelectItem value="in_progress">In Progress</SelectItem>
-                        <SelectItem value="completed">Completed</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="sm">
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This action cannot be undone. This will permanently delete the task from our servers.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => deleteTask(task.id)}>Delete</AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <div className="space-y-3">
+            {tasks.map((task) => (
+              <div key={task.id} className="flex items-center justify-between p-3 border rounded-lg">
+                <div className="flex items-center space-x-3 flex-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => toggleTaskStatus(task.id, task.status)}
+                    className="p-1"
+                  >
+                    {task.status === 'completed' ? (
+                      <Check className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <div className="h-4 w-4 border border-gray-300 rounded"></div>
+                    )}
+                  </Button>
+                  <div className="flex-1">
+                    <p className={cn(
+                      "font-medium",
+                      task.status === 'completed' && "line-through text-gray-500"
+                    )}>
+                      {task.task_name}
+                    </p>
+                    <div className="text-sm text-gray-500 space-y-1">
+                      {task.assigned_user && (
+                        <p>Assigned to: {task.assigned_user.name}</p>
+                      )}
+                      {task.due_date && (
+                        <p>Due: {format(new Date(task.due_date), "PPP")}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="ghost" size="sm">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete Task</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Are you sure you want to delete this task? This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => deleteTask(task.id)}>Delete</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+            ))}
+          </div>
         ) : (
           <p>No tasks found for this case.</p>
         )}
