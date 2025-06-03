@@ -21,10 +21,10 @@ const CitizenLayout = () => {
             <Outlet />
           </main>
           
-          {/* Floating Feedback Button */}
+          {/* Floating Feedback Button - Only for general portal feedback */}
           <div className="fixed bottom-6 right-6 z-50">
             {showFeedback ? (
-              <div className="relative">
+              <div className="relative bg-white rounded-lg shadow-lg p-1">
                 <Button
                   variant="ghost"
                   size="icon"
@@ -44,6 +44,7 @@ const CitizenLayout = () => {
                 onClick={() => setShowFeedback(true)}
                 className="rounded-full h-12 w-12 bg-blue-600 hover:bg-blue-700 shadow-lg"
                 size="icon"
+                title="Give feedback about our portal"
               >
                 <MessageSquare className="h-6 w-6" />
               </Button>

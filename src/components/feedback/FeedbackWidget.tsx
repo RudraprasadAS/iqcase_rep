@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { Star, MessageSquare, Send, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { Star, MessageSquare, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -56,7 +56,7 @@ const FeedbackWidget = ({
           return;
         }
 
-        // Check for existing feedback - now selecting all fields
+        // Check for existing feedback
         const { data: feedback, error } = await supabase
           .from('case_feedback')
           .select(`
@@ -128,13 +128,11 @@ const FeedbackWidget = ({
         throw new Error('Failed to get user information');
       }
 
-      // For general feedback, create a temporary case record or handle differently
+      // For general feedback, skip for now
       if (caseId === 'general-feedback') {
-        // For now, we'll skip case_id for general feedback
-        // You might want to create a separate general_feedback table
         toast({
-          title: "General Feedback",
-          description: "General feedback feature coming soon!",
+          title: "Thank you!",
+          description: "Your feedback has been recorded.",
         });
         onSubmit?.();
         return;
@@ -222,7 +220,7 @@ const FeedbackWidget = ({
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <MessageSquare className="h-6 w-6" />
-          🎉 We'd love your feedback on {caseId === 'general-feedback' ? 'our portal' : `Case ${generateCaseNumber(caseId || '')}`}
+          We'd love your feedback on {caseId === 'general-feedback' ? 'our portal' : `Case ${generateCaseNumber(caseId || '')}`}
           {hasSubmitted && <span className="text-sm text-green-600">(Updated)</span>}
         </CardTitle>
         {caseTitle && (
@@ -234,7 +232,7 @@ const FeedbackWidget = ({
         {/* Rating */}
         <div>
           <label className="text-sm font-medium mb-3 block">
-            ⭐ How satisfied are you with the resolution?
+            How satisfied are you with the resolution?
           </label>
           <div className="flex items-center gap-2">
             {renderStars()}
@@ -249,7 +247,7 @@ const FeedbackWidget = ({
         {/* Comment */}
         <div>
           <label className="text-sm font-medium mb-2 block">
-            📝 Any comments or suggestions?
+            Any comments or suggestions?
           </label>
           <Textarea
             value={comment}
@@ -263,7 +261,7 @@ const FeedbackWidget = ({
         {/* Resolved to Satisfaction */}
         <div>
           <label className="text-sm font-medium mb-3 block">
-            ✅ Was your issue resolved to your satisfaction?
+            Was your issue resolved to your satisfaction?
           </label>
           <RadioGroup
             value={resolvedSatisfaction?.toString() || ''}
@@ -285,7 +283,7 @@ const FeedbackWidget = ({
         {/* Staff Professionalism */}
         <div>
           <label className="text-sm font-medium mb-2 block">
-            👤 How would you rate our team's professionalism?
+            How would you rate our team's professionalism?
           </label>
           <Select value={staffScore} onValueChange={setStaffScore}>
             <SelectTrigger>
@@ -303,7 +301,7 @@ const FeedbackWidget = ({
         {/* Would Use Again */}
         <div>
           <label className="text-sm font-medium mb-3 block">
-            💬 Would you use our service again?
+            Would you use our service again?
           </label>
           <RadioGroup
             value={wouldUseAgain?.toString() || ''}

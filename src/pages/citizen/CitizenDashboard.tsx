@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, FileText, Clock, CheckCircle, AlertCircle, MessageCircle, Bell } from 'lucide-react';
+import { Plus, FileText, Clock, CheckCircle, AlertCircle, MessageCircle } from 'lucide-react';
 import StatusBadge from '@/components/cases/StatusBadge';
 import PriorityBadge from '@/components/cases/PriorityBadge';
 import { formatDistanceToNow } from 'date-fns';
@@ -310,7 +309,7 @@ const CitizenDashboard = () => {
             <Button 
               variant="outline" 
               className="h-20 flex-col"
-              onClick={() => navigate('/knowledge-base')}
+              onClick={() => navigate('/knowledge')}
             >
               <MessageCircle className="h-6 w-6 mb-2" />
               Knowledge Base
