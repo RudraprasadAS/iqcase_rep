@@ -2,42 +2,83 @@
 import { NavLink } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { LayoutDashboard, FileText, Bell, MessageCircle } from 'lucide-react';
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarTrigger,
+  useSidebar,
+} from "@/components/ui/sidebar";
+
+const navigation = [
+  { name: 'Dashboard', href: '/citizen/dashboard', icon: LayoutDashboard },
+  { name: 'My Cases', href: '/citizen/cases', icon: FileText },
+  { name: 'Notifications', href: '/citizen/notifications', icon: Bell },
+  { name: 'Knowledge Base', href: '/knowledge', icon: MessageCircle },
+];
 
 const CitizenSidebar = () => {
-  const navigation = [
-    { name: 'Dashboard', href: '/citizen/dashboard', icon: LayoutDashboard },
-    { name: 'My Cases', href: '/citizen/cases', icon: FileText },
-    { name: 'Notifications', href: '/citizen/notifications', icon: Bell },
-    { name: 'Knowledge Base', href: '/knowledge', icon: MessageCircle },
-  ];
+  const { state } = useSidebar();
 
   return (
-    <div className="flex flex-col w-64 bg-gray-50 border-r border-gray-200 h-full">
-      <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
-        <nav className="mt-5 flex-1 px-2 bg-gray-50 space-y-1">
-          {navigation.map((item) => (
-            <NavLink
-              key={item.name}
-              to={item.href}
-              className={({ isActive }) =>
-                cn(
-                  'group flex items-center px-2 py-2 text-sm font-medium rounded-md',
-                  isActive
-                    ? 'bg-blue-100 text-blue-900'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                )
-              }
-            >
-              <item.icon
-                className="mr-3 flex-shrink-0 h-6 w-6"
-                aria-hidden="true"
-              />
-              {item.name}
-            </NavLink>
-          ))}
-        </nav>
-      </div>
-    </div>
+    <Sidebar collapsible="icon">
+      <SidebarHeader>
+        <div className="flex items-center gap-2 px-2 py-1">
+          <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-blue-600 text-white">
+            <span className="text-sm font-bold">IQ</span>
+          </div>
+          {state === "expanded" && (
+            <div className="grid flex-1 text-left text-sm leading-tight">
+              <span className="truncate font-semibold text-blue-600">InfiniqueAI</span>
+              <span className="truncate text-xs text-muted-foreground">Citizen Portal</span>
+            </div>
+          )}
+        </div>
+        <SidebarTrigger className="ml-auto" />
+      </SidebarHeader>
+      
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel>Portal</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {navigation.map((item) => (
+                <SidebarMenuItem key={item.name}>
+                  <SidebarMenuButton asChild tooltip={item.name}>
+                    <NavLink
+                      to={item.href}
+                      className={({ isActive }) =>
+                        cn(isActive && "bg-blue-100 text-blue-900")
+                      }
+                    >
+                      <item.icon />
+                      <span>{item.name}</span>
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+      
+      <SidebarFooter>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <div className="px-2 py-1 text-xs text-muted-foreground">
+              {state === "expanded" ? "© 2024 InfiniqueAI" : "© IQ"}
+            </div>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
+    </Sidebar>
   );
 };
 

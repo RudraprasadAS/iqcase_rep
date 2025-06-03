@@ -1,7 +1,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Bell, User, Loader2, Search, Settings } from "lucide-react";
+import { User, Loader2, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -36,7 +36,7 @@ const Navbar = () => {
   return (
     <header className="bg-white border-b border-gray-200 h-16 flex items-center px-4 justify-between">
       <div className="flex items-center">
-        <h1 className="text-xl font-semibold text-blue-600">Case Management</h1>
+        <h1 className="text-xl font-semibold text-gray-900">Case Management</h1>
       </div>
 
       <div className="flex items-center space-x-3">
@@ -45,10 +45,6 @@ const Navbar = () => {
         </Button>
         
         <NotificationBell />
-        
-        <Button variant="ghost" size="icon">
-          <Settings className="h-5 w-5" />
-        </Button>
         
         <div className="flex items-center space-x-2">
           <Button

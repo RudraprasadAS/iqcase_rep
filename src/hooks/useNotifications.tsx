@@ -41,6 +41,7 @@ export const useNotifications = () => {
     if (!user) return;
 
     try {
+      console.log('Fetching internal user ID for:', user.id);
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('id')
@@ -52,6 +53,7 @@ export const useNotifications = () => {
         return;
       }
 
+      console.log('Found internal user ID:', userData.id);
       setInternalUserId(userData.id);
     } catch (error) {
       console.error('Error fetching internal user ID:', error);
@@ -63,6 +65,8 @@ export const useNotifications = () => {
 
     try {
       setLoading(true);
+      console.log('Fetching notifications for user:', internalUserId);
+      
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
@@ -70,8 +74,12 @@ export const useNotifications = () => {
         .order('created_at', { ascending: false })
         .limit(50);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Notifications fetch error:', error);
+        throw error;
+      }
 
+      console.log('Fetched notifications:', data);
       setNotifications(data || []);
       setUnreadCount(data?.filter(n => !n.is_read).length || 0);
     } catch (error) {
@@ -89,6 +97,8 @@ export const useNotifications = () => {
   const subscribeToNotifications = () => {
     if (!internalUserId) return;
 
+    console.log('Setting up realtime subscription for user:', internalUserId);
+    
     const channel = supabase
       .channel('notifications')
       .on(
@@ -100,6 +110,7 @@ export const useNotifications = () => {
           filter: `user_id=eq.${internalUserId}`
         },
         (payload) => {
+          console.log('New notification received:', payload);
           const newNotification = payload.new as Notification;
           setNotifications(prev => [newNotification, ...prev]);
           setUnreadCount(prev => prev + 1);
@@ -120,6 +131,7 @@ export const useNotifications = () => {
           filter: `user_id=eq.${internalUserId}`
         },
         (payload) => {
+          console.log('Notification updated:', payload);
           const updatedNotification = payload.new as Notification;
           setNotifications(prev => 
             prev.map(n => n.id === updatedNotification.id ? updatedNotification : n)
@@ -203,6 +215,31 @@ export const useNotifications = () => {
     }
   };
 
+  // Debug function to create a test notification
+  const createTestNotification = async () => {
+    if (!internalUserId) return;
+
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: internalUserId,
+          notification_type: 'test',
+          title: 'Test Notification',
+          message: 'This is a test notification to verify the system is working.'
+        });
+
+      if (error) throw error;
+      
+      toast({
+        title: 'Test notification created',
+        description: 'Check if you received it!'
+      });
+    } catch (error) {
+      console.error('Error creating test notification:', error);
+    }
+  };
+
   return {
     notifications,
     unreadCount,
@@ -210,6 +247,7 @@ export const useNotifications = () => {
     markAsRead,
     markAllAsRead,
     deleteNotification,
-    fetchNotifications
+    fetchNotifications,
+    createTestNotification
   };
 };

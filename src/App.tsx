@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -31,6 +30,7 @@ import CitizenCases from './pages/citizen/CitizenCases';
 import CitizenCaseDetail from './pages/citizen/CitizenCaseDetail';
 import NewCitizenCase from './pages/citizen/NewCase';
 import Notifications from './pages/Notifications';
+import Roles from './pages/admin/Roles';
 
 const queryClient = new QueryClient();
 const helmetContext = {};
@@ -55,31 +55,34 @@ function App() {
                 <Route path="/auth/reset-password" element={<ResetPassword />} />
               </Route>
               
-              {/* Protected routes - Admin/Staff */}
+              {/* Protected internal routes */}
               <Route element={<RequireAuth />}>
                 <Route element={<Layout />}>
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/cases" element={<Cases />} />
-                  <Route path="/cases/new" element={<NewCase />} />
                   <Route path="/cases/:id" element={<CaseDetail />} />
+                  <Route path="/cases/new" element={<NewCase />} />
                   <Route path="/knowledge" element={<KnowledgeBase />} />
                   <Route path="/notifications" element={<Notifications />} />
+                  
+                  {/* Reports */}
                   <Route path="/reports" element={<Reports />} />
-                  <Route path="/reports/builder" element={<ReportBuilder />} />
                   <Route path="/reports/standard" element={<StandardReports />} />
+                  <Route path="/reports/builder" element={<ReportBuilder />} />
                   <Route path="/reports/table-builder" element={<TableReportBuilder />} />
                   
-                  {/* Admin routes */}
-                  <Route path="/admin/permissions" element={<Permissions />} />
+                  {/* Admin */}
                   <Route path="/admin/users" element={<Users />} />
+                  <Route path="/admin/permissions" element={<Permissions />} />
+                  <Route path="/admin/roles" element={<Roles />} />
                 </Route>
                 
                 {/* Citizen Portal Routes */}
                 <Route element={<CitizenLayout />}>
                   <Route path="/citizen/dashboard" element={<CitizenDashboard />} />
                   <Route path="/citizen/cases" element={<CitizenCases />} />
-                  <Route path="/citizen/cases/new" element={<NewCitizenCase />} />
                   <Route path="/citizen/cases/:id" element={<CitizenCaseDetail />} />
+                  <Route path="/citizen/cases/new" element={<NewCitizenCase />} />
                   <Route path="/citizen/notifications" element={<Notifications />} />
                 </Route>
               </Route>
