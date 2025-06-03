@@ -6,7 +6,6 @@ import { Badge } from '@/components/ui/badge';
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuHeader,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -68,7 +67,7 @@ const NotificationBell = () => {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-80">
-        <DropdownMenuHeader className="flex items-center justify-between p-3">
+        <div className="flex items-center justify-between p-3 border-b">
           <h3 className="font-semibold">Notifications</h3>
           {unreadCount > 0 && (
             <Button
@@ -81,8 +80,7 @@ const NotificationBell = () => {
               Mark all read
             </Button>
           )}
-        </DropdownMenuHeader>
-        <DropdownMenuSeparator />
+        </div>
         
         {recentNotifications.length === 0 ? (
           <div className="p-4 text-center text-muted-foreground">
