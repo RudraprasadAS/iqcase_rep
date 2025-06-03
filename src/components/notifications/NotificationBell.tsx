@@ -1,0 +1,151 @@
+
+import { useState } from 'react';
+import { Bell, Check, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuHeader,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { useNotifications } from '@/hooks/useNotifications';
+import { formatDistanceToNow } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
+
+const NotificationBell = () => {
+  const navigate = useNavigate();
+  const { notifications, unreadCount, markAsRead, markAllAsRead, deleteNotification } = useNotifications();
+  const [isOpen, setIsOpen] = useState(false);
+
+  const recentNotifications = notifications.slice(0, 10);
+
+  const handleNotificationClick = async (notification: any) => {
+    // Mark as read if not already read
+    if (!notification.is_read) {
+      await markAsRead(notification.id);
+    }
+
+    // Navigate to related case if available
+    if (notification.case_id) {
+      navigate(`/cases/${notification.case_id}`);
+    }
+
+    setIsOpen(false);
+  };
+
+  const getNotificationIcon = (type: string) => {
+    switch (type) {
+      case 'case_assignment':
+        return '👤';
+      case 'new_message':
+        return '💬';
+      case 'case_status_change':
+        return '📋';
+      case 'task_assignment':
+        return '✅';
+      default:
+        return '🔔';
+    }
+  };
+
+  return (
+    <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="relative">
+          <Bell className="h-5 w-5" />
+          {unreadCount > 0 && (
+            <Badge 
+              variant="destructive" 
+              className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
+            >
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </Badge>
+          )}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-80">
+        <DropdownMenuHeader className="flex items-center justify-between p-3">
+          <h3 className="font-semibold">Notifications</h3>
+          {unreadCount > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={markAllAsRead}
+              className="text-xs"
+            >
+              <Check className="h-3 w-3 mr-1" />
+              Mark all read
+            </Button>
+          )}
+        </DropdownMenuHeader>
+        <DropdownMenuSeparator />
+        
+        {recentNotifications.length === 0 ? (
+          <div className="p-4 text-center text-muted-foreground">
+            No notifications yet
+          </div>
+        ) : (
+          <ScrollArea className="h-96">
+            {recentNotifications.map((notification) => (
+              <DropdownMenuItem
+                key={notification.id}
+                className={`flex items-start space-x-3 p-3 cursor-pointer ${
+                  !notification.is_read ? 'bg-blue-50 border-l-2 border-l-blue-500' : ''
+                }`}
+                onClick={() => handleNotificationClick(notification)}
+              >
+                <div className="text-lg">
+                  {getNotificationIcon(notification.notification_type)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between">
+                    <p className="text-sm font-medium truncate">
+                      {notification.title}
+                    </p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-4 w-4 p-0 opacity-50 hover:opacity-100"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteNotification(notification.id);
+                      }}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                    {notification.message}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
+                  </p>
+                </div>
+                {!notification.is_read && (
+                  <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-1"></div>
+                )}
+              </DropdownMenuItem>
+            ))}
+          </ScrollArea>
+        )}
+        
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          className="text-center justify-center p-3 text-blue-600 hover:text-blue-700"
+          onClick={() => {
+            navigate('/notifications');
+            setIsOpen(false);
+          }}
+        >
+          View all notifications
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
+
+export default NotificationBell;

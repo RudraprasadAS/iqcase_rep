@@ -30,6 +30,7 @@ import CitizenDashboard from './pages/citizen/CitizenDashboard';
 import CitizenCases from './pages/citizen/CitizenCases';
 import CitizenCaseDetail from './pages/citizen/CitizenCaseDetail';
 import NewCitizenCase from './pages/citizen/NewCase';
+import Notifications from './pages/Notifications';
 
 const queryClient = new QueryClient();
 const helmetContext = {};
@@ -62,6 +63,7 @@ function App() {
                   <Route path="/cases/new" element={<NewCase />} />
                   <Route path="/cases/:id" element={<CaseDetail />} />
                   <Route path="/knowledge" element={<KnowledgeBase />} />
+                  <Route path="/notifications" element={<Notifications />} />
                   <Route path="/reports" element={<Reports />} />
                   <Route path="/reports/builder" element={<ReportBuilder />} />
                   <Route path="/reports/standard" element={<StandardReports />} />
@@ -78,6 +80,7 @@ function App() {
                   <Route path="/citizen/cases" element={<CitizenCases />} />
                   <Route path="/citizen/cases/new" element={<NewCitizenCase />} />
                   <Route path="/citizen/cases/:id" element={<CitizenCaseDetail />} />
+                  <Route path="/citizen/notifications" element={<Notifications />} />
                 </Route>
               </Route>
               

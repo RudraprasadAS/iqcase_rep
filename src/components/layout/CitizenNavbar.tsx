@@ -1,10 +1,11 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Bell, User, Loader2 } from "lucide-react";
+import { User, Loader2, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import NotificationBell from "@/components/notifications/NotificationBell";
 
 const CitizenNavbar = () => {
   const { toast } = useToast();
@@ -40,8 +41,10 @@ const CitizenNavbar = () => {
 
       <div className="flex items-center space-x-3">
         <Button variant="ghost" size="icon">
-          <Bell className="h-5 w-5" />
+          <Search className="h-5 w-5" />
         </Button>
+        
+        <NotificationBell />
         
         <div className="flex items-center space-x-2">
           <Button

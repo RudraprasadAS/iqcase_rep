@@ -1,19 +1,16 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Menu, Bell, Search, User, Loader2, ShieldAlert } from "lucide-react";
+import { Bell, User, Loader2, Search, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import NotificationBell from "@/components/notifications/NotificationBell";
 
-interface NavbarProps {
-  toggleSidebar: () => void;
-}
-
-const Navbar = ({ toggleSidebar }: NavbarProps) => {
+const Navbar = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { logout, user, isSuperAdmin } = useAuth();
+  const { logout, user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
 
   const handleLogout = async () => {
@@ -36,69 +33,39 @@ const Navbar = ({ toggleSidebar }: NavbarProps) => {
     }
   };
 
-  const handleLoginClick = () => {
-    navigate("/auth/login");
-  };
-
   return (
-    <header className="bg-white border-b border-caseMgmt-border h-16 flex items-center px-4">
-      <Button 
-        variant="ghost" 
-        size="icon"
-        onClick={toggleSidebar}
-        className="mr-4"
-      >
-        <Menu className="w-5 h-5" />
-      </Button>
-
-      <div className="mr-4 flex-1">
-        <div className="relative max-w-md">
-          <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search cases, users, or documents..."
-            className="pl-8 py-2 pr-4 w-full rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-caseMgmt-primary focus:border-transparent"
-          />
-        </div>
+    <header className="bg-white border-b border-gray-200 h-16 flex items-center px-4 justify-between">
+      <div className="flex items-center">
+        <h1 className="text-xl font-semibold text-blue-600">Case Management</h1>
       </div>
 
       <div className="flex items-center space-x-3">
         <Button variant="ghost" size="icon">
-          <Bell className="h-5 w-5" />
+          <Search className="h-5 w-5" />
         </Button>
+        
+        <NotificationBell />
+        
+        <Button variant="ghost" size="icon">
+          <Settings className="h-5 w-5" />
+        </Button>
+        
         <div className="flex items-center space-x-2">
-          {user ? (
-            <Button
-              variant="ghost"
-              className="flex items-center space-x-2"
-              onClick={handleLogout}
-              disabled={isLoading}
-            >
-              {isSuperAdmin ? (
-                <ShieldAlert className="h-5 w-5 text-red-500" />
+          <Button
+            variant="ghost"
+            className="flex items-center space-x-2"
+            onClick={handleLogout}
+            disabled={isLoading}
+          >
+            <User className="h-5 w-5" />
+            <span className="hidden md:inline-block">
+              {isLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <User className="h-5 w-5" />
+                `Logout (${user?.email})`
               )}
-              <span className="hidden md:inline-block">
-                {isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : isSuperAdmin ? (
-                  'System Administrator'
-                ) : (
-                  `Logout (${user.email})`
-                )}
-              </span>
-            </Button>
-          ) : (
-            <Button
-              variant="ghost"
-              className="flex items-center space-x-2"
-              onClick={handleLoginClick}
-            >
-              <User className="h-5 w-5" />
-              <span className="hidden md:inline-block">Login</span>
-            </Button>
-          )}
+            </span>
+          </Button>
         </div>
       </div>
     </header>
