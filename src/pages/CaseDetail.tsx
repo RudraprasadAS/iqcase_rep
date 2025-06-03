@@ -708,7 +708,11 @@ ${conversationContext}
 
             <CaseWatchers caseId={caseData.id} />
 
-            <CaseFeedback caseId={caseData.id} caseStatus={caseData.status} />
+            <CaseFeedback 
+              caseId={caseData.id} 
+              caseTitle={caseData.title}
+              caseStatus={caseData.status} 
+            />
           </div>
         </div>
       </div>

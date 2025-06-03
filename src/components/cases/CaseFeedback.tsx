@@ -3,15 +3,18 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Star, MessageSquare } from 'lucide-react';
+import { Star, MessageSquare, Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import FeedbackWidget from '@/components/feedback/FeedbackWidget';
 
 interface Feedback {
   id: string;
   rating: number;
   comment: string;
+  resolved_satisfaction: boolean;
+  staff_score: string;
+  would_use_again: boolean;
   submitted_at: string;
   users?: {
     name: string;
@@ -21,14 +24,14 @@ interface Feedback {
 
 interface CaseFeedbackProps {
   caseId: string;
+  caseTitle?: string;
   caseStatus: string;
 }
 
-const CaseFeedback = ({ caseId, caseStatus }: CaseFeedbackProps) => {
+const CaseFeedback = ({ caseId, caseTitle, caseStatus }: CaseFeedbackProps) => {
   const [feedback, setFeedback] = useState<Feedback[]>([]);
-  const [rating, setRating] = useState(0);
-  const [comment, setComment] = useState('');
-  const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [showFeedbackForm, setShowFeedbackForm] = useState(false);
+  const [canSubmitFeedback, setCanSubmitFeedback] = useState(false);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const { user } = useAuth();
@@ -36,9 +39,11 @@ const CaseFeedback = ({ caseId, caseStatus }: CaseFeedbackProps) => {
   const isCaseClosed = caseStatus === 'closed' || caseStatus === 'resolved';
 
   useEffect(() => {
-    fetchFeedback();
-    checkUserFeedback();
-  }, [caseId]);
+    if (caseId) {
+      fetchFeedback();
+      checkFeedbackEligibility();
+    }
+  }, [caseId, user]);
 
   const fetchFeedback = async () => {
     try {
@@ -55,75 +60,73 @@ const CaseFeedback = ({ caseId, caseStatus }: CaseFeedbackProps) => {
         .order('submitted_at', { ascending: false });
 
       if (error) throw error;
+      
+      console.log('Case feedback loaded:', data?.length || 0);
       setFeedback(data || []);
     } catch (error) {
       console.error('Error fetching feedback:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load feedback',
+        variant: 'destructive'
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const checkUserFeedback = async () => {
-    if (!user) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('case_feedback')
-        .select('id')
-        .eq('case_id', caseId)
-        .eq('submitted_by', user.id);
-
-      if (error) throw error;
-      setHasSubmitted((data || []).length > 0);
-    } catch (error) {
-      console.error('Error checking user feedback:', error);
+  const checkFeedbackEligibility = async () => {
+    if (!user || !isCaseClosed) {
+      setCanSubmitFeedback(false);
+      return;
     }
-  };
-
-  const submitFeedback = async () => {
-    if (!user || rating === 0) return;
 
     try {
-      const { error } = await supabase
-        .from('case_feedback')
-        .insert({
-          case_id: caseId,
-          submitted_by: user.id,
-          rating,
-          comment: comment.trim() || null
-        });
+      // Get internal user ID
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id, user_type')
+        .eq('auth_user_id', user.id)
+        .single();
 
-      if (error) throw error;
+      if (userError || !userData) {
+        console.error('Error fetching user data:', userError);
+        return;
+      }
 
-      await fetchFeedback();
-      await checkUserFeedback();
-      setRating(0);
-      setComment('');
+      // Check if user is related to this case (submitted it or assigned to it)
+      const { data: caseData, error: caseError } = await supabase
+        .from('cases')
+        .select('submitted_by, assigned_to')
+        .eq('id', caseId)
+        .single();
+
+      if (caseError || !caseData) {
+        console.error('Error fetching case data:', caseError);
+        return;
+      }
+
+      const isEligible = 
+        caseData.submitted_by === userData.id || 
+        caseData.assigned_to === userData.id ||
+        userData.user_type === 'internal';
+
+      setCanSubmitFeedback(isEligible);
       
-      toast({
-        title: "Success",
-        description: "Feedback submitted successfully"
-      });
     } catch (error) {
-      console.error('Error submitting feedback:', error);
-      toast({
-        title: "Error",
-        description: "Failed to submit feedback",
-        variant: "destructive"
-      });
+      console.error('Error checking feedback eligibility:', error);
     }
   };
 
-  const renderStars = (currentRating: number, interactive = false) => {
+  const renderStars = (currentRating: number) => {
     return Array.from({ length: 5 }, (_, i) => (
       <Star
         key={i}
-        className={`h-5 w-5 ${
+        className={`h-4 w-4 ${
           i < currentRating 
             ? 'fill-yellow-400 text-yellow-400' 
             : 'text-gray-300'
-        } ${interactive ? 'cursor-pointer hover:text-yellow-400' : ''}`}
-        onClick={interactive ? () => setRating(i + 1) : undefined}
+        }`}
       />
     ));
   };
@@ -132,8 +135,20 @@ const CaseFeedback = ({ caseId, caseStatus }: CaseFeedbackProps) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
-      day: 'numeric'
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
     });
+  };
+
+  const getStaffScoreColor = (score: string) => {
+    switch (score) {
+      case 'excellent': return 'text-green-600';
+      case 'good': return 'text-blue-600';
+      case 'average': return 'text-yellow-600';
+      case 'poor': return 'text-red-600';
+      default: return 'text-gray-600';
+    }
   };
 
   if (loading) {
@@ -141,74 +156,130 @@ const CaseFeedback = ({ caseId, caseStatus }: CaseFeedbackProps) => {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center">
-          <MessageSquare className="h-5 w-5 mr-2" />
-          Case Feedback ({feedback.length})
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Submit feedback form - only show if case is closed and user hasn't submitted */}
-        {isCaseClosed && !hasSubmitted && user && (
-          <div className="p-4 border rounded-lg bg-blue-50">
-            <h4 className="font-medium mb-3">How would you rate the resolution of this case?</h4>
-            <div className="space-y-3">
-              <div className="flex items-center space-x-1">
-                {renderStars(rating, true)}
-                <span className="ml-2 text-sm text-muted-foreground">
-                  {rating > 0 && `${rating}/5 stars`}
-                </span>
-              </div>
-              <Textarea
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                placeholder="Additional comments (optional)..."
-                rows={3}
-              />
+    <>
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center">
+              <MessageSquare className="h-5 w-5 mr-2" />
+              Case Feedback ({feedback.length})
+            </CardTitle>
+            
+            {canSubmitFeedback && !showFeedbackForm && (
               <Button 
-                onClick={submitFeedback} 
-                disabled={rating === 0}
+                onClick={() => setShowFeedbackForm(true)}
                 size="sm"
+                className="flex items-center gap-2"
               >
-                Submit Feedback
+                <Plus className="h-4 w-4" />
+                Give Feedback
               </Button>
-            </div>
+            )}
           </div>
-        )}
+        </CardHeader>
+        
+        <CardContent className="space-y-4">
+          {/* Feedback Form */}
+          {showFeedbackForm && (
+            <div className="border rounded-lg p-4 bg-blue-50">
+              <FeedbackWidget
+                caseId={caseId}
+                caseTitle={caseTitle}
+                context="case"
+                onSubmit={() => {
+                  setShowFeedbackForm(false);
+                  fetchFeedback();
+                }}
+                onCancel={() => setShowFeedbackForm(false)}
+              />
+            </div>
+          )}
 
-        {/* Display existing feedback */}
-        {feedback.length === 0 ? (
-          <div className="text-center text-muted-foreground py-4">
-            {isCaseClosed ? 'No feedback yet' : 'Feedback will be available when case is closed'}
-          </div>
-        ) : (
-          feedback.map((fb) => (
-            <div key={fb.id} className="p-3 border rounded-lg">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center space-x-1">
-                  {renderStars(fb.rating)}
-                  <span className="ml-2 text-sm font-medium">
-                    {fb.rating}/5 stars
-                  </span>
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  {formatDate(fb.submitted_at)}
-                </div>
-              </div>
-              {fb.comment && (
-                <p className="text-sm text-muted-foreground">{fb.comment}</p>
-              )}
-              {fb.users && (
-                <div className="text-xs text-muted-foreground mt-2">
-                  By {fb.users.name}
+          {/* Display existing feedback */}
+          {feedback.length === 0 ? (
+            <div className="text-center text-muted-foreground py-8">
+              {isCaseClosed 
+                ? 'No feedback submitted yet' 
+                : 'Feedback will be available when case is closed'
+              }
+              {canSubmitFeedback && isCaseClosed && (
+                <div className="mt-4">
+                  <Button 
+                    onClick={() => setShowFeedbackForm(true)}
+                    variant="outline"
+                  >
+                    Be the first to give feedback
+                  </Button>
                 </div>
               )}
             </div>
-          ))
-        )}
-      </CardContent>
-    </Card>
+          ) : (
+            feedback.map((fb) => (
+              <div key={fb.id} className="border rounded-lg p-4 space-y-3">
+                {/* Header with rating and date */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    {renderStars(fb.rating)}
+                    <span className="font-medium text-sm">
+                      {fb.rating}/5 stars
+                    </span>
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    {formatDate(fb.submitted_at)}
+                  </div>
+                </div>
+
+                {/* Comment */}
+                {fb.comment && (
+                  <div>
+                    <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                      {fb.comment}
+                    </p>
+                  </div>
+                )}
+
+                {/* Additional feedback details */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                  {fb.resolved_satisfaction !== null && (
+                    <div>
+                      <span className="font-medium">Resolved to satisfaction: </span>
+                      <span className={fb.resolved_satisfaction ? 'text-green-600' : 'text-red-600'}>
+                        {fb.resolved_satisfaction ? 'Yes' : 'No'}
+                      </span>
+                    </div>
+                  )}
+                  
+                  {fb.staff_score && (
+                    <div>
+                      <span className="font-medium">Staff rating: </span>
+                      <span className={getStaffScoreColor(fb.staff_score)}>
+                        {fb.staff_score.charAt(0).toUpperCase() + fb.staff_score.slice(1)}
+                      </span>
+                    </div>
+                  )}
+                  
+                  {fb.would_use_again !== null && (
+                    <div>
+                      <span className="font-medium">Would use again: </span>
+                      <span className={fb.would_use_again ? 'text-green-600' : 'text-red-600'}>
+                        {fb.would_use_again ? 'Yes' : 'No'}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Submitted by */}
+                {fb.users && (
+                  <div className="text-xs text-muted-foreground border-t pt-2">
+                    Submitted by {fb.users.name || fb.users.email}
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
+    </>
   );
 };
 

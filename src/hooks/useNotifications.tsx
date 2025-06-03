@@ -1,19 +1,17 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-import { useToast } from '@/hooks/use-toast';
+import { useAuth } from './useAuth';
+import { useToast } from './use-toast';
 
 interface Notification {
   id: string;
-  user_id: string;
-  case_id?: string;
-  notification_type: string;
   title: string;
   message: string;
+  notification_type: string;
+  case_id?: string;
   is_read: boolean;
   created_at: string;
-  updated_at: string;
 }
 
 export const useNotifications = () => {
@@ -21,52 +19,57 @@ export const useNotifications = () => {
   const { toast } = useToast();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [internalUserId, setInternalUserId] = useState<string | null>(null);
 
+  // Get internal user ID
   useEffect(() => {
-    if (user) {
-      fetchInternalUserId();
-    }
-  }, [user]);
-
-  useEffect(() => {
-    if (internalUserId) {
-      fetchNotifications();
-      subscribeToNotifications();
-    }
-  }, [internalUserId]);
-
-  const fetchInternalUserId = async () => {
-    if (!user) return;
-
-    try {
-      console.log('Fetching internal user ID for:', user.id);
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (userError) {
-        console.error('User lookup error:', userError);
+    const getInternalUserId = async () => {
+      if (!user) {
+        console.log('🔔 No auth user found');
         return;
       }
 
-      console.log('Found internal user ID:', userData.id);
-      setInternalUserId(userData.id);
-    } catch (error) {
-      console.error('Error fetching internal user ID:', error);
-    }
-  };
+      try {
+        console.log('🔔 Fetching internal user ID for auth user:', user.id);
+        
+        const { data: userData, error } = await supabase
+          .from('users')
+          .select('id')
+          .eq('auth_user_id', user.id)
+          .single();
 
+        if (error) {
+          console.error('🔔 Error fetching internal user:', error);
+          return;
+        }
+
+        if (!userData) {
+          console.log('🔔 No internal user found for auth user:', user.id);
+          return;
+        }
+
+        console.log('🔔 Internal user ID found:', userData.id);
+        setInternalUserId(userData.id);
+      } catch (error) {
+        console.error('🔔 Exception fetching internal user:', error);
+      }
+    };
+
+    getInternalUserId();
+  }, [user]);
+
+  // Fetch notifications
   const fetchNotifications = async () => {
-    if (!internalUserId) return;
+    if (!internalUserId) {
+      console.log('🔔 No internal user ID, skipping notification fetch');
+      return;
+    }
 
     try {
+      console.log('🔔 Fetching notifications for user:', internalUserId);
       setLoading(true);
-      console.log('Fetching notifications for user:', internalUserId);
-      
+
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
@@ -75,15 +78,22 @@ export const useNotifications = () => {
         .limit(50);
 
       if (error) {
-        console.error('Notifications fetch error:', error);
+        console.error('🔔 Error fetching notifications:', error);
         throw error;
       }
 
-      console.log('Fetched notifications:', data);
+      console.log('🔔 Notifications fetched:', data?.length || 0, 'items');
+      console.log('🔔 Sample notifications:', data?.slice(0, 3));
+
       setNotifications(data || []);
-      setUnreadCount(data?.filter(n => !n.is_read).length || 0);
+      
+      // Count unread notifications
+      const unread = (data || []).filter(n => !n.is_read).length;
+      console.log('🔔 Unread count:', unread);
+      setUnreadCount(unread);
+
     } catch (error) {
-      console.error('Error fetching notifications:', error);
+      console.error('🔔 Error in fetchNotifications:', error);
       toast({
         title: 'Error',
         description: 'Failed to load notifications',
@@ -94,11 +104,153 @@ export const useNotifications = () => {
     }
   };
 
-  const subscribeToNotifications = () => {
+  // Mark notification as read
+  const markAsRead = async (notificationId: string) => {
+    try {
+      console.log('🔔 Marking notification as read:', notificationId);
+      
+      const { error } = await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('id', notificationId);
+
+      if (error) {
+        console.error('🔔 Error marking as read:', error);
+        throw error;
+      }
+
+      // Update local state
+      setNotifications(prev => prev.map(n => 
+        n.id === notificationId ? { ...n, is_read: true } : n
+      ));
+      
+      setUnreadCount(prev => Math.max(0, prev - 1));
+      console.log('🔔 Notification marked as read successfully');
+
+    } catch (error) {
+      console.error('🔔 Error in markAsRead:', error);
+    }
+  };
+
+  // Mark all notifications as read
+  const markAllAsRead = async () => {
     if (!internalUserId) return;
 
-    console.log('Setting up realtime subscription for user:', internalUserId);
-    
+    try {
+      console.log('🔔 Marking all notifications as read for user:', internalUserId);
+      
+      const { error } = await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('user_id', internalUserId)
+        .eq('is_read', false);
+
+      if (error) {
+        console.error('🔔 Error marking all as read:', error);
+        throw error;
+      }
+
+      // Update local state
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+      setUnreadCount(0);
+      console.log('🔔 All notifications marked as read successfully');
+
+    } catch (error) {
+      console.error('🔔 Error in markAllAsRead:', error);
+    }
+  };
+
+  // Delete notification
+  const deleteNotification = async (notificationId: string) => {
+    try {
+      console.log('🔔 Deleting notification:', notificationId);
+      
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('id', notificationId);
+
+      if (error) {
+        console.error('🔔 Error deleting notification:', error);
+        throw error;
+      }
+
+      // Update local state
+      const deletedNotification = notifications.find(n => n.id === notificationId);
+      setNotifications(prev => prev.filter(n => n.id !== notificationId));
+      
+      if (deletedNotification && !deletedNotification.is_read) {
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
+      
+      console.log('🔔 Notification deleted successfully');
+
+    } catch (error) {
+      console.error('🔔 Error in deleteNotification:', error);
+    }
+  };
+
+  // Create test notification for debugging
+  const createTestNotification = async () => {
+    if (!internalUserId) {
+      console.log('🔔 Cannot create test notification - no internal user ID');
+      return;
+    }
+
+    try {
+      console.log('🔔 Creating test notification for user:', internalUserId);
+      
+      const { data, error } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: internalUserId,
+          title: 'Test Notification',
+          message: 'This is a test notification created for debugging purposes.',
+          notification_type: 'test'
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('🔔 Error creating test notification:', error);
+        throw error;
+      }
+
+      console.log('🔔 Test notification created:', data);
+      await fetchNotifications(); // Refresh notifications
+
+      toast({
+        title: 'Test Notification Created',
+        description: 'A test notification has been created for debugging.'
+      });
+
+    } catch (error) {
+      console.error('🔔 Error in createTestNotification:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to create test notification',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  // Fetch notifications when internal user ID is available
+  useEffect(() => {
+    if (internalUserId) {
+      console.log('🔔 Internal user ID available, fetching notifications');
+      fetchNotifications();
+    }
+  }, [internalUserId]);
+
+  // Set up real-time subscription
+  useEffect(() => {
+    if (!internalUserId) {
+      console.log('🔔 No internal user ID for real-time subscription');
+      return;
+    }
+
+    console.log('🔔 Setting up real-time notifications subscription for user:', internalUserId);
+
     const channel = supabase
       .channel('notifications')
       .on(
@@ -110,8 +262,9 @@ export const useNotifications = () => {
           filter: `user_id=eq.${internalUserId}`
         },
         (payload) => {
-          console.log('New notification received:', payload);
+          console.log('🔔 New notification received via real-time:', payload);
           const newNotification = payload.new as Notification;
+          
           setNotifications(prev => [newNotification, ...prev]);
           setUnreadCount(prev => prev + 1);
           
@@ -131,114 +284,26 @@ export const useNotifications = () => {
           filter: `user_id=eq.${internalUserId}`
         },
         (payload) => {
-          console.log('Notification updated:', payload);
+          console.log('🔔 Notification updated via real-time:', payload);
           const updatedNotification = payload.new as Notification;
-          setNotifications(prev => 
-            prev.map(n => n.id === updatedNotification.id ? updatedNotification : n)
-          );
-          setUnreadCount(prev => {
-            const wasUnread = !payload.old?.is_read;
-            const isNowRead = updatedNotification.is_read;
-            if (wasUnread && isNowRead) {
-              return Math.max(0, prev - 1);
-            }
-            return prev;
-          });
+          
+          setNotifications(prev => prev.map(n => 
+            n.id === updatedNotification.id ? updatedNotification : n
+          ));
+          
+          // Update unread count if read status changed
+          if (updatedNotification.is_read) {
+            setUnreadCount(prev => Math.max(0, prev - 1));
+          }
         }
       )
       .subscribe();
 
     return () => {
+      console.log('🔔 Cleaning up notifications subscription');
       supabase.removeChannel(channel);
     };
-  };
-
-  const markAsRead = async (notificationId: string) => {
-    try {
-      const { error } = await supabase
-        .from('notifications')
-        .update({ is_read: true })
-        .eq('id', notificationId);
-
-      if (error) throw error;
-    } catch (error) {
-      console.error('Error marking notification as read:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to mark notification as read',
-        variant: 'destructive'
-      });
-    }
-  };
-
-  const markAllAsRead = async () => {
-    if (!internalUserId) return;
-
-    try {
-      const { error } = await supabase
-        .from('notifications')
-        .update({ is_read: true })
-        .eq('user_id', internalUserId)
-        .eq('is_read', false);
-
-      if (error) throw error;
-
-      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-      setUnreadCount(0);
-    } catch (error) {
-      console.error('Error marking all notifications as read:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to mark all notifications as read',
-        variant: 'destructive'
-      });
-    }
-  };
-
-  const deleteNotification = async (notificationId: string) => {
-    try {
-      const { error } = await supabase
-        .from('notifications')
-        .delete()
-        .eq('id', notificationId);
-
-      if (error) throw error;
-
-      setNotifications(prev => prev.filter(n => n.id !== notificationId));
-    } catch (error) {
-      console.error('Error deleting notification:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to delete notification',
-        variant: 'destructive'
-      });
-    }
-  };
-
-  // Debug function to create a test notification
-  const createTestNotification = async () => {
-    if (!internalUserId) return;
-
-    try {
-      const { error } = await supabase
-        .from('notifications')
-        .insert({
-          user_id: internalUserId,
-          notification_type: 'test',
-          title: 'Test Notification',
-          message: 'This is a test notification to verify the system is working.'
-        });
-
-      if (error) throw error;
-      
-      toast({
-        title: 'Test notification created',
-        description: 'Check if you received it!'
-      });
-    } catch (error) {
-      console.error('Error creating test notification:', error);
-    }
-  };
+  }, [internalUserId, toast]);
 
   return {
     notifications,
@@ -248,6 +313,6 @@ export const useNotifications = () => {
     markAllAsRead,
     deleteNotification,
     fetchNotifications,
-    createTestNotification
+    createTestNotification, // For debugging
   };
 };
