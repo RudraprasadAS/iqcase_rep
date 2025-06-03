@@ -12,9 +12,9 @@ interface Feedback {
   id: string;
   rating: number;
   comment: string;
-  resolved_satisfaction: boolean;
-  staff_score: string;
-  would_use_again: boolean;
+  resolved_satisfaction: boolean | null;
+  staff_score: string | null;
+  would_use_again: boolean | null;
   submitted_at: string;
   users?: {
     name: string;
@@ -141,7 +141,7 @@ const CaseFeedback = ({ caseId, caseTitle, caseStatus }: CaseFeedbackProps) => {
     });
   };
 
-  const getStaffScoreColor = (score: string) => {
+  const getStaffScoreColor = (score: string | null) => {
     switch (score) {
       case 'excellent': return 'text-green-600';
       case 'good': return 'text-blue-600';

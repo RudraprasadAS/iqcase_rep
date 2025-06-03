@@ -34,6 +34,7 @@ const CitizenLayout = () => {
                   <X className="h-4 w-4" />
                 </Button>
                 <FeedbackWidget 
+                  caseId="general-feedback"
                   context="portal"
                   onSubmit={() => setShowFeedback(false)}
                 />

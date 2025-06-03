@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Star, MessageSquare, Send, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -41,7 +40,7 @@ const FeedbackWidget = ({
   // Check if user has already submitted feedback for this case
   useEffect(() => {
     const checkExistingFeedback = async () => {
-      if (!user || !caseId) return;
+      if (!user || !caseId || caseId === 'general-feedback') return;
 
       try {
         // Get internal user ID
@@ -120,6 +119,18 @@ const FeedbackWidget = ({
         throw new Error('Failed to get user information');
       }
 
+      // For general feedback, create a temporary case record or handle differently
+      if (caseId === 'general-feedback') {
+        // For now, we'll skip case_id for general feedback
+        // You might want to create a separate general_feedback table
+        toast({
+          title: "General Feedback",
+          description: "General feedback feature coming soon!",
+        });
+        onSubmit?.();
+        return;
+      }
+
       const feedbackData = {
         case_id: caseId,
         submitted_by: userData.id,
@@ -191,6 +202,7 @@ const FeedbackWidget = ({
   };
 
   const generateCaseNumber = (id: string) => {
+    if (id === 'general-feedback') return 'General Portal';
     const year = new Date().getFullYear();
     const shortId = id.slice(-6).toUpperCase();
     return `#${year}-${shortId}`;
@@ -201,7 +213,7 @@ const FeedbackWidget = ({
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <MessageSquare className="h-6 w-6" />
-          🎉 We'd love your feedback on Case {generateCaseNumber(caseId)}
+          🎉 We'd love your feedback on {caseId === 'general-feedback' ? 'our portal' : `Case ${generateCaseNumber(caseId)}`}
           {hasSubmitted && <span className="text-sm text-green-600">(Updated)</span>}
         </CardTitle>
         {caseTitle && (
