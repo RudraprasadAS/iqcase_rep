@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { useForm } from 'react-hook-form';
@@ -46,7 +45,6 @@ import { cn } from "@/lib/utils"
 import { CalendarIcon, Plus, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Badge } from '../ui/badge';
-import { Textarea } from '../ui/textarea';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -67,7 +65,6 @@ const taskFormSchema = z.object({
   title: z.string().min(2, {
     message: "Task title must be at least 2 characters.",
   }),
-  description: z.string().optional(),
   assigned_to: z.string().optional(),
   due_date: z.date().optional(),
   priority: z.enum(['low', 'medium', 'high']),
@@ -90,7 +87,6 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
     resolver: zodResolver(taskFormSchema),
     defaultValues: {
       title: "",
-      description: "",
       assigned_to: "",
       priority: 'medium',
     },
@@ -197,10 +193,8 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
       const taskData = {
         case_id: caseId,
         task_name: data.title,
-        description: data.description || '',
         assigned_to: data.assigned_to || null,
         due_date: data.due_date?.toISOString() || null,
-        priority: data.priority,
         status: 'open' as const,
         created_by: currentUserData.id
       };
@@ -363,23 +357,6 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
                     />
                     <FormField
                       control={form.control}
-                      name="description"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Description</FormLabel>
-                          <FormControl>
-                            <Textarea
-                              placeholder="Task Description"
-                              className="resize-none"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
                       name="assigned_to"
                       render={({ field }) => (
                         <FormItem>
@@ -486,7 +463,6 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
                 <TableHead>Title</TableHead>
                 <TableHead>Assigned To</TableHead>
                 <TableHead>Due Date</TableHead>
-                <TableHead>Priority</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -500,18 +476,6 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
                   </TableCell>
                   <TableCell>
                     {task.due_date ? format(new Date(task.due_date), "PPP") : 'No Due Date'}
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant="secondary"
-                      className={cn(
-                        task.priority === 'low' && "bg-green-500",
-                        task.priority === 'medium' && "bg-yellow-500 text-black",
-                        task.priority === 'high' && "bg-red-500"
-                      )}
-                    >
-                      {task.priority}
-                    </Badge>
                   </TableCell>
                   <TableCell>
                     <Select
