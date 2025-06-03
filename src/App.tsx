@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -29,6 +30,7 @@ import CitizenDashboard from './pages/citizen/CitizenDashboard';
 import CitizenCases from './pages/citizen/CitizenCases';
 import CitizenCaseDetail from './pages/citizen/CitizenCaseDetail';
 import NewCitizenCase from './pages/citizen/NewCase';
+import CitizenKnowledgeBase from './pages/citizen/CitizenKnowledgeBase';
 import Notifications from './pages/Notifications';
 import Roles from './pages/admin/Roles';
 
@@ -83,6 +85,7 @@ function App() {
                   <Route path="/citizen/cases" element={<CitizenCases />} />
                   <Route path="/citizen/cases/:id" element={<CitizenCaseDetail />} />
                   <Route path="/citizen/cases/new" element={<NewCitizenCase />} />
+                  <Route path="/citizen/knowledge" element={<CitizenKnowledgeBase />} />
                   <Route path="/citizen/notifications" element={<Notifications />} />
                 </Route>
               </Route>

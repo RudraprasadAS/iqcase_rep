@@ -1,278 +1,267 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import { v4 as uuidv4 } from 'uuid';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Badge } from '@/components/ui/badge';
-import { CheckSquare, Plus, Calendar, User, X, Check } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { formatDistanceToNow } from 'date-fns';
-
-interface Task {
-  id: string;
-  task_name: string;
-  status: string;
-  due_date?: string;
-  assigned_to?: string;
-  created_at: string;
-  created_by?: string;
-  users?: { name: string };
-  assigned_user?: { name: string };
-}
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-}
+import { useToast } from '@/hooks/use-toast';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { cn } from "@/lib/utils"
+import { CalendarIcon, CheckCheck, ChevronsUpDown, Copy, Plus, Trash2 } from 'lucide-react';
+import { format } from 'date-fns';
+import { DatePicker } from '../ui/date-picker';
+import { Badge } from '../ui/badge';
+import { Label } from '../ui/label';
+import { Textarea } from '../ui/textarea';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 interface CaseTasksProps {
   caseId: string;
 }
 
+const taskFormSchema = z.object({
+  title: z.string().min(2, {
+    message: "Task title must be at least 2 characters.",
+  }),
+  description: z.string().optional(),
+  assigned_to: z.string().optional(),
+  due_date: z.string().optional(),
+  priority: z.enum(['low', 'medium', 'high']),
+});
+
+const priorityOptions = [
+  { value: 'low', label: 'Low' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high', label: 'High' },
+];
+
 const CaseTasks = ({ caseId }: CaseTasksProps) => {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [newTaskName, setNewTaskName] = useState('');
-  const [newTaskAssignee, setNewTaskAssignee] = useState('');
-  const [newTaskDueDate, setNewTaskDueDate] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [internalUserId, setInternalUserId] = useState<string | null>(null);
-  const { toast } = useToast();
   const { user } = useAuth();
+  const { toast } = useToast();
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [isCreating, setIsCreating] = useState(false);
+  const [availableUsers, setAvailableUsers] = useState<any[]>([]);
+
+  const form = useForm<z.infer<typeof taskFormSchema>>({
+    resolver: zodResolver(taskFormSchema),
+    defaultValues: {
+      title: "",
+      description: "",
+      assigned_to: "",
+      due_date: "",
+      priority: 'medium',
+    },
+  });
 
   useEffect(() => {
-    if (user) {
-      fetchInternalUserId();
-    }
-  }, [user]);
+    const fetchTasks = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('case_tasks')
+          .select(`
+            *,
+            assigned_user:assigned_to(id, name, email),
+            created_by_user:created_by(id, name, email)
+          `)
+          .eq('case_id', caseId)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('Error fetching tasks:', error);
+          toast({
+            title: 'Error',
+            description: 'Failed to load tasks',
+            variant: 'destructive'
+          });
+          return;
+        }
+
+        setTasks(data || []);
+      } catch (error) {
+        console.error('Error fetching tasks:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load tasks',
+          variant: 'destructive'
+        });
+      }
+    };
+
+    fetchTasks();
+  }, [caseId, toast]);
 
   useEffect(() => {
-    if (internalUserId) {
-      fetchTasks();
-      fetchUsers();
-    }
-  }, [caseId, internalUserId]);
+    const fetchAvailableUsers = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('id, name, email');
 
-  const fetchInternalUserId = async () => {
+        if (error) {
+          console.error('Error fetching users:', error);
+          toast({
+            title: 'Error',
+            description: 'Failed to load available users',
+            variant: 'destructive'
+          });
+          return;
+        }
+
+        setAvailableUsers(data || []);
+      } catch (error) {
+        console.error('Error fetching users:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load available users',
+          variant: 'destructive'
+        });
+      }
+    };
+
+    fetchAvailableUsers();
+  }, [toast]);
+
+  const createTask = async (data: { title: string; description?: string; assigned_to?: string; due_date?: string; priority: string }) => {
     if (!user) return;
 
     try {
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('id')
-        .eq('auth_user_id', user.id)
-        .maybeSingle();
-
-      if (userError) {
-        console.error('User lookup error:', userError);
-        return;
-      }
-
-      if (userData) {
-        setInternalUserId(userData.id);
-      }
-    } catch (error) {
-      console.error('Error fetching internal user ID:', error);
-    }
-  };
-
-  const fetchTasks = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('case_tasks')
-        .select(`
-          *,
-          users!case_tasks_assigned_to_fkey(name),
-          assigned_user:users!case_tasks_created_by_fkey(name)
-        `)
-        .eq('case_id', caseId)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Tasks fetch error:', error);
-        throw error;
-      }
-
-      console.log('Tasks fetched:', data);
-      setTasks(data || []);
-    } catch (error) {
-      console.error('Error fetching tasks:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchUsers = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('id, name, email')
-        .eq('is_active', true)
-        .order('name');
-
-      if (error) {
-        console.error('Users fetch error:', error);
-        throw error;
-      }
-
-      console.log('Users fetched:', data);
-      setUsers(data || []);
-    } catch (error) {
-      console.error('Error fetching users:', error);
-    }
-  };
-
-  const addTask = async () => {
-    if (!newTaskName.trim() || !internalUserId) {
-      toast({
-        title: "Error",
-        description: "Please enter a task name",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    try {
+      console.log('Creating task with data:', data);
+      
       const taskData = {
         case_id: caseId,
-        task_name: newTaskName.trim(),
-        assigned_to: newTaskAssignee || null,
-        due_date: newTaskDueDate || null,
-        created_by: internalUserId,
-        status: 'open'
+        title: data.title,
+        description: data.description || '',
+        assigned_to: data.assigned_to || null,
+        due_date: data.due_date || null,
+        priority: data.priority,
+        status: 'open' as const,
+        created_by: user.id
       };
 
-      const { data: taskResult, error } = await supabase
+      const { data: newTask, error } = await supabase
         .from('case_tasks')
         .insert(taskData)
-        .select()
+        .select(`
+          *,
+          assigned_user:assigned_to(id, name, email),
+          created_by_user:created_by(id, name, email)
+        `)
         .single();
 
       if (error) {
-        console.error('Task insert error:', error);
+        console.error('Error creating task:', error);
         throw error;
       }
 
-      // Log activity
-      await supabase
-        .from('case_activities')
-        .insert({
-          case_id: caseId,
-          activity_type: 'task_created',
-          description: `Task created: ${newTaskName.trim()}`,
-          performed_by: internalUserId
-        });
+      console.log('Task created successfully:', newTask);
 
-      // Create notification for assigned user (if different from creator)
-      if (newTaskAssignee && newTaskAssignee !== internalUserId) {
-        console.log('Creating task assignment notification for user:', newTaskAssignee);
-        const { error: notificationError } = await supabase
-          .from('notifications')
-          .insert({
-            user_id: newTaskAssignee,
-            title: 'New Task Assigned',
-            message: `You have been assigned a new task: ${newTaskName.trim()}`,
-            notification_type: 'task_assignment',
-            case_id: caseId
-          });
+      // Create notification if task is assigned to someone other than the creator
+      if (newTask.assigned_to && newTask.assigned_to !== user.id) {
+        try {
+          console.log('Creating task assignment notification...');
+          
+          // Get the internal user ID for the assigned user
+          const { data: assignedUserData, error: userError } = await supabase
+            .from('users')
+            .select('id')
+            .eq('auth_user_id', newTask.assigned_to)
+            .single();
 
-        if (notificationError) {
-          console.error('Error creating task notification:', notificationError);
-        } else {
-          console.log('Task assignment notification created successfully');
+          if (userError) {
+            console.error('Error fetching assigned user:', userError);
+          } else if (assignedUserData) {
+            console.log('Found assigned user internal ID:', assignedUserData.id);
+            
+            const { data: notificationData, error: notificationError } = await supabase
+              .from('notifications')
+              .insert({
+                user_id: assignedUserData.id,
+                title: 'New Task Assigned',
+                message: `You have been assigned a new task: ${newTask.title}`,
+                notification_type: 'task_assignment',
+                case_id: caseId,
+                is_read: false
+              })
+              .select()
+              .single();
+
+            if (notificationError) {
+              console.error('Error creating notification:', notificationError);
+            } else {
+              console.log('Notification created successfully:', notificationData);
+            }
+          }
+        } catch (notificationError) {
+          console.error('Exception creating notification:', notificationError);
         }
       }
 
-      await fetchTasks();
-      setIsAddDialogOpen(false);
-      setNewTaskName('');
-      setNewTaskAssignee('');
-      setNewTaskDueDate('');
+      setTasks(prev => [...prev, newTask]);
+      setIsCreating(false);
+      form.reset();
       
       toast({
-        title: "Success",
-        description: "Task created successfully"
+        title: 'Task Created',
+        description: `Task "${newTask.title}" has been created successfully.`,
       });
     } catch (error) {
       console.error('Error creating task:', error);
       toast({
-        title: "Error",
-        description: "Failed to create task",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const toggleTaskComplete = async (taskId: string, currentStatus: string) => {
-    if (!internalUserId) return;
-
-    const newStatus = currentStatus === 'completed' ? 'open' : 'completed';
-
-    try {
-      const { error } = await supabase
-        .from('case_tasks')
-        .update({ status: newStatus })
-        .eq('id', taskId);
-
-      if (error) {
-        console.error('Task update error:', error);
-        throw error;
-      }
-
-      // Log activity
-      await supabase
-        .from('case_activities')
-        .insert({
-          case_id: caseId,
-          activity_type: 'task_updated',
-          description: `Task marked as ${newStatus}`,
-          performed_by: internalUserId
-        });
-
-      // Find the task to get assigned user
-      const task = tasks.find(t => t.id === taskId);
-      if (task && task.assigned_to && task.assigned_to !== internalUserId) {
-        console.log('Creating task status notification for user:', task.assigned_to);
-        const { error: notificationError } = await supabase
-          .from('notifications')
-          .insert({
-            user_id: task.assigned_to,
-            title: 'Task Status Updated',
-            message: `Task "${task.task_name}" has been marked as ${newStatus}`,
-            notification_type: 'task_assignment',
-            case_id: caseId
-          });
-
-        if (notificationError) {
-          console.error('Error creating task status notification:', notificationError);
-        } else {
-          console.log('Task status notification created successfully');
-        }
-      }
-
-      await fetchTasks();
-      toast({
-        title: "Success",
-        description: `Task marked as ${newStatus}`
-      });
-    } catch (error) {
-      console.error('Error updating task:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update task",
-        variant: "destructive"
+        title: 'Error',
+        description: 'Failed to create task. Please try again.',
+        variant: 'destructive',
       });
     }
   };
 
   const deleteTask = async (taskId: string) => {
-    if (!internalUserId) return;
-
     try {
       const { error } = await supabase
         .from('case_tasks')
@@ -280,177 +269,291 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
         .eq('id', taskId);
 
       if (error) {
-        console.error('Task delete error:', error);
-        throw error;
+        console.error('Error deleting task:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to delete task. Please try again.',
+          variant: 'destructive',
+        });
+        return;
       }
 
-      // Log activity
-      await supabase
-        .from('case_activities')
-        .insert({
-          case_id: caseId,
-          activity_type: 'task_deleted',
-          description: 'Task deleted',
-          performed_by: internalUserId
-        });
-
-      await fetchTasks();
+      setTasks(prev => prev.filter(task => task.id !== taskId));
       toast({
-        title: "Success",
-        description: "Task deleted successfully"
+        title: 'Task Deleted',
+        description: 'Task deleted successfully.',
       });
     } catch (error) {
       console.error('Error deleting task:', error);
       toast({
-        title: "Error",
-        description: "Failed to delete task",
-        variant: "destructive"
+        title: 'Error',
+        description: 'Failed to delete task. Please try again.',
+        variant: 'destructive',
       });
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'open': return 'bg-blue-100 text-blue-800';
-      case 'in_progress': return 'bg-yellow-100 text-yellow-800';
-      case 'completed': return 'bg-green-100 text-green-800';
-      case 'cancelled': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+  const updateTaskStatus = async (taskId: string, newStatus: 'open' | 'in_progress' | 'completed') => {
+    try {
+      const { error } = await supabase
+        .from('case_tasks')
+        .update({ status: newStatus })
+        .eq('id', taskId);
+
+      if (error) {
+        console.error('Error updating task status:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to update task status. Please try again.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      setTasks(prev =>
+        prev.map(task =>
+          task.id === taskId ? { ...task, status: newStatus } : task
+        )
+      );
+      toast({
+        title: 'Task Updated',
+        description: 'Task status updated successfully.',
+      });
+    } catch (error) {
+      console.error('Error updating task status:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update task status. Please try again.',
+        variant: 'destructive',
+      });
     }
   };
 
-  if (loading) {
-    return <div>Loading tasks...</div>;
-  }
-
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="flex items-center">
-          <CheckSquare className="h-5 w-5 mr-2" />
-          Tasks ({tasks.length})
-        </CardTitle>
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" variant="outline">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Task
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Add New Task</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium">Task Name</label>
-                <Input
-                  value={newTaskName}
-                  onChange={(e) => setNewTaskName(e.target.value)}
-                  placeholder="Enter task description..."
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Assign To</label>
-                <Select value={newTaskAssignee} onValueChange={setNewTaskAssignee}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select assignee (optional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {users.map((user) => (
-                      <SelectItem key={user.id} value={user.id}>
-                        {user.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="text-sm font-medium">Due Date</label>
-                <Input
-                  type="datetime-local"
-                  value={newTaskDueDate}
-                  onChange={(e) => setNewTaskDueDate(e.target.value)}
-                />
-              </div>
-              <div className="flex justify-end space-x-2">
-                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={addTask} disabled={!newTaskName.trim()}>
-                  Create Task
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+    <Card className="w-full">
+      <CardHeader>
+        <CardTitle>Case Tasks</CardTitle>
+        <CardDescription>Manage tasks related to this case.</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-3">
-        {tasks.length === 0 ? (
-          <div className="text-center text-muted-foreground py-4">
-            No tasks created
-          </div>
-        ) : (
-          tasks.map((task) => (
-            <div key={task.id} className="p-3 border rounded-lg space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3 flex-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => toggleTaskComplete(task.id, task.status)}
-                    className={`p-1 h-8 w-8 ${
-                      task.status === 'completed' 
-                        ? 'bg-green-100 text-green-600 hover:bg-green-200' 
-                        : 'hover:bg-gray-100'
-                    }`}
-                  >
-                    <Check className={`h-4 w-4 ${task.status === 'completed' ? 'opacity-100' : 'opacity-30'}`} />
-                  </Button>
-                  <span 
-                    className={`font-medium cursor-pointer flex-1 ${
-                      task.status === 'completed' 
-                        ? 'line-through text-green-600' 
-                        : 'text-gray-900 hover:text-gray-700'
-                    }`}
-                    onClick={() => toggleTaskComplete(task.id, task.status)}
-                  >
-                    {task.task_name}
-                  </span>
-                  {task.status === 'completed' && (
-                    <Badge className="bg-green-100 text-green-800" variant="secondary">
-                      Completed
+      <CardContent>
+        <div className="mb-4">
+          {!isCreating ? (
+            <Button onClick={() => setIsCreating(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Create Task
+            </Button>
+          ) : (
+            <Card className="mb-4">
+              <CardContent>
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(createTask)} className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="title"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Title</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Task Title" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="description"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Description</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder="Task Description"
+                              className="resize-none"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="assigned_to"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Assign To</FormLabel>
+                          <Select onValueChange={field.onChange}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select assignee" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {availableUsers.map((user) => (
+                                <SelectItem key={user.id} value={user.id}>
+                                  {user.name} ({user.email})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="due_date"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-col">
+                          <FormLabel>Due Date</FormLabel>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <FormControl>
+                                <Button
+                                  variant={"outline"}
+                                  className={cn(
+                                    "w-[240px] pl-3 text-left font-normal",
+                                    !field.value && "text-muted-foreground"
+                                  )}
+                                >
+                                  {field.value ? (
+                                    format(new Date(field.value), "PPP")
+                                  ) : (
+                                    <span>Pick a date</span>
+                                  )}
+                                  <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                </Button>
+                              </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <DatePicker
+                                mode="single"
+                                selected={field.value ? new Date(field.value) : undefined}
+                                onSelect={(date) => field.onChange(date?.toISOString())}
+                                disabled={false}
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="priority"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Priority</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select priority" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {priorityOptions.map((option) => (
+                                <SelectItem key={option.value} value={option.value}>
+                                  {option.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <div className="flex justify-end space-x-2">
+                      <Button variant="ghost" onClick={() => setIsCreating(false)}>
+                        Cancel
+                      </Button>
+                      <Button type="submit">Create</Button>
+                    </div>
+                  </form>
+                </Form>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {tasks.length > 0 ? (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Title</TableHead>
+                <TableHead>Assigned To</TableHead>
+                <TableHead>Due Date</TableHead>
+                <TableHead>Priority</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {tasks.map((task) => (
+                <TableRow key={task.id}>
+                  <TableCell>{task.title}</TableCell>
+                  <TableCell>
+                    {task.assigned_user ? `${task.assigned_user.name} (${task.assigned_user.email})` : 'Unassigned'}
+                  </TableCell>
+                  <TableCell>
+                    {task.due_date ? format(new Date(task.due_date), "PPP") : 'No Due Date'}
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant="secondary"
+                      className={cn(
+                        task.priority === 'low' && "bg-green-500",
+                        task.priority === 'medium' && "bg-yellow-500 text-black",
+                        task.priority === 'high' && "bg-red-500"
+                      )}
+                    >
+                      {task.priority}
                     </Badge>
-                  )}
-                </div>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => deleteTask(task.id)}
-                  className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-              <div className="flex items-center gap-4 text-sm text-muted-foreground ml-11">
-                {task.assigned_to && (
-                  <div className="flex items-center gap-1">
-                    <User className="h-4 w-4" />
-                    {task.users?.name || 'Assigned'}
-                  </div>
-                )}
-                {task.due_date && (
-                  <div className="flex items-center gap-1">
-                    <Calendar className="h-4 w-4" />
-                    Due: {new Date(task.due_date).toLocaleDateString()}
-                  </div>
-                )}
-                <div>
-                  Created {formatDistanceToNow(new Date(task.created_at), { addSuffix: true })}
-                </div>
-              </div>
-            </div>
-          ))
+                  </TableCell>
+                  <TableCell>
+                    <Select
+                      value={task.status}
+                      onValueChange={(value) => updateTaskStatus(task.id, value as 'open' | 'in_progress' | 'completed')}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={task.status} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="open">Open</SelectItem>
+                        <SelectItem value="in_progress">In Progress</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="sm">
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete the task from our servers.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => deleteTask(task.id)}>Delete</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        ) : (
+          <p>No tasks found for this case.</p>
         )}
       </CardContent>
     </Card>

@@ -21,7 +21,7 @@ const navigation = [
   { name: 'Dashboard', href: '/citizen/dashboard', icon: LayoutDashboard },
   { name: 'My Cases', href: '/citizen/cases', icon: FileText },
   { name: 'Notifications', href: '/citizen/notifications', icon: Bell },
-  { name: 'Knowledge Base', href: '/knowledge', icon: MessageCircle },
+  { name: 'Knowledge Base', href: '/citizen/knowledge', icon: MessageCircle },
 ];
 
 const CitizenSidebar = () => {
