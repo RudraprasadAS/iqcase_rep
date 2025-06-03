@@ -147,9 +147,11 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
         status: 'open'
       };
 
-      const { error } = await supabase
+      const { data: taskResult, error } = await supabase
         .from('case_tasks')
-        .insert(taskData);
+        .insert(taskData)
+        .select()
+        .single();
 
       if (error) {
         console.error('Task insert error:', error);
@@ -165,6 +167,26 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
           description: `Task created: ${newTaskName.trim()}`,
           performed_by: internalUserId
         });
+
+      // Create notification for assigned user (if different from creator)
+      if (newTaskAssignee && newTaskAssignee !== internalUserId) {
+        console.log('Creating task assignment notification for user:', newTaskAssignee);
+        const { error: notificationError } = await supabase
+          .from('notifications')
+          .insert({
+            user_id: newTaskAssignee,
+            title: 'New Task Assigned',
+            message: `You have been assigned a new task: ${newTaskName.trim()}`,
+            notification_type: 'task_assignment',
+            case_id: caseId
+          });
+
+        if (notificationError) {
+          console.error('Error creating task notification:', notificationError);
+        } else {
+          console.log('Task assignment notification created successfully');
+        }
+      }
 
       await fetchTasks();
       setIsAddDialogOpen(false);
@@ -211,6 +233,27 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
           description: `Task marked as ${newStatus}`,
           performed_by: internalUserId
         });
+
+      // Find the task to get assigned user
+      const task = tasks.find(t => t.id === taskId);
+      if (task && task.assigned_to && task.assigned_to !== internalUserId) {
+        console.log('Creating task status notification for user:', task.assigned_to);
+        const { error: notificationError } = await supabase
+          .from('notifications')
+          .insert({
+            user_id: task.assigned_to,
+            title: 'Task Status Updated',
+            message: `Task "${task.task_name}" has been marked as ${newStatus}`,
+            notification_type: 'task_assignment',
+            case_id: caseId
+          });
+
+        if (notificationError) {
+          console.error('Error creating task status notification:', notificationError);
+        } else {
+          console.log('Task status notification created successfully');
+        }
+      }
 
       await fetchTasks();
       toast({

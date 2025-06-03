@@ -194,26 +194,51 @@ export const useNotifications = () => {
   const createTestNotification = async () => {
     if (!internalUserId) {
       console.log('🔔 Cannot create test notification - no internal user ID');
+      toast({
+        title: 'Error',
+        description: 'User not found. Please log in again.',
+        variant: 'destructive'
+      });
       return;
     }
 
     try {
       console.log('🔔 Creating test notification for user:', internalUserId);
       
+      const testNotificationData = {
+        user_id: internalUserId,
+        title: 'Test Notification',
+        message: 'This is a test notification created for debugging purposes.',
+        notification_type: 'test',
+        is_read: false
+      };
+
+      console.log('🔔 Test notification data:', testNotificationData);
+
       const { data, error } = await supabase
         .from('notifications')
-        .insert({
-          user_id: internalUserId,
-          title: 'Test Notification',
-          message: 'This is a test notification created for debugging purposes.',
-          notification_type: 'test'
-        })
+        .insert(testNotificationData)
         .select()
         .single();
 
       if (error) {
         console.error('🔔 Error creating test notification:', error);
-        throw error;
+        
+        // Check if it's a permission error
+        if (error.code === '42501' || error.message?.includes('policy')) {
+          toast({
+            title: 'Permission Error',
+            description: 'Unable to create notifications. Please check database permissions.',
+            variant: 'destructive'
+          });
+        } else {
+          toast({
+            title: 'Error',
+            description: 'Failed to create test notification: ' + error.message,
+            variant: 'destructive'
+          });
+        }
+        return;
       }
 
       console.log('🔔 Test notification created:', data);
@@ -225,7 +250,7 @@ export const useNotifications = () => {
       });
 
     } catch (error) {
-      console.error('🔔 Error in createTestNotification:', error);
+      console.error('🔔 Exception in createTestNotification:', error);
       toast({
         title: 'Error',
         description: 'Failed to create test notification',
