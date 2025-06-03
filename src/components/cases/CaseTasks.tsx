@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { useForm } from 'react-hook-form';
@@ -16,7 +17,6 @@ import {
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -34,9 +34,7 @@ import {
 import {
   Table,
   TableBody,
-  TableCaption,
   TableCell,
-  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
@@ -44,11 +42,9 @@ import {
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
-import { CalendarIcon, CheckCheck, ChevronsUpDown, Copy, Plus, Trash2 } from 'lucide-react';
+import { CalendarIcon, Plus, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
-import { DatePicker } from '../ui/date-picker';
 import { Badge } from '../ui/badge';
-import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
 import {
   AlertDialog,
@@ -72,7 +68,7 @@ const taskFormSchema = z.object({
   }),
   description: z.string().optional(),
   assigned_to: z.string().optional(),
-  due_date: z.string().optional(),
+  due_date: z.date().optional(),
   priority: z.enum(['low', 'medium', 'high']),
 });
 
@@ -95,7 +91,6 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
       title: "",
       description: "",
       assigned_to: "",
-      due_date: "",
       priority: 'medium',
     },
   });
@@ -107,8 +102,8 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
           .from('case_tasks')
           .select(`
             *,
-            assigned_user:assigned_to(id, name, email),
-            created_by_user:created_by(id, name, email)
+            assigned_user:users!case_tasks_assigned_to_fkey(id, name, email),
+            created_by_user:users!case_tasks_created_by_fkey(id, name, email)
           `)
           .eq('case_id', caseId)
           .order('created_at', { ascending: false });
@@ -168,7 +163,7 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
     fetchAvailableUsers();
   }, [toast]);
 
-  const createTask = async (data: { title: string; description?: string; assigned_to?: string; due_date?: string; priority: string }) => {
+  const createTask = async (data: z.infer<typeof taskFormSchema>) => {
     if (!user) return;
 
     try {
@@ -176,10 +171,10 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
       
       const taskData = {
         case_id: caseId,
-        title: data.title,
+        task_name: data.title, // Use task_name instead of title
         description: data.description || '',
         assigned_to: data.assigned_to || null,
-        due_date: data.due_date || null,
+        due_date: data.due_date?.toISOString() || null,
         priority: data.priority,
         status: 'open' as const,
         created_by: user.id
@@ -190,8 +185,8 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
         .insert(taskData)
         .select(`
           *,
-          assigned_user:assigned_to(id, name, email),
-          created_by_user:created_by(id, name, email)
+          assigned_user:users!case_tasks_assigned_to_fkey(id, name, email),
+          created_by_user:users!case_tasks_created_by_fkey(id, name, email)
         `)
         .single();
 
@@ -211,7 +206,7 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
           const { data: assignedUserData, error: userError } = await supabase
             .from('users')
             .select('id')
-            .eq('auth_user_id', newTask.assigned_to)
+            .eq('id', newTask.assigned_to) // Use id directly since we're storing internal user IDs
             .single();
 
           if (userError) {
@@ -224,7 +219,7 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
               .insert({
                 user_id: assignedUserData.id,
                 title: 'New Task Assigned',
-                message: `You have been assigned a new task: ${newTask.title}`,
+                message: `You have been assigned a new task: ${newTask.task_name}`,
                 notification_type: 'task_assignment',
                 case_id: caseId,
                 is_read: false
@@ -249,7 +244,7 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
       
       toast({
         title: 'Task Created',
-        description: `Task "${newTask.title}" has been created successfully.`,
+        description: `Task "${newTask.task_name}" has been created successfully.`,
       });
     } catch (error) {
       console.error('Error creating task:', error);
@@ -418,7 +413,7 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
                                   )}
                                 >
                                   {field.value ? (
-                                    format(new Date(field.value), "PPP")
+                                    format(field.value, "PPP")
                                   ) : (
                                     <span>Pick a date</span>
                                   )}
@@ -427,12 +422,13 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
                               </FormControl>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0" align="start">
-                              <DatePicker
+                              <Calendar
                                 mode="single"
-                                selected={field.value ? new Date(field.value) : undefined}
-                                onSelect={(date) => field.onChange(date?.toISOString())}
+                                selected={field.value}
+                                onSelect={field.onChange}
                                 disabled={false}
                                 initialFocus
+                                className="pointer-events-auto"
                               />
                             </PopoverContent>
                           </Popover>
@@ -492,7 +488,7 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
             <TableBody>
               {tasks.map((task) => (
                 <TableRow key={task.id}>
-                  <TableCell>{task.title}</TableCell>
+                  <TableCell>{task.task_name}</TableCell>
                   <TableCell>
                     {task.assigned_user ? `${task.assigned_user.name} (${task.assigned_user.email})` : 'Unassigned'}
                   </TableCell>
