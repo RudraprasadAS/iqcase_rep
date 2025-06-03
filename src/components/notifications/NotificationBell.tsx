@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { Bell, Check, X, TestTube } from 'lucide-react';
+import { Bell, Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -23,7 +23,6 @@ const NotificationBell = () => {
     markAsRead, 
     markAllAsRead, 
     deleteNotification,
-    createTestNotification,
     loading
   } = useNotifications();
   const [isOpen, setIsOpen] = useState(false);
@@ -63,8 +62,6 @@ const NotificationBell = () => {
         return '📋';
       case 'task_assignment':
         return '✅';
-      case 'test':
-        return '🧪';
       default:
         return '🔔';
     }
@@ -88,31 +85,17 @@ const NotificationBell = () => {
       <DropdownMenuContent align="end" className="w-80">
         <div className="flex items-center justify-between p-3 border-b">
           <h3 className="font-semibold">Notifications</h3>
-          <div className="flex items-center gap-2">
-            {/* Debug button - only show in development */}
-            {process.env.NODE_ENV === 'development' && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={createTestNotification}
-                className="text-xs"
-                title="Create test notification for debugging"
-              >
-                <TestTube className="h-3 w-3" />
-              </Button>
-            )}
-            {unreadCount > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={markAllAsRead}
-                className="text-xs"
-              >
-                <Check className="h-3 w-3 mr-1" />
-                Mark all read
-              </Button>
-            )}
-          </div>
+          {unreadCount > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={markAllAsRead}
+              className="text-xs"
+            >
+              <Check className="h-3 w-3 mr-1" />
+              Mark all read
+            </Button>
+          )}
         </div>
         
         {loading ? (
@@ -121,20 +104,7 @@ const NotificationBell = () => {
           </div>
         ) : recentNotifications.length === 0 ? (
           <div className="p-4 text-center text-muted-foreground">
-            <div className="space-y-2">
-              <p>No notifications yet</p>
-              {process.env.NODE_ENV === 'development' && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={createTestNotification}
-                  className="text-xs"
-                >
-                  <TestTube className="h-3 w-3 mr-1" />
-                  Create Test Notification
-                </Button>
-              )}
-            </div>
+            No notifications yet
           </div>
         ) : (
           <ScrollArea className="h-96">

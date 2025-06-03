@@ -70,14 +70,6 @@ export const useNotifications = () => {
       console.log('🔔 Fetching notifications for user:', internalUserId);
       setLoading(true);
 
-      // Try without RLS first to see if there are any notifications at all
-      const { data: allNotifications, error: allError } = await supabase
-        .from('notifications')
-        .select('*')
-        .limit(5);
-
-      console.log('🔔 All notifications in system:', allNotifications?.length || 0);
-
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
@@ -91,7 +83,6 @@ export const useNotifications = () => {
       }
 
       console.log('🔔 Notifications fetched:', data?.length || 0, 'items');
-      console.log('🔔 Sample notifications:', data?.slice(0, 3));
 
       setNotifications(data || []);
       
@@ -198,76 +189,6 @@ export const useNotifications = () => {
     }
   };
 
-  // Create test notification for debugging
-  const createTestNotification = async () => {
-    if (!internalUserId) {
-      console.log('🔔 Cannot create test notification - no internal user ID');
-      toast({
-        title: 'Error',
-        description: 'User not found. Please log in again.',
-        variant: 'destructive'
-      });
-      return;
-    }
-
-    try {
-      console.log('🔔 Creating test notification for user:', internalUserId);
-      
-      const testNotificationData = {
-        user_id: internalUserId,
-        title: 'Test Notification',
-        message: 'This is a test notification created for debugging purposes.',
-        notification_type: 'test',
-        is_read: false
-      };
-
-      console.log('🔔 Test notification data:', testNotificationData);
-
-      // Try to insert without RLS restrictions first
-      const { data, error } = await supabase
-        .from('notifications')
-        .insert(testNotificationData)
-        .select()
-        .single();
-
-      if (error) {
-        console.error('🔔 Error creating test notification:', error);
-        
-        // Check if it's a permission error
-        if (error.code === '42501' || error.message?.includes('policy') || error.message?.includes('RLS')) {
-          toast({
-            title: 'Permission Error',
-            description: 'RLS policy is blocking notification creation. Check database policies.',
-            variant: 'destructive'
-          });
-        } else {
-          toast({
-            title: 'Error',
-            description: 'Failed to create test notification: ' + error.message,
-            variant: 'destructive'
-          });
-        }
-        return;
-      }
-
-      console.log('🔔 Test notification created:', data);
-      await fetchNotifications(); // Refresh notifications
-
-      toast({
-        title: 'Test Notification Created',
-        description: 'A test notification has been created for debugging.'
-      });
-
-    } catch (error) {
-      console.error('🔔 Exception in createTestNotification:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to create test notification',
-        variant: 'destructive'
-      });
-    }
-  };
-
   // Fetch notifications when internal user ID is available
   useEffect(() => {
     if (internalUserId) {
@@ -347,6 +268,5 @@ export const useNotifications = () => {
     markAllAsRead,
     deleteNotification,
     fetchNotifications,
-    createTestNotification, // For debugging
   };
 };
