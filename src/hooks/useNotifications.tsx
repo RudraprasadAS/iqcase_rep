@@ -70,6 +70,14 @@ export const useNotifications = () => {
       console.log('🔔 Fetching notifications for user:', internalUserId);
       setLoading(true);
 
+      // Try without RLS first to see if there are any notifications at all
+      const { data: allNotifications, error: allError } = await supabase
+        .from('notifications')
+        .select('*')
+        .limit(5);
+
+      console.log('🔔 All notifications in system:', allNotifications?.length || 0);
+
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
@@ -215,6 +223,7 @@ export const useNotifications = () => {
 
       console.log('🔔 Test notification data:', testNotificationData);
 
+      // Try to insert without RLS restrictions first
       const { data, error } = await supabase
         .from('notifications')
         .insert(testNotificationData)
@@ -225,10 +234,10 @@ export const useNotifications = () => {
         console.error('🔔 Error creating test notification:', error);
         
         // Check if it's a permission error
-        if (error.code === '42501' || error.message?.includes('policy')) {
+        if (error.code === '42501' || error.message?.includes('policy') || error.message?.includes('RLS')) {
           toast({
             title: 'Permission Error',
-            description: 'Unable to create notifications. Please check database permissions.',
+            description: 'RLS policy is blocking notification creation. Check database policies.',
             variant: 'destructive'
           });
         } else {

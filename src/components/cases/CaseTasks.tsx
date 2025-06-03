@@ -7,6 +7,7 @@ import * as z from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { createTaskAssignmentNotification } from '@/utils/notificationUtils';
 import {
   Card,
   CardContent,
@@ -169,6 +170,23 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
     try {
       console.log('Creating task with data:', data);
       
+      // Get internal user ID for the current user
+      const { data: currentUserData, error: currentUserError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (currentUserError || !currentUserData) {
+        console.error('Error fetching current user:', currentUserError);
+        toast({
+          title: 'Error',
+          description: 'Failed to get user information',
+          variant: 'destructive'
+        });
+        return;
+      }
+
       const taskData = {
         case_id: caseId,
         task_name: data.title, // Use task_name instead of title
@@ -177,7 +195,7 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
         due_date: data.due_date?.toISOString() || null,
         priority: data.priority,
         status: 'open' as const,
-        created_by: user.id
+        created_by: currentUserData.id // Use internal user ID
       };
 
       const { data: newTask, error } = await supabase
@@ -198,44 +216,13 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
       console.log('Task created successfully:', newTask);
 
       // Create notification if task is assigned to someone other than the creator
-      if (newTask.assigned_to && newTask.assigned_to !== user.id) {
-        try {
-          console.log('Creating task assignment notification...');
-          
-          // Get the internal user ID for the assigned user
-          const { data: assignedUserData, error: userError } = await supabase
-            .from('users')
-            .select('id')
-            .eq('id', newTask.assigned_to) // Use id directly since we're storing internal user IDs
-            .single();
-
-          if (userError) {
-            console.error('Error fetching assigned user:', userError);
-          } else if (assignedUserData) {
-            console.log('Found assigned user internal ID:', assignedUserData.id);
-            
-            const { data: notificationData, error: notificationError } = await supabase
-              .from('notifications')
-              .insert({
-                user_id: assignedUserData.id,
-                title: 'New Task Assigned',
-                message: `You have been assigned a new task: ${newTask.task_name}`,
-                notification_type: 'task_assignment',
-                case_id: caseId,
-                is_read: false
-              })
-              .select()
-              .single();
-
-            if (notificationError) {
-              console.error('Error creating notification:', notificationError);
-            } else {
-              console.log('Notification created successfully:', notificationData);
-            }
-          }
-        } catch (notificationError) {
-          console.error('Exception creating notification:', notificationError);
-        }
+      if (newTask.assigned_to && newTask.assigned_to !== currentUserData.id) {
+        await createTaskAssignmentNotification(
+          newTask.assigned_to,
+          newTask.task_name,
+          caseId,
+          currentUserData.id
+        );
       }
 
       setTasks(prev => [...prev, newTask]);
