@@ -11,6 +11,7 @@ import { Lock, Send } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { searchUsersByMention, processMentionsAndNotify } from '@/utils/mentionUtils';
+import { logInternalNoteAdded } from '@/utils/activityLogger';
 
 interface Note {
   id: string;
@@ -226,12 +227,6 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
       return;
     }
     
-    // Handle arrow keys for navigating mention suggestions
-    if (mentionMode && showMentionPopover && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
-      e.preventDefault(); // Prevent cursor movement in textarea
-      // Navigation would be handled by the Popover component
-    }
-    
     // Handle tab or enter to select a mention
     if (mentionMode && showMentionPopover && (e.key === 'Tab' || e.key === 'Enter') && mentionUsers.length > 0) {
       e.preventDefault();
@@ -311,15 +306,8 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
         throw error;
       }
 
-      // Log activity
-      await supabase
-        .from('case_activities')
-        .insert({
-          case_id: caseId,
-          activity_type: 'internal_note_added',
-          description: `Internal note added: ${newNote.substring(0, 50)}...`,
-          performed_by: internalUserId
-        });
+      // Log activity using our centralized logger
+      await logInternalNoteAdded(caseId, newNote.trim(), internalUserId);
 
       setNewNote('');
       

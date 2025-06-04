@@ -22,6 +22,7 @@ import CaseTasks from '@/components/cases/CaseTasks';
 import CaseFeedback from '@/components/cases/CaseFeedback';
 import InternalNotes from '@/components/cases/InternalNotes';
 import { formatDistanceToNow } from 'date-fns';
+import { logMessageAdded } from '@/utils/activityLogger';
 
 interface CaseData {
   id: string;
@@ -251,15 +252,8 @@ const CaseDetail = () => {
       setNewMessage('');
       await fetchMessages();
       
-      // Log activity
-      await supabase
-        .from('case_activities')
-        .insert({
-          case_id: id,
-          activity_type: 'message_added',
-          description: `Message posted: ${newMessage.substring(0, 50)}...`,
-          performed_by: internalUserId
-        });
+      // Log activity using the centralized logger
+      await logMessageAdded(id!, newMessage.trim(), false, internalUserId);
       
       await fetchActivities();
       

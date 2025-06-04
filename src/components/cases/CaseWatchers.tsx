@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Eye, UserPlus, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { logWatcherAdded, logWatcherRemoved } from '@/utils/activityLogger';
 
 interface Watcher {
   id: string;
@@ -133,6 +134,10 @@ const CaseWatchers = ({ caseId }: CaseWatchersProps) => {
     }
 
     try {
+      // Get the user name for logging
+      const selectedUser = availableUsers.find(u => u.id === selectedUserId);
+      const watcherName = selectedUser?.name || 'Unknown User';
+
       const { error } = await supabase
         .from('case_watchers')
         .insert({
@@ -146,15 +151,8 @@ const CaseWatchers = ({ caseId }: CaseWatchersProps) => {
         throw error;
       }
 
-      // Log activity
-      await supabase
-        .from('case_activities')
-        .insert({
-          case_id: caseId,
-          activity_type: 'watcher_added',
-          description: 'Watcher added to case',
-          performed_by: internalUserId
-        });
+      // Log the activity
+      await logWatcherAdded(caseId, watcherName, internalUserId);
 
       await fetchWatchers();
       setIsAddDialogOpen(false);
@@ -174,7 +172,7 @@ const CaseWatchers = ({ caseId }: CaseWatchersProps) => {
     }
   };
 
-  const removeWatcher = async (watcherId: string) => {
+  const removeWatcher = async (watcherId: string, watcherName: string) => {
     if (!internalUserId) return;
 
     try {
@@ -188,15 +186,8 @@ const CaseWatchers = ({ caseId }: CaseWatchersProps) => {
         throw error;
       }
 
-      // Log activity
-      await supabase
-        .from('case_activities')
-        .insert({
-          case_id: caseId,
-          activity_type: 'watcher_removed',
-          description: 'Watcher removed from case',
-          performed_by: internalUserId
-        });
+      // Log the activity
+      await logWatcherRemoved(caseId, watcherName, internalUserId);
       
       await fetchWatchers();
       toast({
@@ -288,7 +279,7 @@ const CaseWatchers = ({ caseId }: CaseWatchersProps) => {
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={() => removeWatcher(watcher.id)}
+                onClick={() => removeWatcher(watcher.id, watcher.users.name)}
               >
                 <X className="h-4 w-4" />
               </Button>

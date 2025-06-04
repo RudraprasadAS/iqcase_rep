@@ -19,13 +19,12 @@ export const createTaskAssignmentNotification = async (
   createdByUserId: string
 ) => {
   try {
-    console.log('🔔 Creating notification:', {
+    console.log('🔔 Creating task assignment notification:', {
       userId: assignedUserId,
       title: 'New Task Assigned',
       type: 'task_assignment',
       caseId: caseId
     });
-    console.log('🔔 Current auth state:', await supabase.auth.getUser());
 
     const message = `You have been assigned a new task: "${taskName}"`;
     
@@ -43,14 +42,14 @@ export const createTaskAssignmentNotification = async (
       .single();
 
     if (error) {
-      console.error('🔔 Error creating notification:', error);
+      console.error('🔔 Error creating task assignment notification:', error);
       return { success: false, error };
     }
 
-    console.log('🔔 Notification created successfully:', data);
+    console.log('🔔 Task assignment notification created successfully:', data);
     return { success: true, data };
   } catch (error) {
-    console.error('🔔 Exception creating notification:', error);
+    console.error('🔔 Exception creating task assignment notification:', error);
     return { success: false, error };
   }
 };
@@ -180,12 +179,7 @@ export const createMentionNotification = async (
         message: message,
         notification_type: 'mention',
         case_id: caseId,
-        is_read: false,
-        metadata: {
-          sourceId,
-          sourceType,
-          mentionerUserId
-        }
+        is_read: false
       })
       .select('*')
       .single();
@@ -205,8 +199,7 @@ export const createMentionNotification = async (
 
 export const createNotification = async (params: CreateNotificationParams) => {
   try {
-    console.log('🔔 Creating notification:', params);
-    console.log('🔔 Current auth state for notification:', await supabase.auth.getUser());
+    console.log('🔔 Creating general notification:', params);
 
     const { data, error } = await supabase
       .from('notifications')
@@ -216,21 +209,20 @@ export const createNotification = async (params: CreateNotificationParams) => {
         message: params.message,
         notification_type: params.type || 'general',
         case_id: params.caseId || null,
-        metadata: params.metadata || {},
         is_read: false
       })
       .select('*')
       .single();
 
     if (error) {
-      console.error('🔔 Error creating notification:', error);
+      console.error('🔔 Error creating general notification:', error);
       return { success: false, error };
     }
 
-    console.log('🔔 Notification created successfully:', data);
+    console.log('🔔 General notification created successfully:', data);
     return { success: true, data };
   } catch (error) {
-    console.error('🔔 Exception creating notification:', error);
+    console.error('🔔 Exception creating general notification:', error);
     return { success: false, error };
   }
 };
