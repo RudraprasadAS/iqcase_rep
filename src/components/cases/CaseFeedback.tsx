@@ -87,57 +87,60 @@ const CaseFeedback = ({ caseId, caseTitle, caseStatus, isInternal = true }: Case
   };
 
   const checkFeedbackEligibility = async () => {
-    console.log('🔍 Checking feedback eligibility - Case status:', caseStatus, 'User:', !!user, 'Is case closed:', isCaseClosed);
+    console.log('🔍 Checking feedback eligibility for case:', caseId);
+    console.log('🔍 Case status:', caseStatus, 'Is case closed/resolved:', isCaseClosed);
+    console.log('🔍 Current user:', user);
     
     if (!user) {
-      console.log('❌ Not eligible - no user');
+      console.log('❌ Not eligible - no user logged in');
       setCanSubmitFeedback(false);
       return;
     }
 
-    // Allow feedback for resolved cases too, not just closed
     if (!isCaseClosed) {
-      console.log('❌ Not eligible - case not closed or resolved');
+      console.log('❌ Not eligible - case is not closed or resolved, current status:', caseStatus);
       setCanSubmitFeedback(false);
       return;
     }
 
     try {
-      // Get current user
+      // Get current authenticated user
       const { data: authData, error: authError } = await supabase.auth.getUser();
       
       if (authError || !authData.user) {
-        console.error('❌ Auth error:', authError);
+        console.error('❌ Auth error or no authenticated user:', authError);
         setCanSubmitFeedback(false);
         return;
       }
 
-      // Get internal user ID
+      console.log('✅ Authenticated user ID:', authData.user.id);
+
+      // Get internal user record linked to auth user
       const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('id, user_type')
+        .select('id, user_type, email')
         .eq('auth_user_id', authData.user.id)
         .single();
 
       if (userError || !userData) {
-        console.error('❌ Error fetching user data:', userError);
+        console.error('❌ Error fetching internal user data:', userError);
         setCanSubmitFeedback(false);
         return;
       }
 
-      console.log('👤 User data:', userData);
+      console.log('✅ Internal user data:', userData);
 
       // Only external/citizen users should be able to submit feedback
       if (userData.user_type !== 'external') {
-        console.log('❌ User is not external, cannot submit feedback');
+        console.log('❌ User is internal, cannot submit feedback. User type:', userData.user_type);
         setCanSubmitFeedback(false);
         return;
       }
 
-      // Check if user is related to this case (submitted it)
+      // Check if user submitted this case
       const { data: caseData, error: caseError } = await supabase
         .from('cases')
-        .select('submitted_by')
+        .select('submitted_by, title')
         .eq('id', caseId)
         .single();
 
@@ -147,17 +150,15 @@ const CaseFeedback = ({ caseId, caseTitle, caseStatus, isInternal = true }: Case
         return;
       }
 
-      console.log('📋 Case submitted by:', caseData.submitted_by, 'Current user:', userData.id);
+      console.log('✅ Case data - submitted_by:', caseData.submitted_by, 'current user ID:', userData.id);
 
-      const isEligible = caseData.submitted_by === userData.id;
-      
-      if (!isEligible) {
+      if (caseData.submitted_by !== userData.id) {
         console.log('❌ User did not submit this case, cannot provide feedback');
         setCanSubmitFeedback(false);
         return;
       }
 
-      // Check if user has already submitted feedback
+      // Check if user has already submitted feedback for this case
       const { data: existingFeedback, error: feedbackError } = await supabase
         .from('case_feedback')
         .select('id')
@@ -171,13 +172,20 @@ const CaseFeedback = ({ caseId, caseTitle, caseStatus, isInternal = true }: Case
         return;
       }
 
-      // User can submit feedback if they haven't already
-      const canSubmit = !existingFeedback;
-      console.log('✅ Can submit feedback:', canSubmit, 'Existing feedback:', !!existingFeedback);
+      const hasAlreadySubmittedFeedback = !!existingFeedback;
+      const canSubmit = !hasAlreadySubmittedFeedback;
+      
+      console.log('🎯 Final eligibility check:');
+      console.log('   - Is external user:', userData.user_type === 'external');
+      console.log('   - Case is closed/resolved:', isCaseClosed);
+      console.log('   - User submitted case:', caseData.submitted_by === userData.id);
+      console.log('   - Already has feedback:', hasAlreadySubmittedFeedback);
+      console.log('   - Can submit feedback:', canSubmit);
+      
       setCanSubmitFeedback(canSubmit);
       
     } catch (error) {
-      console.error('❌ Error checking feedback eligibility:', error);
+      console.error('❌ Error in feedback eligibility check:', error);
       setCanSubmitFeedback(false);
     }
   };
