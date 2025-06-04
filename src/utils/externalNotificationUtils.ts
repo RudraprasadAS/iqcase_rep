@@ -45,12 +45,23 @@ export const notifyExternalUserOfCaseUpdate = async (
     switch (updateType) {
       case 'status_change':
         if (newStatus) {
-          await createCaseStatusChangeNotification(
-            submitterId,
-            caseTitle,
-            newStatus,
-            caseId
-          );
+          // Special handling for case closure
+          if (newStatus === 'closed' || newStatus === 'resolved') {
+            await createNotification({
+              userId: submitterId,
+              title: 'Case Closed - Feedback Requested',
+              message: `Your case "${caseTitle}" has been ${newStatus}. We would appreciate your feedback on our service.`,
+              type: 'case_closed',
+              caseId: caseId
+            });
+          } else {
+            await createCaseStatusChangeNotification(
+              submitterId,
+              caseTitle,
+              newStatus,
+              caseId
+            );
+          }
         }
         break;
 

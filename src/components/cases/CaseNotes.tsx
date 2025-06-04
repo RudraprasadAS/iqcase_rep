@@ -9,6 +9,7 @@ import { FileText, Save, Edit, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { formatDistanceToNow } from 'date-fns';
+import { logCaseNoteAdded, logCaseNoteUpdated, logCaseNoteDeleted } from '@/utils/activityLogger';
 
 interface CaseNote {
   id: string;
@@ -124,6 +125,9 @@ const CaseNotes = ({ caseId }: CaseNotesProps) => {
         throw error;
       }
 
+      // Log activity for case note addition
+      await logCaseNoteAdded(caseId, newNote.trim(), internalUserId);
+
       setNewNote('');
       await fetchNotes();
       
@@ -178,6 +182,9 @@ const CaseNotes = ({ caseId }: CaseNotesProps) => {
         throw error;
       }
 
+      // Log activity for case note update
+      await logCaseNoteUpdated(caseId, editingText.trim(), internalUserId!);
+
       setEditingNote(null);
       setEditingText('');
       await fetchNotes();
@@ -203,6 +210,9 @@ const CaseNotes = ({ caseId }: CaseNotesProps) => {
       return;
     }
 
+    // Get the note content before deletion for logging
+    const noteToDelete = notes.find(note => note.id === noteId);
+
     setSaving(true);
     try {
       const { error } = await supabase
@@ -213,6 +223,11 @@ const CaseNotes = ({ caseId }: CaseNotesProps) => {
       if (error) {
         console.error('Note delete error:', error);
         throw error;
+      }
+
+      // Log activity for case note deletion
+      if (noteToDelete && internalUserId) {
+        await logCaseNoteDeleted(caseId, noteToDelete.note, internalUserId);
       }
 
       await fetchNotes();

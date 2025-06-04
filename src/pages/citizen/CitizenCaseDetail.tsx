@@ -15,6 +15,8 @@ import SLABadge from '@/components/cases/SLABadge';
 import MessageCenter from '@/components/messaging/MessageCenter';
 import CaseFeedback from '@/components/cases/CaseFeedback';
 import CaseNotifications from '@/components/citizen/CaseNotifications';
+import { Helmet } from 'react-helmet';
+import { generateCaseNumber } from '@/utils/caseNumberGenerator';
 
 interface CaseData {
   id: string;
@@ -269,169 +271,177 @@ const CitizenCaseDetail = () => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center space-x-4">
-        <Button 
-          variant="ghost" 
-          size="sm"
-          onClick={() => navigate('/citizen/cases')}
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Cases
-        </Button>
-      </div>
+    <>
+      <Helmet>
+        <title>Case {generateCaseNumber(caseData.id, caseData.created_at)} - IQCase</title>
+      </Helmet>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          <Card>
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <div>
-                  <CardTitle className="text-xl">{caseData.title}</CardTitle>
-                  <p className="text-sm text-gray-500 mt-1">Case #{caseData.id.slice(0, 8)}</p>
-                </div>
-                <div className="flex gap-2">
-                  <StatusBadge status={caseData.status} />
-                  <PriorityBadge priority={caseData.priority} />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <h4 className="font-medium mb-2">Description</h4>
-                <p className="text-gray-700 whitespace-pre-wrap">{caseData.description}</p>
-              </div>
+      <div className="container mx-auto py-6 space-y-6">
+        <div className="flex items-center space-x-4">
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={() => navigate('/citizen/cases')}
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Cases
+          </Button>
+        </div>
 
-              {caseData.location && (
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <MapPin className="h-4 w-4" />
-                  {caseData.location}
-                </div>
-              )}
-
-              {caseData.tags && caseData.tags.length > 0 && (
-                <div className="flex items-center gap-2">
-                  <Tag className="h-4 w-4 text-gray-500" />
-                  <div className="flex flex-wrap gap-1">
-                    {caseData.tags.map((tag) => (
-                      <Badge key={tag} variant="outline" className="text-xs">
-                        {tag}
-                      </Badge>
-                    ))}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6">
+            <Card>
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <CardTitle className="text-xl">{caseData.title}</CardTitle>
+                    <p className="text-sm text-gray-500 mt-1">Case #{caseData.id.slice(0, 8)}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <StatusBadge status={caseData.status} />
+                    <PriorityBadge priority={caseData.priority} />
                   </div>
                 </div>
-              )}
-
-              {attachments.length > 0 && (
+              </CardHeader>
+              <CardContent className="space-y-4">
                 <div>
-                  <h4 className="font-medium mb-3 flex items-center gap-2">
-                    <FileText className="h-4 w-4" />
-                    Attachments ({attachments.length})
-                  </h4>
-                  <div className="space-y-3">
-                    {attachments.map((attachment) => (
-                      <div key={attachment.id} className="flex items-center justify-between bg-gray-50 border border-gray-200 p-4 rounded-lg hover:bg-gray-100 transition-colors">
-                        <div className="flex items-center gap-3">
-                          <div className="text-2xl">
-                            {getFileIcon(attachment.file_type)}
+                  <h4 className="font-medium mb-2">Description</h4>
+                  <p className="text-gray-700 whitespace-pre-wrap">{caseData.description}</p>
+                </div>
+
+                {caseData.location && (
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <MapPin className="h-4 w-4" />
+                    {caseData.location}
+                  </div>
+                )}
+
+                {caseData.tags && caseData.tags.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <Tag className="h-4 w-4 text-gray-500" />
+                    <div className="flex flex-wrap gap-1">
+                      {caseData.tags.map((tag) => (
+                        <Badge key={tag} variant="outline" className="text-xs">
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {attachments.length > 0 && (
+                  <div>
+                    <h4 className="font-medium mb-3 flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      Attachments ({attachments.length})
+                    </h4>
+                    <div className="space-y-3">
+                      {attachments.map((attachment) => (
+                        <div key={attachment.id} className="flex items-center justify-between bg-gray-50 border border-gray-200 p-4 rounded-lg hover:bg-gray-100 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <div className="text-2xl">
+                              {getFileIcon(attachment.file_type)}
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-gray-900">{attachment.file_name}</p>
+                              <p className="text-xs text-gray-500">
+                                {attachment.file_type && (
+                                  <span className="mr-3">{attachment.file_type}</span>
+                                )}
+                                Uploaded {formatDistanceToNow(new Date(attachment.created_at), { addSuffix: true })}
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">{attachment.file_name}</p>
-                            <p className="text-xs text-gray-500">
-                              {attachment.file_type && (
-                                <span className="mr-3">{attachment.file_type}</span>
-                              )}
-                              Uploaded {formatDistanceToNow(new Date(attachment.created_at), { addSuffix: true })}
-                            </p>
-                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => downloadAttachment(attachment.file_url, attachment.file_name, attachment.id)}
+                            disabled={downloading === attachment.id}
+                            className="hover:bg-blue-50 hover:border-blue-200"
+                          >
+                            {downloading === attachment.id ? (
+                              <>
+                                <Clock className="h-4 w-4 mr-1 animate-spin" />
+                                Downloading...
+                              </>
+                            ) : (
+                              <>
+                                <Download className="h-4 w-4 mr-1" />
+                                Download
+                              </>
+                            )}
+                          </Button>
                         </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => downloadAttachment(attachment.file_url, attachment.file_name, attachment.id)}
-                          disabled={downloading === attachment.id}
-                          className="hover:bg-blue-50 hover:border-blue-200"
-                        >
-                          {downloading === attachment.id ? (
-                            <>
-                              <Clock className="h-4 w-4 mr-1 animate-spin" />
-                              Downloading...
-                            </>
-                          ) : (
-                            <>
-                              <Download className="h-4 w-4 mr-1" />
-                              Download
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                )}
+              </CardContent>
+            </Card>
 
-          <MessageCenter caseId={caseData.id} isInternal={false} />
-          
-          {/* Show feedback component for closed cases or always available */}
-          <CaseFeedback 
-            caseId={caseData.id} 
-            caseTitle={caseData.title}
-            caseStatus={caseData.status}
-            isInternal={false}
-          />
-        </div>
+            <MessageCenter caseId={caseData.id} isInternal={false} />
+            
+            {/* Add Case Feedback section for closed cases */}
+            {(caseData.status === 'closed' || caseData.status === 'resolved') && (
+              <CaseFeedback 
+                caseId={caseData.id} 
+                caseTitle={caseData.title}
+                caseStatus={caseData.status}
+                isInternal={false}
+              />
+            )}
+          </div>
 
-        <div className="space-y-6">
-          {/* Add case notifications for citizens */}
-          <CaseNotifications caseId={caseData.id} />
+          <div className="space-y-6">
+            {/* Case Notifications for External Users */}
+            <CaseNotifications caseId={caseData.id} />
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Case Information</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {caseData.category && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Case Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {caseData.category && (
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Category</p>
+                    <p className="text-sm">{caseData.category.name}</p>
+                  </div>
+                )}
+
                 <div>
-                  <p className="text-sm font-medium text-gray-500">Category</p>
-                  <p className="text-sm">{caseData.category.name}</p>
+                  <p className="text-sm font-medium text-gray-500">Submitted By</p>
+                  <p className="text-sm">{caseData.submitted_by_user?.name || 'Unknown'}</p>
                 </div>
-              )}
 
-              <div>
-                <p className="text-sm font-medium text-gray-500">Submitted By</p>
-                <p className="text-sm">{caseData.submitted_by_user?.name || 'Unknown'}</p>
-              </div>
+                {caseData.assigned_to_user && (
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Assigned To</p>
+                    <p className="text-sm">{caseData.assigned_to_user.name}</p>
+                  </div>
+                )}
 
-              {caseData.assigned_to_user && (
                 <div>
-                  <p className="text-sm font-medium text-gray-500">Assigned To</p>
-                  <p className="text-sm">{caseData.assigned_to_user.name}</p>
+                  <p className="text-sm font-medium text-gray-500">Created</p>
+                  <p className="text-sm">{formatDistanceToNow(new Date(caseData.created_at), { addSuffix: true })}</p>
                 </div>
-              )}
 
-              <div>
-                <p className="text-sm font-medium text-gray-500">Created</p>
-                <p className="text-sm">{formatDistanceToNow(new Date(caseData.created_at), { addSuffix: true })}</p>
-              </div>
-
-              <div>
-                <p className="text-sm font-medium text-gray-500">Last Updated</p>
-                <p className="text-sm">{formatDistanceToNow(new Date(caseData.updated_at), { addSuffix: true })}</p>
-              </div>
-
-              {caseData.sla_due_at && (
                 <div>
-                  <p className="text-sm font-medium text-gray-500">SLA Due</p>
-                  <SLABadge sla_due_at={caseData.sla_due_at} status={caseData.status} />
+                  <p className="text-sm font-medium text-gray-500">Last Updated</p>
+                  <p className="text-sm">{formatDistanceToNow(new Date(caseData.updated_at), { addSuffix: true })}</p>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+
+                {caseData.sla_due_at && (
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">SLA Due</p>
+                    <SLABadge sla_due_at={caseData.sla_due_at} status={caseData.status} />
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 

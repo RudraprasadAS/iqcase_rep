@@ -432,3 +432,75 @@ export const logTaskDeleted = async (caseId: string, taskName: string, performed
     console.error('✅ Exception in logTaskDeleted:', error);
   }
 };
+
+export const logCaseNoteAdded = async (caseId: string, note: string, performedBy: string) => {
+  try {
+    console.log('📝 Logging case note added activity:', { caseId, note: note.substring(0, 50) + '...', performedBy });
+    
+    const { error } = await supabase
+      .from('case_activities')
+      .insert({
+        case_id: caseId,
+        activity_type: 'case_note_added',
+        description: `Case note added: ${note.substring(0, 100)}${note.length > 100 ? '...' : ''}`,
+        performed_by: performedBy
+      });
+
+    if (error) {
+      console.error('📝 Error logging case note added activity:', error);
+      throw error;
+    }
+
+    console.log('📝 Case note added activity logged successfully');
+  } catch (error) {
+    console.error('📝 Exception in logCaseNoteAdded:', error);
+  }
+};
+
+export const logCaseNoteUpdated = async (caseId: string, note: string, performedBy: string) => {
+  try {
+    console.log('📝 Logging case note updated activity:', { caseId, note: note.substring(0, 50) + '...', performedBy });
+    
+    const { error } = await supabase
+      .from('case_activities')
+      .insert({
+        case_id: caseId,
+        activity_type: 'case_note_updated',
+        description: `Case note updated: ${note.substring(0, 100)}${note.length > 100 ? '...' : ''}`,
+        performed_by: performedBy
+      });
+
+    if (error) {
+      console.error('📝 Error logging case note updated activity:', error);
+      throw error;
+    }
+
+    console.log('📝 Case note updated activity logged successfully');
+  } catch (error) {
+    console.error('📝 Exception in logCaseNoteUpdated:', error);
+  }
+};
+
+export const logCaseNoteDeleted = async (caseId: string, note: string, performedBy: string) => {
+  try {
+    console.log('📝 Logging case note deleted activity:', { caseId, note: note.substring(0, 50) + '...', performedBy });
+    
+    const { error } = await supabase
+      .from('case_activities')
+      .insert({
+        case_id: caseId,
+        activity_type: 'case_note_deleted',
+        description: `Case note deleted: ${note.substring(0, 100)}${note.length > 100 ? '...' : ''}`,
+        performed_by: performedBy
+      });
+
+    if (error) {
+      console.error('📝 Error logging case note deleted activity:', error);
+      throw error;
+    }
+
+    console.log('📝 Case note deleted activity logged successfully');
+  } catch (error) {
+    console.error('📝 Exception in logCaseNoteDeleted:', error);
+  }
+};

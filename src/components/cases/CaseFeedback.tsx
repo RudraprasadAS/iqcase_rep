@@ -86,7 +86,7 @@ const CaseFeedback = ({ caseId, caseTitle, caseStatus, isInternal = true }: Case
   };
 
   const checkFeedbackEligibility = async () => {
-    if (!user || !isCaseClosed || isInternal) {
+    if (!user || !isCaseClosed) {
       setCanSubmitFeedback(false);
       return;
     }
@@ -123,7 +123,21 @@ const CaseFeedback = ({ caseId, caseTitle, caseStatus, isInternal = true }: Case
       }
 
       const isEligible = caseData.submitted_by === userData.id;
-      setCanSubmitFeedback(isEligible);
+      
+      // Check if user has already submitted feedback
+      if (isEligible) {
+        const { data: existingFeedback, error: feedbackError } = await supabase
+          .from('case_feedback')
+          .select('id')
+          .eq('case_id', caseId)
+          .eq('submitted_by', userData.id)
+          .single();
+
+        // User can submit feedback if they haven't already
+        setCanSubmitFeedback(!existingFeedback);
+      } else {
+        setCanSubmitFeedback(false);
+      }
       
     } catch (error) {
       console.error('Error checking feedback eligibility:', error);
@@ -177,18 +191,31 @@ const CaseFeedback = ({ caseId, caseTitle, caseStatus, isInternal = true }: Case
               {isInternal ? 'Customer Feedback' : 'Case Feedback'} ({feedback.length})
             </CardTitle>
             
-            {/* Only show feedback form button for non-internal users */}
+            {/* Show feedback form button for eligible external users */}
             {!isInternal && canSubmitFeedback && !showFeedbackForm && (
               <Button 
                 onClick={() => setShowFeedbackForm(true)}
                 size="sm"
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
               >
                 <Plus className="h-4 w-4" />
                 Give Feedback
               </Button>
             )}
           </div>
+          
+          {/* Show feedback prompt for eligible users when case is closed */}
+          {!isInternal && canSubmitFeedback && isCaseClosed && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-2">
+              <div className="flex items-center text-blue-800">
+                <MessageSquare className="h-5 w-5 mr-2" />
+                <span className="font-medium">Your case has been closed!</span>
+              </div>
+              <p className="text-blue-700 mt-1 text-sm">
+                We'd love to hear about your experience. Please take a moment to provide feedback.
+              </p>
+            </div>
+          )}
         </CardHeader>
         
         <CardContent className="space-y-4">
@@ -202,6 +229,7 @@ const CaseFeedback = ({ caseId, caseTitle, caseStatus, isInternal = true }: Case
                 onSubmit={() => {
                   setShowFeedbackForm(false);
                   fetchFeedback();
+                  setCanSubmitFeedback(false); // Disable further submissions
                 }}
                 onCancel={() => setShowFeedbackForm(false)}
               />
