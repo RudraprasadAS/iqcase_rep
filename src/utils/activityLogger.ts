@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { notifyExternalUserOfCaseUpdate } from './externalNotificationUtils';
 
@@ -148,9 +149,9 @@ export const logStatusChanged = async (caseId: string, oldStatus: string, newSta
       .eq('id', caseId)
       .single();
 
-    // Notify external user of status change
+    // Notify external user of status change - handle both closed and resolved
     if (caseData) {
-      const updateType = newStatus === 'closed' ? 'case_closed' : 'status_change';
+      const updateType = (newStatus === 'closed' || newStatus === 'resolved') ? 'case_closed' : 'status_change';
       await notifyExternalUserOfCaseUpdate(caseId, caseData.title, updateType, newStatus);
     }
 

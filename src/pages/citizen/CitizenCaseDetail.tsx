@@ -1,4 +1,5 @@
 
+
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -271,6 +272,9 @@ const CitizenCaseDetail = () => {
     );
   }
 
+  // Check if case is in a state where feedback can be provided
+  const canProvideFeedback = caseData.status === 'closed' || caseData.status === 'resolved';
+
   return (
     <>
       <Helmet>
@@ -305,6 +309,21 @@ const CitizenCaseDetail = () => {
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* Show feedback prompt for resolved/closed cases */}
+                {canProvideFeedback && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div className="flex items-center text-green-800">
+                      <AlertCircle className="h-5 w-5 mr-2" />
+                      <span className="font-medium">
+                        Your case has been {caseData.status}!
+                      </span>
+                    </div>
+                    <p className="text-green-700 mt-1 text-sm">
+                      We'd love to hear about your experience. Please scroll down to provide feedback.
+                    </p>
+                  </div>
+                )}
+
                 <div>
                   <h4 className="font-medium mb-2">Description</h4>
                   <p className="text-gray-700 whitespace-pre-wrap">{caseData.description}</p>
@@ -382,8 +401,8 @@ const CitizenCaseDetail = () => {
 
             <MessageCenter caseId={caseData.id} isInternal={false} />
             
-            {/* Add Case Feedback section for closed cases */}
-            {(caseData.status === 'closed' || caseData.status === 'resolved') && (
+            {/* Show Case Feedback section for resolved or closed cases */}
+            {canProvideFeedback && (
               <CaseFeedback 
                 caseId={caseData.id} 
                 caseTitle={caseData.title}
