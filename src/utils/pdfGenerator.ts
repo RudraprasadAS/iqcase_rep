@@ -1,3 +1,4 @@
+
 import jsPDF from 'jspdf';
 import { formatDate, formatDateTime } from '@/lib/utils';
 
@@ -13,31 +14,7 @@ interface CaseData {
   updated_at: string;
   description?: string;
   sla_due_at?: string;
-  location?: string;
   tags?: string[];
-}
-
-interface Message {
-  id: string;
-  message: string;
-  created_at: string;
-  is_internal: boolean;
-  users?: { name: string; email: string };
-}
-
-interface CaseNote {
-  id: string;
-  note: string;
-  created_at: string;
-  is_internal: boolean;
-  users?: { name: string; email: string };
-}
-
-interface Attachment {
-  id: string;
-  file_name: string;
-  created_at: string;
-  file_type?: string;
 }
 
 interface Activity {
@@ -66,10 +43,16 @@ interface Feedback {
   users?: { name: string; email: string };
 }
 
+interface CaseNote {
+  id: string;
+  note: string;
+  created_at: string;
+  is_internal: boolean;
+  users?: { name: string; email: string };
+}
+
 interface PDFData {
   caseData: CaseData;
-  messages: Message[];
-  attachments: Attachment[];
   activities: Activity[];
   tasks?: Task[];
   feedback?: Feedback[];
@@ -88,14 +71,14 @@ export const generateCasePDF = (data: PDFData): void => {
 
   // Professional color scheme
   const colors = {
-    primary: '#1a1a1a',      // Dark text
-    secondary: '#666666',    // Gray text
-    accent: '#2563eb',       // Blue accent
-    lightGray: '#f8f9fa',    // Light backgrounds
-    border: '#e5e7eb',       // Borders
-    success: '#059669',      // Green
-    warning: '#d97706',      // Orange
-    danger: '#dc2626',       // Red
+    primary: '#1a1a1a',
+    secondary: '#666666',
+    accent: '#2563eb',
+    lightGray: '#f8f9fa',
+    border: '#e5e7eb',
+    success: '#059669',
+    warning: '#d97706',
+    danger: '#dc2626',
   };
 
   // Helper functions
@@ -136,7 +119,7 @@ export const generateCasePDF = (data: PDFData): void => {
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(keyColor);
     
-    const keyWidth = 60; // Fixed width for keys for better alignment
+    const keyWidth = 60;
     doc.text(key, margin, yPosition);
     
     doc.setFont('helvetica', 'normal');
@@ -191,76 +174,32 @@ export const generateCasePDF = (data: PDFData): void => {
   const getStatusConfig = (status: string) => {
     switch (status.toLowerCase()) {
       case 'open':
-        return {
-          label: 'OPEN',
-          bgColor: '#dbeafe',
-          textColor: '#1e40af'
-        };
+        return { label: 'OPEN', bgColor: '#dbeafe', textColor: '#1e40af' };
       case 'in_progress':
-        return {
-          label: 'IN PROGRESS',
-          bgColor: '#f3e8ff',
-          textColor: '#7c3aed'
-        };
+        return { label: 'IN PROGRESS', bgColor: '#f3e8ff', textColor: '#7c3aed' };
       case 'resolved':
-        return {
-          label: 'RESOLVED',
-          bgColor: '#dcfce7',
-          textColor: '#15803d'
-        };
+        return { label: 'RESOLVED', bgColor: '#dcfce7', textColor: '#15803d' };
       case 'closed':
-        return {
-          label: 'CLOSED',
-          bgColor: '#f3f4f6',
-          textColor: '#374151'
-        };
+        return { label: 'CLOSED', bgColor: '#f3f4f6', textColor: '#374151' };
       case 'pending':
-        return {
-          label: 'PENDING',
-          bgColor: '#fef3c7',
-          textColor: '#d97706'
-        };
+        return { label: 'PENDING', bgColor: '#fef3c7', textColor: '#d97706' };
       default:
-        return {
-          label: status.toUpperCase(),
-          bgColor: '#f3f4f6',
-          textColor: '#6b7280'
-        };
+        return { label: status.toUpperCase(), bgColor: '#f3f4f6', textColor: '#6b7280' };
     }
   };
 
   const getPriorityConfig = (priority: string) => {
     switch (priority.toLowerCase()) {
       case 'low':
-        return {
-          label: 'LOW',
-          bgColor: '#dcfce7',
-          textColor: '#15803d'
-        };
+        return { label: 'LOW', bgColor: '#dcfce7', textColor: '#15803d' };
       case 'medium':
-        return {
-          label: 'MEDIUM',
-          bgColor: '#fef3c7',
-          textColor: '#d97706'
-        };
+        return { label: 'MEDIUM', bgColor: '#fef3c7', textColor: '#d97706' };
       case 'high':
-        return {
-          label: 'HIGH',
-          bgColor: '#fee2e2',
-          textColor: '#dc2626'
-        };
+        return { label: 'HIGH', bgColor: '#fee2e2', textColor: '#dc2626' };
       case 'critical':
-        return {
-          label: 'CRITICAL',
-          bgColor: '#fee2e2',
-          textColor: '#991b1b'
-        };
+        return { label: 'CRITICAL', bgColor: '#fee2e2', textColor: '#991b1b' };
       default:
-        return {
-          label: priority.toUpperCase(),
-          bgColor: '#f3f4f6',
-          textColor: '#6b7280'
-        };
+        return { label: priority.toUpperCase(), bgColor: '#f3f4f6', textColor: '#6b7280' };
     }
   };
 
@@ -278,38 +217,7 @@ export const generateCasePDF = (data: PDFData): void => {
     return `${year}-${shortId}`;
   };
 
-  const addTableRow = (columns: string[], isHeader: boolean = false) => {
-    const colWidth = contentWidth / columns.length;
-    
-    if (isHeader) {
-      // Header background
-      doc.setFillColor(colors.lightGray);
-      doc.rect(margin, yPosition - 5, contentWidth, 12, 'F');
-      
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(colors.primary);
-    } else {
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(colors.primary);
-    }
-    
-    columns.forEach((text, index) => {
-      const x = margin + (index * colWidth) + 4;
-      const truncatedText = text.length > 25 ? text.substring(0, 22) + '...' : text;
-      doc.text(truncatedText, x, yPosition + 2);
-    });
-    
-    // Row border
-    doc.setDrawColor(colors.border);
-    doc.setLineWidth(0.3);
-    doc.line(margin, yPosition + 7, pageWidth - margin, yPosition + 7);
-    
-    yPosition += 12;
-  };
-
-  // Clean header design
+  // Header
   doc.setFillColor(colors.primary);
   doc.rect(0, 0, pageWidth, 35, 'F');
   
@@ -342,32 +250,14 @@ export const generateCasePDF = (data: PDFData): void => {
   if (data.caseData.category) {
     addKeyValuePair('Category:', data.caseData.category.name);
   }
-  
-  if (data.caseData.location) {
-    addKeyValuePair('Location:', data.caseData.location);
-  }
-
-  // Overview section
-  addSectionTitle('Overview');
-  addKeyValuePair('Created:', formatDateTime(data.caseData.created_at));
-  addKeyValuePair('Updated:', formatDateTime(data.caseData.updated_at));
 
   // Participants section
   addSectionTitle('Participants');
   if (data.caseData.submitted_by_user) {
-    addTableRow(['Name', 'Role', 'Location'], true);
-    addTableRow([
-      data.caseData.submitted_by_user.name || data.caseData.submitted_by_user.email || 'Unknown',
-      'Plaintiff',
-      data.caseData.location || 'Not specified'
-    ]);
+    addKeyValuePair('Submitted by:', `${data.caseData.submitted_by_user.name || data.caseData.submitted_by_user.email || 'Unknown'} (External)`);
     
     if (data.caseData.assigned_to_user) {
-      addTableRow([
-        data.caseData.assigned_to_user.name || 'Unassigned',
-        'Assigned Agent',
-        'Internal'
-      ]);
+      addKeyValuePair('Assigned to:', `${data.caseData.assigned_to_user.name || 'Unassigned'} (Internal)`);
     }
   }
 
@@ -394,33 +284,6 @@ export const generateCasePDF = (data: PDFData): void => {
     });
   }
 
-  // Attachments section (only show if attachments exist)
-  if (data.attachments && data.attachments.length > 0) {
-    addSectionTitle('Attachments');
-    data.attachments.forEach(attachment => {
-      addText(`📎 ${attachment.file_name}`, 9, false, colors.primary);
-      addText(`   ${attachment.file_type || 'Unknown type'} • ${formatDateTime(attachment.created_at)}`, 8, false, colors.secondary);
-      yPosition += 2;
-    });
-  }
-
-  // Messages section (only show if external messages exist)
-  const externalMessages = data.messages.filter(message => !message.is_internal);
-  if (externalMessages && externalMessages.length > 0) {
-    addSectionTitle('Messages/Communication Logs');
-    addText('Communication logs between the parties and the court are documented here. This includes emails, letters, and other forms of correspondence.', 9, false, colors.secondary);
-    yPosition += 5;
-    
-    externalMessages.forEach(message => {
-      const senderName = message.users?.name || message.users?.email || 'Unknown';
-      
-      addText(senderName, 9, true, colors.accent);
-      addText(formatDateTime(message.created_at), 8, false, colors.secondary);
-      addText(message.message, 9, false, colors.primary);
-      yPosition += 5;
-    });
-  }
-
   // Tasks section (only show if tasks exist)
   if (data.tasks && data.tasks.length > 0) {
     addSectionTitle('Tasks');
@@ -437,15 +300,15 @@ export const generateCasePDF = (data: PDFData): void => {
     });
   }
 
-  // Recent Activity History section (only show if activities exist)
+  // Case Updates section (activities)
   if (data.activities && data.activities.length > 0) {
-    addSectionTitle('Recent Activity History');
-    data.activities.slice(0, 10).forEach(activity => {
+    addSectionTitle('Case Updates');
+    data.activities.slice(0, 15).forEach(activity => {
       const actorName = activity.users?.name || activity.users?.email || 'System';
       const activityDate = formatDate(activity.created_at);
       
-      addText(`📄 ${activity.activity_type.replace(/_/g, ' ').toUpperCase()}`, 9, true, colors.primary);
-      addText(`   ${activityDate}`, 8, false, colors.secondary);
+      addText(`• ${activity.activity_type.replace(/_/g, ' ').toUpperCase()}`, 9, true, colors.primary);
+      addText(`   ${activityDate} by ${actorName}`, 8, false, colors.secondary);
       if (activity.description) {
         addText(`   ${activity.description}`, 8, false, colors.primary);
       }
@@ -478,7 +341,7 @@ export const generateCasePDF = (data: PDFData): void => {
   doc.setTextColor(colors.secondary);
   doc.text('Privacy Policy', margin, yPosition);
   doc.text('Terms of Service', margin + 80, yPosition);
-  doc.text(`© ${new Date().getFullYear()} PDF Extract. All rights reserved.`, pageWidth - margin - 100, yPosition);
+  doc.text(`© ${new Date().getFullYear()} Case Management System. All rights reserved.`, pageWidth - margin - 120, yPosition);
 
   // Add final footer
   addPageFooter();
