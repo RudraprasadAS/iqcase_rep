@@ -27,11 +27,11 @@ const Insights = () => {
   };
 
   const handleViewReport = (reportId: string) => {
-    navigate(`/insights/report-builder?id=${reportId}&view=true`);
+    navigate(`/insights/report-builder?id=${reportId}&mode=view`);
   };
 
   const handleEditReport = (reportId: string) => {
-    navigate(`/insights/report-builder?id=${reportId}&edit=true`);
+    navigate(`/insights/report-builder?id=${reportId}&mode=edit`);
   };
 
   const handleDeleteReport = async (reportId: string) => {
