@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
@@ -156,11 +157,19 @@ const CitizenCaseDetail = () => {
 
     setSendingMessage(true);
     try {
+      // Get current user
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      
+      if (authError || !authData.user) {
+        console.error('Auth error:', authError);
+        return;
+      }
+
       // Get internal user ID
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('id')
-        .eq('auth_user_id', supabase.auth.getUser()?.data?.user?.id)
+        .eq('auth_user_id', authData.user.id)
         .single();
 
       if (userError) {
@@ -271,8 +280,12 @@ const CitizenCaseDetail = () => {
             variant: "destructive"
           });
         } else {
-          const fileUrl = `${supabase.storageUrl}/case-attachments/${filePath}`;
-          await saveAttachmentToDatabase(file.name, fileUrl, file.type);
+          // Get the public URL using the getPublicUrl method
+          const { data: urlData } = supabase.storage
+            .from('case-attachments')
+            .getPublicUrl(filePath);
+          
+          await saveAttachmentToDatabase(file.name, urlData.publicUrl, file.type);
           toast({
             title: "File uploaded",
             description: `${file.name} uploaded successfully`
@@ -291,11 +304,19 @@ const CitizenCaseDetail = () => {
 
   const saveAttachmentToDatabase = async (fileName: string, fileUrl: string, fileType?: string) => {
     try {
+      // Get current user
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      
+      if (authError || !authData.user) {
+        console.error('Auth error:', authError);
+        return;
+      }
+
       // Get internal user ID
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('id')
-        .eq('auth_user_id', supabase.auth.getUser()?.data?.user?.id)
+        .eq('auth_user_id', authData.user.id)
         .single();
 
       if (userError) {
