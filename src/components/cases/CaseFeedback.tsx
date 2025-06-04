@@ -116,14 +116,33 @@ const CaseFeedback = ({ caseId, caseTitle, caseStatus, isInternal = true }: Case
       console.log('✅ Authenticated user ID:', authData.user.id);
 
       // Get internal user record linked to auth user
+      console.log('🔍 Looking up user in users table with auth_user_id:', authData.user.id);
       const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('id, user_type, email')
+        .select('id, user_type, email, name')
         .eq('auth_user_id', authData.user.id)
         .single();
 
-      if (userError || !userData) {
+      console.log('🔍 User lookup result:', { userData, userError });
+
+      if (userError) {
         console.error('❌ Error fetching internal user data:', userError);
+        console.log('🔍 Trying to check if any users exist with this auth_user_id...');
+        
+        // Let's see if there are any users with this auth_user_id
+        const { data: allUsersCheck, error: allUsersError } = await supabase
+          .from('users')
+          .select('id, user_type, email, name, auth_user_id')
+          .eq('auth_user_id', authData.user.id);
+        
+        console.log('🔍 All users check result:', { allUsersCheck, allUsersError });
+        
+        setCanSubmitFeedback(false);
+        return;
+      }
+
+      if (!userData) {
+        console.error('❌ No internal user data found');
         setCanSubmitFeedback(false);
         return;
       }
@@ -138,11 +157,14 @@ const CaseFeedback = ({ caseId, caseTitle, caseStatus, isInternal = true }: Case
       }
 
       // Check if user submitted this case
+      console.log('🔍 Checking if user submitted case:', caseId);
       const { data: caseData, error: caseError } = await supabase
         .from('cases')
         .select('submitted_by, title')
         .eq('id', caseId)
         .single();
+
+      console.log('🔍 Case lookup result:', { caseData, caseError });
 
       if (caseError || !caseData) {
         console.error('❌ Error fetching case data:', caseError);
@@ -159,12 +181,15 @@ const CaseFeedback = ({ caseId, caseTitle, caseStatus, isInternal = true }: Case
       }
 
       // Check if user has already submitted feedback for this case
+      console.log('🔍 Checking for existing feedback...');
       const { data: existingFeedback, error: feedbackError } = await supabase
         .from('case_feedback')
         .select('id')
         .eq('case_id', caseId)
         .eq('submitted_by', userData.id)
         .maybeSingle();
+
+      console.log('🔍 Existing feedback check:', { existingFeedback, feedbackError });
 
       if (feedbackError) {
         console.error('❌ Error checking existing feedback:', feedbackError);
