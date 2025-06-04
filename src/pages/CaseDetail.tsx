@@ -70,7 +70,7 @@ interface Activity {
   travel_minutes?: number;
   performed_by: string;
   created_at: string;
-  users?: { name: string; email: string };
+  performed_by_user?: { name: string; email: string };
 }
 
 const CaseDetail = () => {
