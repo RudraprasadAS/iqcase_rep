@@ -14,6 +14,7 @@ import PriorityBadge from '@/components/cases/PriorityBadge';
 import SLABadge from '@/components/cases/SLABadge';
 import MessageCenter from '@/components/messaging/MessageCenter';
 import CaseFeedback from '@/components/cases/CaseFeedback';
+import CaseNotifications from '@/components/citizen/CaseNotifications';
 
 interface CaseData {
   id: string;
@@ -373,7 +374,7 @@ const CitizenCaseDetail = () => {
 
           <MessageCenter caseId={caseData.id} isInternal={false} />
           
-          {/* Add feedback component for citizen view */}
+          {/* Show feedback component for closed cases or always available */}
           <CaseFeedback 
             caseId={caseData.id} 
             caseTitle={caseData.title}
@@ -383,6 +384,9 @@ const CitizenCaseDetail = () => {
         </div>
 
         <div className="space-y-6">
+          {/* Add case notifications for citizens */}
+          <CaseNotifications caseId={caseData.id} />
+
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Case Information</CardTitle>

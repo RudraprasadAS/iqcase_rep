@@ -44,9 +44,14 @@ const NotificationBell = () => {
       await markAsRead(notification.id);
     }
 
-    // Navigate to related case if available
+    // Navigate to related case if available - check if user is on citizen portal
     if (notification.case_id) {
-      navigate(`/cases/${notification.case_id}`);
+      const currentPath = window.location.pathname;
+      if (currentPath.startsWith('/citizen')) {
+        navigate(`/citizen/cases/${notification.case_id}`);
+      } else {
+        navigate(`/cases/${notification.case_id}`);
+      }
     }
 
     setIsOpen(false);
