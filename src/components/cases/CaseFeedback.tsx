@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Star, MessageSquare, Plus } from 'lucide-react';
+import { Star, MessageSquare, Plus, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import FeedbackWidget from '@/components/feedback/FeedbackWidget';
 
 interface Feedback {
@@ -26,12 +27,12 @@ interface CaseFeedbackProps {
   caseId: string;
   caseTitle?: string;
   caseStatus: string;
-  isInternal?: boolean; // Add prop to determine if this is internal view
+  isInternal?: boolean;
 }
 
 const CaseFeedback = ({ caseId, caseTitle, caseStatus, isInternal = true }: CaseFeedbackProps) => {
   const [feedback, setFeedback] = useState<Feedback[]>([]);
-  const [showFeedbackForm, setShowFeedbackForm] = useState(false);
+  const [showFeedbackDialog, setShowFeedbackDialog] = useState(false);
   const [canSubmitFeedback, setCanSubmitFeedback] = useState(false);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
@@ -144,6 +145,16 @@ const CaseFeedback = ({ caseId, caseTitle, caseStatus, isInternal = true }: Case
     }
   };
 
+  const handleFeedbackSubmit = () => {
+    setShowFeedbackDialog(false);
+    fetchFeedback();
+    setCanSubmitFeedback(false);
+    toast({
+      title: 'Thank you!',
+      description: 'Your feedback has been submitted successfully.',
+    });
+  };
+
   const renderStars = (currentRating: number) => {
     return Array.from({ length: 5 }, (_, i) => (
       <Star
@@ -191,10 +202,10 @@ const CaseFeedback = ({ caseId, caseTitle, caseStatus, isInternal = true }: Case
               {isInternal ? 'Customer Feedback' : 'Case Feedback'} ({feedback.length})
             </CardTitle>
             
-            {/* Show feedback form button for eligible external users */}
-            {!isInternal && canSubmitFeedback && !showFeedbackForm && (
+            {/* Show feedback button for eligible external users */}
+            {!isInternal && canSubmitFeedback && (
               <Button 
-                onClick={() => setShowFeedbackForm(true)}
+                onClick={() => setShowFeedbackDialog(true)}
                 size="sm"
                 className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
               >
@@ -203,56 +214,47 @@ const CaseFeedback = ({ caseId, caseTitle, caseStatus, isInternal = true }: Case
               </Button>
             )}
           </div>
-          
-          {/* Show feedback prompt for eligible users when case is closed */}
-          {!isInternal && canSubmitFeedback && isCaseClosed && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-2">
-              <div className="flex items-center text-blue-800">
-                <MessageSquare className="h-5 w-5 mr-2" />
-                <span className="font-medium">Your case has been closed!</span>
-              </div>
-              <p className="text-blue-700 mt-1 text-sm">
-                We'd love to hear about your experience. Please take a moment to provide feedback.
-              </p>
-            </div>
-          )}
         </CardHeader>
         
         <CardContent className="space-y-4">
-          {/* Feedback Form - only for citizen portal */}
-          {!isInternal && showFeedbackForm && (
-            <div className="border rounded-lg p-4 bg-blue-50">
-              <FeedbackWidget
-                caseId={caseId}
-                caseTitle={caseTitle}
-                context="case"
-                onSubmit={() => {
-                  setShowFeedbackForm(false);
-                  fetchFeedback();
-                  setCanSubmitFeedback(false); // Disable further submissions
-                }}
-                onCancel={() => setShowFeedbackForm(false)}
-              />
-            </div>
-          )}
-
           {/* Display existing feedback */}
           {feedback.length === 0 ? (
-            <div className="text-center text-muted-foreground py-8">
-              {isInternal 
-                ? 'No customer feedback received yet'
-                : isCaseClosed 
-                  ? 'No feedback submitted yet' 
-                  : 'Feedback will be available when case is closed'
-              }
-              {!isInternal && canSubmitFeedback && isCaseClosed && (
-                <div className="mt-4">
-                  <Button 
-                    onClick={() => setShowFeedbackForm(true)}
-                    variant="outline"
-                  >
-                    Be the first to give feedback
-                  </Button>
+            <div className="text-center py-8">
+              {!isInternal && canSubmitFeedback ? (
+                <div className="space-y-4">
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                    <div className="flex items-center justify-center text-blue-800 mb-3">
+                      <MessageSquare className="h-6 w-6 mr-2" />
+                      <span className="font-medium text-lg">Your feedback matters!</span>
+                    </div>
+                    <p className="text-blue-700 mb-4">
+                      Your case has been {caseStatus}. Help us improve by sharing your experience.
+                    </p>
+                    <div className="flex gap-3 justify-center">
+                      <Button 
+                        onClick={() => setShowFeedbackDialog(true)}
+                        className="bg-blue-600 hover:bg-blue-700"
+                      >
+                        <Star className="h-4 w-4 mr-2" />
+                        Provide Feedback
+                      </Button>
+                      <Button 
+                        variant="outline"
+                        onClick={() => setCanSubmitFeedback(false)}
+                      >
+                        Maybe Later
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-muted-foreground">
+                  {isInternal 
+                    ? 'No customer feedback received yet'
+                    : isCaseClosed 
+                      ? 'No feedback submitted yet' 
+                      : 'Feedback will be available when case is closed'
+                  }
                 </div>
               )}
             </div>
@@ -322,6 +324,37 @@ const CaseFeedback = ({ caseId, caseTitle, caseStatus, isInternal = true }: Case
           )}
         </CardContent>
       </Card>
+
+      {/* Feedback Dialog Popup */}
+      <Dialog open={showFeedbackDialog} onOpenChange={setShowFeedbackDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5" />
+                Share Your Feedback
+              </DialogTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowFeedbackDialog(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </DialogHeader>
+          
+          <div className="mt-4">
+            <FeedbackWidget
+              caseId={caseId}
+              caseTitle={caseTitle}
+              context="case"
+              onSubmit={handleFeedbackSubmit}
+              onCancel={() => setShowFeedbackDialog(false)}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
