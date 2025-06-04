@@ -219,20 +219,21 @@ const CaseDetail = () => {
         throw error;
       }
 
-      console.log('📋 Activities fetched:', data?.length || 0, 'items');
+      console.log('📋 Activities fetched:', data?.length || 0, 'items', data);
       setActivities(data || []);
     } catch (error) {
       console.error('Error fetching activities:', error);
     }
   };
 
+  // Enhanced real-time subscription for activities with more aggressive refresh
   useEffect(() => {
     if (!caseId) return;
 
-    console.log('📋 Setting up real-time subscription for case activities:', caseId);
+    console.log('📋 Setting up ENHANCED real-time subscription for case activities:', caseId);
 
     const channel = supabase
-      .channel(`case_activities_${caseId}`)
+      .channel(`case_activities_realtime_${caseId}`)
       .on(
         'postgres_changes',
         {
@@ -242,15 +243,27 @@ const CaseDetail = () => {
           filter: `case_id=eq.${caseId}`
         },
         (payload) => {
-          console.log('📋 Real-time activity change:', payload);
-          fetchActivities(); // Refetch activities when changes occur
+          console.log('📋 🔔 Real-time activity change detected:', payload);
+          // Immediate refresh on any change
+          setTimeout(() => {
+            fetchActivities();
+          }, 100); // Small delay to ensure data is committed
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('📋 Real-time subscription status:', status);
+      });
+
+    // Also set up a periodic refresh as backup
+    const intervalId = setInterval(() => {
+      console.log('📋 🔄 Periodic activity refresh');
+      fetchActivities();
+    }, 5000); // Refresh every 5 seconds
 
     return () => {
-      console.log('📋 Cleaning up activities subscription');
+      console.log('📋 Cleaning up enhanced activities subscription and interval');
       supabase.removeChannel(channel);
+      clearInterval(intervalId);
     };
   }, [caseId]);
 
@@ -666,6 +679,9 @@ ${conversationContext}
                   </TabsContent>
                   <TabsContent value="activities" className="space-y-4">
                     <div className="space-y-3 max-h-96 overflow-y-auto">
+                      <div className="text-xs text-muted-foreground mb-2">
+                        Activities ({activities.length}) - Auto-refreshing
+                      </div>
                       {activities.map((activity) => (
                         <div key={activity.id} className="border-l-2 border-muted pl-4">
                           <div className="text-sm font-medium">{activity.activity_type.replace('_', ' ')}</div>
@@ -673,7 +689,7 @@ ${conversationContext}
                             <div className="text-sm text-muted-foreground">{activity.description}</div>
                           )}
                           <div className="text-xs text-muted-foreground mt-1">
-                            {formatDateTime(activity.created_at)} by {activity.users?.name || activity.users?.email || activity.performed_by}
+                            {formatDateTime(activity.created_at)} by {activity.performed_by_user?.name || activity.performed_by_user?.email || activity.performed_by}
                             {activity.duration_minutes && (
                               <span className="ml-2">({activity.duration_minutes} min)</span>
                             )}
@@ -686,6 +702,14 @@ ${conversationContext}
                         </div>
                       )}
                     </div>
+                    <Button 
+                      onClick={fetchActivities} 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full"
+                    >
+                      Refresh Activities
+                    </Button>
                   </TabsContent>
                   <TabsContent value="updates">
                     <div className="text-sm text-muted-foreground">Last updated: {formatDateTime(caseData.updated_at)}</div>

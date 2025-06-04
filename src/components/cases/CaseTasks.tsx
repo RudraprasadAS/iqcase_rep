@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -172,8 +173,10 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
 
       console.log('Task created successfully:', data);
 
-      // Log the activity
-      await logTaskCreated(caseId, newTask.task_name, newTask.assigned_to, internalUserId);
+      // Log the activity IMMEDIATELY after task creation
+      console.log('🚀 About to log task creation activity');
+      const logResult = await logTaskCreated(caseId, newTask.task_name, newTask.assigned_to, internalUserId);
+      console.log('🚀 Task creation log result:', logResult);
 
       // Send notification if task is assigned
       if (newTask.assigned_to && newTask.assigned_to !== internalUserId) {
@@ -222,8 +225,10 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
         throw error;
       }
 
-      // Log the activity
-      await logTaskUpdated(caseId, taskName, { status: newStatus }, internalUserId);
+      // Log the activity IMMEDIATELY
+      console.log('🚀 About to log task status update');
+      const logResult = await logTaskUpdated(caseId, taskName, { status: newStatus }, internalUserId);
+      console.log('🚀 Task status update log result:', logResult);
 
       await fetchTasks();
       
@@ -316,8 +321,10 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
         throw error;
       }
 
-      // Log the deletion activity
-      await logTaskDeleted(caseId, taskName, internalUserId);
+      // Log the deletion activity IMMEDIATELY
+      console.log('🚀 About to log task deletion');
+      const logResult = await logTaskDeleted(caseId, taskName, internalUserId);
+      console.log('🚀 Task deletion log result:', logResult);
 
       await fetchTasks();
       
@@ -419,7 +426,7 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
               </div>
               <div>
                 <label className="text-sm font-medium">Assign To</label>
-                <Select value={newTask.assigned_to} onValueChange={(value) => setNewTask(prev => ({ ...prev, assigned_to: value }))}>
+                <Select value={newTask.assigned_to} onValueChange={(value) => setNewTask(prev => ({ ...prev, assigned_to: value === 'unassigned' ? '' : value }))}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select user (optional)" />
                   </SelectTrigger>

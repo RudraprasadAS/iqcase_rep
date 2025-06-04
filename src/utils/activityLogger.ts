@@ -22,7 +22,8 @@ export const logActivity = async (params: LogActivityParams) => {
         description: params.description,
         performed_by: params.performedBy,
         duration_minutes: params.duration,
-        message: params.metadata ? JSON.stringify(params.metadata) : null
+        message: params.metadata ? JSON.stringify(params.metadata) : null,
+        created_at: new Date().toISOString()
       })
       .select('*')
       .single();
@@ -42,6 +43,7 @@ export const logActivity = async (params: LogActivityParams) => {
 
 // Specific activity logging functions
 export const logTaskCreated = async (caseId: string, taskName: string, assignedTo: string | null, performedBy: string) => {
+  console.log('📝 Logging task creation:', { caseId, taskName, assignedTo, performedBy });
   return await logActivity({
     caseId,
     activityType: 'task_created',
@@ -53,6 +55,7 @@ export const logTaskCreated = async (caseId: string, taskName: string, assignedT
 
 export const logTaskUpdated = async (caseId: string, taskName: string, changes: Record<string, any>, performedBy: string) => {
   const changeDescriptions = Object.entries(changes).map(([key, value]) => `${key}: ${value}`).join(', ');
+  console.log('📝 Logging task update:', { caseId, taskName, changes, performedBy });
   return await logActivity({
     caseId,
     activityType: 'task_updated',
@@ -63,6 +66,7 @@ export const logTaskUpdated = async (caseId: string, taskName: string, changes: 
 };
 
 export const logTaskDeleted = async (caseId: string, taskName: string, performedBy: string) => {
+  console.log('📝 Logging task deletion:', { caseId, taskName, performedBy });
   return await logActivity({
     caseId,
     activityType: 'task_deleted',
@@ -73,6 +77,7 @@ export const logTaskDeleted = async (caseId: string, taskName: string, performed
 };
 
 export const logWatcherAdded = async (caseId: string, watcherName: string, performedBy: string) => {
+  console.log('📝 Logging watcher addition:', { caseId, watcherName, performedBy });
   return await logActivity({
     caseId,
     activityType: 'watcher_added',
@@ -83,6 +88,7 @@ export const logWatcherAdded = async (caseId: string, watcherName: string, perfo
 };
 
 export const logWatcherRemoved = async (caseId: string, watcherName: string, performedBy: string) => {
+  console.log('📝 Logging watcher removal:', { caseId, watcherName, performedBy });
   return await logActivity({
     caseId,
     activityType: 'watcher_removed',
@@ -93,6 +99,7 @@ export const logWatcherRemoved = async (caseId: string, watcherName: string, per
 };
 
 export const logInternalNoteAdded = async (caseId: string, notePreview: string, performedBy: string) => {
+  console.log('📝 Logging internal note:', { caseId, notePreview, performedBy });
   return await logActivity({
     caseId,
     activityType: 'internal_note_added',
@@ -103,6 +110,7 @@ export const logInternalNoteAdded = async (caseId: string, notePreview: string, 
 };
 
 export const logMessageAdded = async (caseId: string, messagePreview: string, isInternal: boolean, performedBy: string) => {
+  console.log('📝 Logging message:', { caseId, messagePreview, isInternal, performedBy });
   return await logActivity({
     caseId,
     activityType: isInternal ? 'internal_message_added' : 'message_added',
