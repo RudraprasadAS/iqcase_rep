@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { supabase } from '@/integrations/supabase/client';
@@ -51,13 +52,71 @@ const Reports = () => {
     }
   };
 
-  const fetchReportData = async (reportId: string) => {
+  const fetchReportData = async (report: any) => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('report_data')
-        .select('*')
-        .eq('report_id', reportId);
+      let query;
+      
+      // Build query based on the report module
+      switch (report.module) {
+        case 'cases':
+          query = supabase
+            .from('cases')
+            .select(`
+              *,
+              submitted_by_user:submitted_by(name, email),
+              assigned_to_user:assigned_to(name, email),
+              category:case_categories(name)
+            `);
+          break;
+        case 'users':
+          query = supabase
+            .from('users')
+            .select(`
+              *,
+              role:roles(name)
+            `);
+          break;
+        case 'case_activities':
+          query = supabase
+            .from('case_activities')
+            .select(`
+              *,
+              case:cases(title),
+              user:users(name, email)
+            `);
+          break;
+        default:
+          // For other modules, query the basic table
+          query = supabase.from(report.module).select('*');
+      }
+
+      // Apply filters if they exist
+      if (report.filters && Array.isArray(report.filters)) {
+        report.filters.forEach((filter: any) => {
+          if (filter.field && filter.operator && filter.value) {
+            switch (filter.operator) {
+              case 'equals':
+                query = query.eq(filter.field, filter.value);
+                break;
+              case 'contains':
+                query = query.ilike(filter.field, `%${filter.value}%`);
+                break;
+              case 'greater_than':
+                query = query.gt(filter.field, filter.value);
+                break;
+              case 'less_than':
+                query = query.lt(filter.field, filter.value);
+                break;
+            }
+          }
+        });
+      }
+
+      // Apply ordering
+      query = query.order('created_at', { ascending: false });
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching report data:', error);
@@ -66,8 +125,9 @@ const Reports = () => {
           description: "Failed to fetch report data",
           variant: "destructive"
         });
+        setReportData([]);
       } else {
-        setReportData(data);
+        setReportData(data || []);
       }
     } catch (error) {
       console.error('Error fetching report data:', error);
@@ -76,6 +136,7 @@ const Reports = () => {
         description: "Failed to fetch report data",
         variant: "destructive"
       });
+      setReportData([]);
     } finally {
       setLoading(false);
     }
@@ -85,7 +146,7 @@ const Reports = () => {
     const selected = reports.find(report => report.id === reportId);
     setSelectedReport(selected);
     if (selected) {
-      fetchReportData(selected.id);
+      fetchReportData(selected);
     } else {
       setReportData([]);
     }
@@ -180,23 +241,31 @@ const Reports = () => {
                           <tr>
                             {reportData.length > 0 && Object.keys(reportData[0]).map(key => (
                               <th key={key} scope="col" className="px-6 py-3">
-                                {key}
+                                {key.replace(/_/g, ' ').toUpperCase()}
                               </th>
                             ))}
                           </tr>
                         </thead>
                         <tbody>
-                          {reportData.map((row, index) => (
+                          {reportData.slice(0, 10).map((row, index) => (
                             <tr key={index} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
                               {Object.values(row).map((value, i) => (
                                 <td key={i} className="px-6 py-4">
-                                  {String(value)}
+                                  {typeof value === 'object' && value !== null 
+                                    ? JSON.stringify(value) 
+                                    : String(value || '').substring(0, 50)
+                                  }
                                 </td>
                               ))}
                             </tr>
                           ))}
                         </tbody>
                       </table>
+                      {reportData.length > 10 && (
+                        <div className="p-4 text-center text-sm text-gray-500">
+                          Showing first 10 rows of {reportData.length} total records. Use export to see all data.
+                        </div>
+                      )}
                     </div>
                   </ScrollArea>
                 ) : (
