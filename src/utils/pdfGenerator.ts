@@ -26,6 +26,15 @@ interface Message {
   users?: { name: string; email: string };
 }
 
+interface CaseNote {
+  id: string;
+  note: string;
+  created_at: string;
+  updated_at: string;
+  is_internal: boolean;
+  users?: { name: string; email: string };
+}
+
 interface Attachment {
   id: string;
   file_name: string;
@@ -66,6 +75,7 @@ interface PDFData {
   activities: Activity[];
   tasks?: Task[];
   feedback?: Feedback[];
+  caseNotes?: CaseNote[];
   relatedCases?: any[];
   watchers?: any[];
 }
@@ -224,28 +234,44 @@ export const generateCasePDF = (data: PDFData): void => {
   addText(`Case ${generateCaseNumber(data.caseData.id, data.caseData.created_at)}`, 16, true, colors.accent);
   addText(`${data.caseData.title}`, 14, true);
   
-  // Status badges
+  // Status and Priority badges
   yPosition += 5;
   let badgeX = margin;
   
-  // Status badge
-  const statusColors = {
-    'open': colors.accent,
-    'in_progress': colors.warning,
-    'closed': colors.success,
-    'resolved': colors.success
+  // Status badge with proper mapping
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'open': return colors.accent;
+      case 'in_progress': return colors.warning;
+      case 'closed': return colors.success;
+      case 'resolved': return colors.success;
+      case 'pending': return colors.warning;
+      default: return colors.secondary;
+    }
   };
-  const statusWidth = addBadge(data.caseData.status.toUpperCase(), statusColors[data.caseData.status as keyof typeof statusColors] || colors.secondary);
   
-  // Priority badge
-  const priorityColors = {
-    'low': colors.success,
-    'medium': colors.warning,
-    'high': colors.danger,
-    'critical': colors.danger
+  const getStatusLabel = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'in_progress': return 'IN PROGRESS';
+      default: return status.toUpperCase();
+    }
   };
+  
+  const statusWidth = addBadge(getStatusLabel(data.caseData.status), getStatusColor(data.caseData.status));
+  
+  // Priority badge with proper mapping
+  const getPriorityColor = (priority: string) => {
+    switch (priority.toLowerCase()) {
+      case 'low': return colors.success;
+      case 'medium': return colors.warning;
+      case 'high': return colors.danger;
+      case 'critical': return colors.danger;
+      default: return colors.secondary;
+    }
+  };
+  
   doc.text('', badgeX + statusWidth, yPosition);
-  addBadge(data.caseData.priority.toUpperCase(), priorityColors[data.caseData.priority as keyof typeof priorityColors] || colors.secondary);
+  addBadge(data.caseData.priority.toUpperCase(), getPriorityColor(data.caseData.priority));
 
   yPosition += 15;
 
@@ -253,6 +279,8 @@ export const generateCasePDF = (data: PDFData): void => {
   addSection('CASE OVERVIEW');
   addKeyValue('Created', formatDateTime(data.caseData.created_at));
   addKeyValue('Last Updated', formatDateTime(data.caseData.updated_at));
+  addKeyValue('Status', getStatusLabel(data.caseData.status));
+  addKeyValue('Priority', data.caseData.priority.toUpperCase());
   
   if (data.caseData.sla_due_at) {
     addKeyValue('SLA Due Date', formatDateTime(data.caseData.sla_due_at));
@@ -280,6 +308,20 @@ export const generateCasePDF = (data: PDFData): void => {
   if (data.caseData.tags && data.caseData.tags.length > 0) {
     yPosition += 5;
     addKeyValue('Tags', data.caseData.tags.join(', '));
+  }
+
+  // Case Notes section (for internal reports)
+  if (data.caseNotes && data.caseNotes.length > 0) {
+    addSection('CASE NOTES');
+    data.caseNotes.forEach(note => {
+      const authorName = note.users?.name || note.users?.email || 'Unknown';
+      const noteType = note.is_internal ? '[INTERNAL] ' : '[CASE NOTE] ';
+      
+      addText(`${noteType}${authorName}`, 9, true, note.is_internal ? colors.warning : colors.accent);
+      addText(`${formatDateTime(note.created_at)}`, 8, false, colors.secondary);
+      addText(note.note, 9, false, colors.primary);
+      yPosition += 5;
+    });
   }
 
   // Attachments section

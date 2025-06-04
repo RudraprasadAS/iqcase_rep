@@ -11,8 +11,8 @@ export const useCaseExport = () => {
   const exportCaseToPDF = async (caseId: string) => {
     setIsExporting(true);
     try {
-      // Fetch complete case data
-      const [caseResult, messagesResult, attachmentsResult, activitiesResult, tasksResult, feedbackResult] = await Promise.all([
+      // Fetch complete case data including case notes
+      const [caseResult, messagesResult, attachmentsResult, activitiesResult, tasksResult, feedbackResult, caseNotesResult] = await Promise.all([
         supabase
           .from('cases')
           .select(`
@@ -64,7 +64,17 @@ export const useCaseExport = () => {
             users:submitted_by(name, email)
           `)
           .eq('case_id', caseId)
-          .order('submitted_at', { ascending: false })
+          .order('submitted_at', { ascending: false }),
+
+        // Fetch case notes (both internal and external)
+        supabase
+          .from('case_notes')
+          .select(`
+            *,
+            users!case_notes_author_id_fkey(name, email)
+          `)
+          .eq('case_id', caseId)
+          .order('created_at', { ascending: false })
       ]);
 
       if (caseResult.error) throw caseResult.error;
@@ -78,7 +88,8 @@ export const useCaseExport = () => {
         attachments: attachmentsResult.data || [],
         activities: activitiesResult.data || [],
         tasks: tasksResult.data || [],
-        feedback: feedbackResult.data || []
+        feedback: feedbackResult.data || [],
+        caseNotes: caseNotesResult.data || []
       };
 
       generateCasePDF(pdfData);
