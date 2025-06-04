@@ -24,6 +24,8 @@ import StandardReports from "./pages/StandardReports";
 import TableReportBuilder from "./pages/TableReportBuilder";
 import Insights from "./pages/Insights";
 import { ReportBuilder as InsightsReportBuilder } from "./components/insights/ReportBuilder";
+import DashboardBuilder from "./pages/DashboardBuilder";
+import DashboardView from "./pages/DashboardView";
 import Users from "./pages/admin/Users";
 import Roles from "./pages/admin/Roles";
 import Permissions from "./pages/admin/Permissions";
@@ -83,8 +85,8 @@ function App() {
                 <Route path="/reports/table-builder" element={<TableReportBuilder />} />
                 <Route path="/insights" element={<Insights />} />
                 <Route path="/insights/report-builder" element={<InsightsReportBuilder />} />
-                <Route path="/insights/dashboard-builder" element={<div>Dashboard Builder - Coming Soon</div>} />
-                <Route path="/insights/dashboard" element={<div>Dashboard View - Coming Soon</div>} />
+                <Route path="/insights/dashboard-builder" element={<DashboardBuilder />} />
+                <Route path="/insights/dashboard" element={<DashboardView />} />
                 <Route path="/admin/users" element={<Users />} />
                 <Route path="/admin/roles" element={<Roles />} />
                 <Route path="/admin/permissions" element={<Permissions />} />
