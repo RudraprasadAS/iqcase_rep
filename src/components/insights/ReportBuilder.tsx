@@ -37,6 +37,7 @@ export const ReportBuilder = () => {
       setSelectedReportId(reportId);
       const report = reports?.find(r => r.id === reportId);
       if (report) {
+        console.log('Loading existing report:', report);
         setReportName(report.name);
         setReportDescription(report.description || '');
         setSelectedFields(Array.isArray(report.selected_fields) ? report.selected_fields : []);
@@ -47,29 +48,53 @@ export const ReportBuilder = () => {
         const dataSource = dataSources?.find(ds => ds.id === report.data_source_id);
         if (dataSource) {
           setSelectedDataSource(dataSource);
+          
+          // Auto-run the report in view mode
+          if (mode === 'view') {
+            handleRunReport(dataSource, Array.isArray(report.selected_fields) ? report.selected_fields : [], Array.isArray(report.filters) ? report.filters : []);
+          }
         }
       }
     }
-  }, [reportId, reports, dataSources, setSelectedReportId]);
+  }, [reportId, reports, dataSources, setSelectedReportId, mode]);
 
-  const handleRunReport = async () => {
-    if (!selectedDataSource || selectedFields.length === 0) {
+  const handleRunReport = async (dataSource?: DataSource, fields?: string[], reportFilters?: InsightFilter[]) => {
+    const sourceToUse = dataSource || selectedDataSource;
+    const fieldsToUse = fields || selectedFields;
+    const filtersToUse = reportFilters || filters;
+    
+    if (!sourceToUse || fieldsToUse.length === 0) {
+      console.log('Missing required data for report execution:', { dataSource: sourceToUse, fields: fieldsToUse });
       return;
     }
 
-    const fieldsForQuery = selectedFields.map(fieldName => {
-      const field = selectedDataSource.fields.find(f => f.name === fieldName);
-      return { name: fieldName, label: field?.label || fieldName };
+    const fieldsForQuery = fieldsToUse.map(fieldName => {
+      // Handle both simple field names and complex relational field names
+      if (fieldName.includes('.')) {
+        // This is a relational field like "submitted_user.name"
+        return { name: fieldName, label: fieldName };
+      } else {
+        // This is a base table field
+        const field = sourceToUse.fields.find(f => f.name === fieldName);
+        return { name: fieldName, label: field?.label || fieldName };
+      }
+    });
+
+    console.log('Running report with:', {
+      dataSource: sourceToUse.name,
+      fields: fieldsForQuery,
+      filters: filtersToUse
     });
 
     try {
       const result = await executeReport.mutateAsync({
-        dataSourceName: selectedDataSource.name,
+        dataSourceName: sourceToUse.name,
         selectedFields: fieldsForQuery,
-        filters,
+        filters: filtersToUse,
         groupBy: [],
         aggregations: []
       });
+      console.log('Report execution result:', result);
       setPreviewData(result);
     } catch (error) {
       console.error('Error running report:', error);
@@ -158,7 +183,7 @@ export const ReportBuilder = () => {
             </Button>
           )}
           <Button 
-            onClick={handleRunReport} 
+            onClick={() => handleRunReport()} 
             disabled={!canRunReport || executeReport.isPending}
             className="flex items-center gap-2"
           >

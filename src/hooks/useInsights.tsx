@@ -144,7 +144,7 @@ export const useInsights = () => {
     enabled: !!selectedDashboardId
   });
 
-  // Execute a report query
+  // Execute a report query with proper relational field handling
   const executeReport = useMutation({
     mutationFn: async ({
       dataSourceName,
@@ -159,26 +159,119 @@ export const useInsights = () => {
       groupBy?: GroupBy[];
       aggregations?: Aggregation[];
     }) => {
-      const { data, error } = await supabase.rpc('execute_insight_query', {
-        data_source_name: dataSourceName,
-        selected_fields: selectedFields as any,
-        filters: filters as any,
-        group_by_fields: groupBy as any,
-        aggregations: aggregations as any,
-        limit_count: 1000
+      console.log('Executing report with:', { dataSourceName, selectedFields, filters });
+      
+      // Find the data source
+      const dataSource = dataSources?.find(ds => ds.name === dataSourceName);
+      if (!dataSource) {
+        throw new Error('Data source not found');
+      }
+
+      // Build SQL query with proper joins
+      let baseTable = dataSource.table_name;
+      let selectFields: string[] = [];
+      let joins: string[] = [];
+      let usedTables = new Set([baseTable]);
+
+      // Process selected fields and build joins
+      selectedFields.forEach(field => {
+        const fieldName = field.name || field;
+        
+        if (fieldName.includes('.')) {
+          // This is a related field (e.g., "submitted_user.name")
+          const [tableAlias, columnName] = fieldName.split('.');
+          
+          // Find the relationship
+          const relationship = dataSource.relationships.find(rel => 
+            rel.label === tableAlias || rel.table === tableAlias
+          );
+          
+          if (relationship && !usedTables.has(relationship.table)) {
+            joins.push(`LEFT JOIN ${relationship.table} AS ${tableAlias} ON ${baseTable}.${relationship.field} = ${tableAlias}.${relationship.target_field}`);
+            usedTables.add(relationship.table);
+          }
+          
+          selectFields.push(`${tableAlias}.${columnName} AS "${fieldName}"`);
+        } else {
+          // Base table field
+          selectFields.push(`${baseTable}.${fieldName}`);
+        }
       });
 
-      if (error) throw error;
+      // Build WHERE clause
+      let whereConditions: string[] = [];
+      filters.forEach(filter => {
+        const fieldName = filter.field;
+        let actualField = fieldName;
+        
+        if (fieldName.includes('.')) {
+          // Related field
+          actualField = fieldName;
+        } else {
+          // Base table field
+          actualField = `${baseTable}.${fieldName}`;
+        }
+        
+        switch (filter.operator) {
+          case 'eq':
+            whereConditions.push(`${actualField} = '${filter.value}'`);
+            break;
+          case 'neq':
+            whereConditions.push(`${actualField} != '${filter.value}'`);
+            break;
+          case 'gt':
+            whereConditions.push(`${actualField} > '${filter.value}'`);
+            break;
+          case 'gte':
+            whereConditions.push(`${actualField} >= '${filter.value}'`);
+            break;
+          case 'lt':
+            whereConditions.push(`${actualField} < '${filter.value}'`);
+            break;
+          case 'lte':
+            whereConditions.push(`${actualField} <= '${filter.value}'`);
+            break;
+          case 'like':
+            whereConditions.push(`${actualField} ILIKE '%${filter.value}%'`);
+            break;
+        }
+      });
+
+      // Construct final query
+      let query = `SELECT ${selectFields.length > 0 ? selectFields.join(', ') : '*'} FROM ${baseTable}`;
       
-      // Extract column names from the first result
-      const columns = data && Array.isArray(data) && data.length > 0 
-        ? Object.keys(data[0])
-        : selectedFields.map(f => f.name);
+      if (joins.length > 0) {
+        query += ' ' + joins.join(' ');
+      }
+      
+      if (whereConditions.length > 0) {
+        query += ' WHERE ' + whereConditions.join(' AND ');
+      }
+      
+      query += ' LIMIT 1000';
+      
+      console.log('Generated SQL query:', query);
+
+      // Execute the query
+      const { data, error } = await supabase.rpc('execute_query', {
+        query_text: query
+      });
+
+      if (error) {
+        console.error('Query execution error:', error);
+        throw error;
+      }
+      
+      console.log('Query result:', data);
+      
+      // Parse the result
+      const rows = Array.isArray(data) ? data : [];
+      const columns = rows.length > 0 ? Object.keys(rows[0]) : selectedFields.map(f => f.name || f);
       
       return {
         columns,
-        rows: Array.isArray(data) ? data : [],
-        total: Array.isArray(data) ? data.length : 0
+        rows,
+        total: rows.length
       } as ReportExecution;
     }
   });

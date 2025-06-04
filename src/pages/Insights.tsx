@@ -26,12 +26,24 @@ const Insights = () => {
     navigate('/insights/report-builder');
   };
 
+  const handleCreateDashboard = () => {
+    navigate('/insights/dashboard-builder');
+  };
+
   const handleViewReport = (reportId: string) => {
     navigate(`/insights/report-builder?id=${reportId}&mode=view`);
   };
 
   const handleEditReport = (reportId: string) => {
     navigate(`/insights/report-builder?id=${reportId}&mode=edit`);
+  };
+
+  const handleViewDashboard = (dashboardId: string) => {
+    navigate(`/insights/dashboard?id=${dashboardId}`);
+  };
+
+  const handleEditDashboard = (dashboardId: string) => {
+    navigate(`/insights/dashboard-builder?id=${dashboardId}`);
   };
 
   const handleDeleteReport = async (reportId: string) => {
@@ -57,7 +69,7 @@ const Insights = () => {
               <Plus className="h-4 w-4 mr-2" />
               Create Report
             </Button>
-            <Button variant="outline">
+            <Button variant="outline" onClick={handleCreateDashboard}>
               <Plus className="h-4 w-4 mr-2" />
               Create Dashboard
             </Button>
@@ -173,11 +185,21 @@ const Insights = () => {
                         </span>
                       </div>
                       <div className="flex gap-2">
-                        <Button size="sm" variant="outline" className="flex-1">
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="flex-1"
+                          onClick={() => handleViewDashboard(dashboard.id)}
+                        >
                           <Eye className="h-4 w-4 mr-1" />
                           View
                         </Button>
-                        <Button size="sm" variant="outline" className="flex-1">
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="flex-1"
+                          onClick={() => handleEditDashboard(dashboard.id)}
+                        >
                           <Edit className="h-4 w-4 mr-1" />
                           Edit
                         </Button>
@@ -197,7 +219,7 @@ const Insights = () => {
                   <p className="text-muted-foreground mb-4">
                     Create your first dashboard to visualize multiple reports
                   </p>
-                  <Button variant="outline">
+                  <Button variant="outline" onClick={handleCreateDashboard}>
                     <Plus className="h-4 w-4 mr-2" />
                     Create Dashboard
                   </Button>
