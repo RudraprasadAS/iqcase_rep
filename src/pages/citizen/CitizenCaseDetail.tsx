@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,7 +16,7 @@ import SLABadge from '@/components/cases/SLABadge';
 import MessageCenter from '@/components/messaging/MessageCenter';
 import CaseFeedback from '@/components/cases/CaseFeedback';
 import CaseNotifications from '@/components/citizen/CaseNotifications';
-import { Helmet } from 'react-helmet';
+import { Helmet } from 'react-helmet-async';
 import { generateCaseNumber } from '@/utils/caseNumberGenerator';
 
 interface CaseData {
