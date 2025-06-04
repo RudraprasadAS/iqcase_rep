@@ -45,7 +45,7 @@ export const FilterBuilder = ({
   }
 
   const addFilter = () => {
-    if (newFilter.field && newFilter.operator && newFilter.value) {
+    if (newFilter.field && newFilter.operator && newFilter.value !== '') {
       onFiltersChange([...filters, newFilter as InsightFilter]);
       setNewFilter({
         field: '',
@@ -70,6 +70,29 @@ export const FilterBuilder = ({
     { value: 'like', label: 'Contains' },
     { value: 'in', label: 'In List' }
   ];
+
+  const getDisplayValue = (value: string | number | boolean | null): string => {
+    if (value === null) return '';
+    if (typeof value === 'boolean') return value.toString();
+    return String(value);
+  };
+
+  const handleValueChange = (value: string) => {
+    // Convert string back to appropriate type based on field type
+    const field = dataSource.fields.find(f => f.name === newFilter.field);
+    let convertedValue: string | number | boolean = value;
+    
+    if (field?.type === 'boolean') {
+      convertedValue = value === 'true';
+    } else if (field?.type === 'number' || field?.type === 'integer') {
+      const numValue = Number(value);
+      if (!isNaN(numValue)) {
+        convertedValue = numValue;
+      }
+    }
+    
+    setNewFilter({ ...newFilter, value: convertedValue });
+  };
 
   return (
     <Card>
@@ -116,8 +139,8 @@ export const FilterBuilder = ({
 
           <Input
             placeholder="Filter value"
-            value={newFilter.value}
-            onChange={(e) => setNewFilter({ ...newFilter, value: e.target.value })}
+            value={getDisplayValue(newFilter.value)}
+            onChange={(e) => handleValueChange(e.target.value)}
           />
 
           <Button onClick={addFilter} size="sm" className="w-full">
@@ -135,7 +158,7 @@ export const FilterBuilder = ({
                 <Badge variant="secondary" className="flex-1">
                   {dataSource.fields.find(f => f.name === filter.field)?.label} {' '}
                   {operators.find(op => op.value === filter.operator)?.label} {' '}
-                  "{filter.value}"
+                  "{getDisplayValue(filter.value)}"
                 </Badge>
                 <Button
                   size="sm"
