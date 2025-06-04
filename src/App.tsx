@@ -66,28 +66,26 @@ function App() {
                 <Route path="/citizen/knowledge" element={<CitizenKnowledgeBase />} />
               </Route>
 
-              {/* Protected admin routes - Fixed structure */}
-              <Route element={<RequireAuth />}>
-                <Route element={<Layout />}>
-                  <Route path="/" element={<Index />} />
-                  <Route path="/dashboard" element={<Dashboard />} />
-                  <Route path="/cases" element={<Cases />} />
-                  <Route path="/cases/:id" element={<CaseDetail />} />
-                  <Route path="/new-case" element={<NewCase />} />
-                  <Route path="/reports" element={<Reports />} />
-                  <Route path="/reports/builder" element={<ReportBuilder />} />
-                  <Route path="/reports/standard" element={<StandardReports />} />
-                  <Route path="/reports/table-builder" element={<TableReportBuilder />} />
-                  <Route path="/insights" element={<Insights />} />
-                  <Route path="/insights/report-builder" element={<InsightsReportBuilder />} />
-                  <Route path="/insights/dashboard-builder" element={<DashboardBuilder />} />
-                  <Route path="/insights/dashboard" element={<DashboardView />} />
-                  <Route path="/admin/users" element={<Users />} />
-                  <Route path="/admin/roles" element={<Roles />} />
-                  <Route path="/admin/permissions" element={<Permissions />} />
-                  <Route path="/knowledge" element={<KnowledgeBase />} />
-                  <Route path="/notifications" element={<Notifications />} />
-                </Route>
+              {/* Protected admin routes */}
+              <Route element={<RequireAuth><Layout /></RequireAuth>}>
+                <Route path="/" element={<Index />} />
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/cases" element={<Cases />} />
+                <Route path="/cases/:id" element={<CaseDetail />} />
+                <Route path="/new-case" element={<NewCase />} />
+                <Route path="/reports" element={<Reports />} />
+                <Route path="/reports/builder" element={<ReportBuilder />} />
+                <Route path="/reports/standard" element={<StandardReports />} />
+                <Route path="/reports/table-builder" element={<TableReportBuilder />} />
+                <Route path="/insights" element={<Insights />} />
+                <Route path="/insights/report-builder" element={<InsightsReportBuilder />} />
+                <Route path="/insights/dashboard-builder" element={<DashboardBuilder />} />
+                <Route path="/insights/dashboard" element={<DashboardView />} />
+                <Route path="/admin/users" element={<Users />} />
+                <Route path="/admin/roles" element={<Roles />} />
+                <Route path="/admin/permissions" element={<Permissions />} />
+                <Route path="/knowledge" element={<KnowledgeBase />} />
+                <Route path="/notifications" element={<Notifications />} />
               </Route>
 
               {/* 404 route */}
