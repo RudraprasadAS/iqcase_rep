@@ -29,7 +29,6 @@ interface CaseNote {
   id: string;
   note: string;
   created_at: string;
-  updated_at: string;
   is_internal: boolean;
   users?: { name: string; email: string };
 }
@@ -87,96 +86,19 @@ export const generateCasePDF = (data: PDFData): void => {
   const margin = 20;
   const contentWidth = pageWidth - (margin * 2);
 
-  // Enhanced color scheme
+  // Professional color scheme
   const colors = {
-    primary: '#1E293B',      // Slate-800
-    secondary: '#64748B',    // Slate-500
-    accent: '#3B82F6',       // Blue-500
-    light: '#F8FAFC',        // Slate-50
-    success: '#22C55E',      // Green-500
-    warning: '#EAB308',      // Yellow-500
-    danger: '#EF4444',       // Red-500
-    info: '#06B6D4',         // Cyan-500
-    purple: '#8B5CF6',       // Violet-500
-    gray: '#9CA3AF'          // Gray-400
+    primary: '#1a1a1a',      // Dark text
+    secondary: '#666666',    // Gray text
+    accent: '#2563eb',       // Blue accent
+    lightGray: '#f8f9fa',    // Light backgrounds
+    border: '#e5e7eb',       // Borders
+    success: '#059669',      // Green
+    warning: '#d97706',      // Orange
+    danger: '#dc2626',       // Red
   };
 
   // Helper functions
-  const addIcon = (iconType: string, x: number, y: number, size: number = 4) => {
-    doc.setDrawColor(colors.secondary);
-    doc.setLineWidth(0.5);
-    
-    switch (iconType) {
-      case 'user':
-        // Simple user icon
-        doc.circle(x + size/2, y - size/2, size/3);
-        doc.setFillColor(colors.secondary);
-        doc.rect(x, y, size, size/2, 'F');
-        break;
-      case 'calendar':
-        // Calendar icon
-        doc.rect(x, y - size, size, size);
-        doc.line(x, y - size + size/4, x + size, y - size + size/4);
-        break;
-      case 'flag':
-        // Flag icon for priority
-        doc.line(x, y, x, y - size);
-        doc.triangle(x, y - size, x + size/2, y - size/2, x, y - size/2, 'S');
-        break;
-      case 'circle':
-        // Circle for status
-        doc.circle(x + size/2, y - size/2, size/3);
-        break;
-      case 'attachment':
-        // Paperclip icon
-        doc.setLineWidth(1);
-        doc.line(x, y, x + size/2, y - size/2);
-        doc.line(x + size/2, y - size/2, x + size, y);
-        break;
-      case 'message':
-        // Message bubble
-        doc.roundedRect(x, y - size, size, size * 0.7, 1, 1);
-        break;
-      case 'task':
-        // Checkbox
-        doc.rect(x, y - size, size * 0.8, size * 0.8);
-        doc.line(x + size * 0.2, y - size * 0.4, x + size * 0.4, y - size * 0.2);
-        doc.line(x + size * 0.4, y - size * 0.2, x + size * 0.7, y - size * 0.7);
-        break;
-      case 'star':
-        // Star for feedback - simplified approach using lines
-        const cx = x + size/2;
-        const cy = y - size/2;
-        const outerRadius = size/3;
-        const innerRadius = size/6;
-        
-        // Draw star using lines connecting the points
-        const points = [];
-        for (let i = 0; i < 5; i++) {
-          // Outer point
-          const angle1 = (i * 72 - 90) * Math.PI / 180;
-          points.push({
-            x: cx + Math.cos(angle1) * outerRadius,
-            y: cy + Math.sin(angle1) * outerRadius
-          });
-          
-          // Inner point
-          const angle2 = ((i * 72) + 36 - 90) * Math.PI / 180;
-          points.push({
-            x: cx + Math.cos(angle2) * innerRadius,
-            y: cy + Math.sin(angle2) * innerRadius
-          });
-        }
-        
-        // Draw the star by connecting all points
-        for (let i = 0; i < points.length; i++) {
-          const nextIndex = (i + 1) % points.length;
-          doc.line(points[i].x, points[i].y, points[nextIndex].x, points[nextIndex].y);
-        }
-        break;
-    }
-  };
-
   const addText = (text: string, fontSize: number = 10, isBold: boolean = false, color: string = colors.primary) => {
     doc.setFontSize(fontSize);
     doc.setFont('helvetica', isBold ? 'bold' : 'normal');
@@ -185,106 +107,83 @@ export const generateCasePDF = (data: PDFData): void => {
     if (yPosition > pageHeight - 40) {
       addPageFooter();
       doc.addPage();
-      yPosition = 20;
+      yPosition = 30;
     }
     
     const lines = doc.splitTextToSize(text, contentWidth);
     doc.text(lines, margin, yPosition);
-    yPosition += lines.length * (fontSize * 0.5) + 3;
+    yPosition += lines.length * (fontSize * 0.4) + 4;
   };
 
-  const addSection = (title: string, iconType?: string, addSpacing: boolean = true) => {
-    if (addSpacing) yPosition += 8;
+  const addSectionTitle = (title: string, addSpacing: boolean = true) => {
+    if (addSpacing) yPosition += 10;
     
-    // Add background rectangle for section title
-    doc.setFillColor(colors.light);
-    doc.rect(margin - 5, yPosition - 10, contentWidth + 10, 18, 'F');
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(colors.primary);
+    doc.text(title, margin, yPosition);
+    yPosition += 8;
     
-    // Add icon if provided
-    if (iconType) {
-      addIcon(iconType, margin, yPosition - 2, 6);
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(colors.primary);
-      doc.text(title, margin + 12, yPosition);
-    } else {
-      addText(title, 12, true, colors.primary);
-    }
-    
-    // Add bottom border
-    doc.setDrawColor(colors.accent);
-    doc.setLineWidth(0.8);
-    doc.line(margin, yPosition + 4, pageWidth - margin, yPosition + 4);
-    yPosition += 10;
+    // Add subtle underline
+    doc.setDrawColor(colors.border);
+    doc.setLineWidth(0.5);
+    doc.line(margin, yPosition, pageWidth - margin, yPosition);
+    yPosition += 8;
   };
 
-  const addKeyValue = (key: string, value: string, keyColor: string = colors.secondary, iconType?: string) => {
-    doc.setFontSize(9);
+  const addKeyValuePair = (key: string, value: string, keyColor: string = colors.secondary) => {
+    doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(keyColor);
     
-    let startX = margin;
-    
-    // Add icon if provided
-    if (iconType) {
-      addIcon(iconType, margin, yPosition + 2, 4);
-      startX = margin + 8;
-    }
-    
-    const keyWidth = doc.getTextWidth(key + ': ');
-    doc.text(key + ':', startX, yPosition);
+    const keyWidth = 60; // Fixed width for keys for better alignment
+    doc.text(key, margin, yPosition);
     
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(colors.primary);
     
-    const valueLines = doc.splitTextToSize(value, contentWidth - keyWidth - (startX - margin) - 5);
-    doc.text(valueLines, startX + keyWidth + 5, yPosition);
+    const valueLines = doc.splitTextToSize(value, contentWidth - keyWidth - 10);
+    doc.text(valueLines, margin + keyWidth, yPosition);
     
-    yPosition += Math.max(1, valueLines.length) * 5 + 2;
+    yPosition += Math.max(1, valueLines.length) * 6 + 2;
   };
 
   const addStatusBadge = (status: string) => {
     const statusConfig = getStatusConfig(status);
-    const badgeWidth = doc.getTextWidth(statusConfig.label) + 16;
-    const badgeHeight = 10;
+    const statusText = statusConfig.label;
+    const textWidth = doc.getTextWidth(statusText);
+    const badgeWidth = textWidth + 12;
+    const badgeHeight = 8;
     
     // Badge background
     doc.setFillColor(statusConfig.bgColor);
-    doc.roundedRect(margin, yPosition - 7, badgeWidth, badgeHeight, 2, 2, 'F');
-    
-    // Status icon
-    doc.setDrawColor(statusConfig.textColor);
-    doc.setFillColor(statusConfig.textColor);
-    addIcon('circle', margin + 4, yPosition - 2, 3);
+    doc.roundedRect(margin, yPosition - 6, badgeWidth, badgeHeight, 2, 2, 'F');
     
     // Status text
-    doc.setFontSize(8);
+    doc.setFontSize(9);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(statusConfig.textColor);
-    doc.text(statusConfig.label, margin + 12, yPosition - 2);
+    doc.text(statusText, margin + 6, yPosition - 1);
     
-    return badgeWidth + 10;
+    return badgeWidth + 15;
   };
 
   const addPriorityBadge = (priority: string, xOffset: number = 0) => {
     const priorityConfig = getPriorityConfig(priority);
-    const badgeWidth = doc.getTextWidth(priorityConfig.label) + 16;
-    const badgeHeight = 10;
+    const priorityText = priorityConfig.label;
+    const textWidth = doc.getTextWidth(priorityText);
+    const badgeWidth = textWidth + 12;
+    const badgeHeight = 8;
     
     // Badge background
     doc.setFillColor(priorityConfig.bgColor);
-    doc.roundedRect(margin + xOffset, yPosition - 7, badgeWidth, badgeHeight, 2, 2, 'F');
-    
-    // Priority icon
-    doc.setDrawColor(priorityConfig.textColor);
-    doc.setFillColor(priorityConfig.textColor);
-    addIcon('flag', margin + xOffset + 4, yPosition - 2, 3);
+    doc.roundedRect(margin + xOffset, yPosition - 6, badgeWidth, badgeHeight, 2, 2, 'F');
     
     // Priority text
-    doc.setFontSize(8);
+    doc.setFontSize(9);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(priorityConfig.textColor);
-    doc.text(priorityConfig.label, margin + xOffset + 12, yPosition - 2);
+    doc.text(priorityText, margin + xOffset + 6, yPosition - 1);
     
     return badgeWidth;
   };
@@ -294,38 +193,38 @@ export const generateCasePDF = (data: PDFData): void => {
       case 'open':
         return {
           label: 'OPEN',
-          bgColor: '#DBEAFE',
-          textColor: '#1E40AF'
+          bgColor: '#dbeafe',
+          textColor: '#1e40af'
         };
       case 'in_progress':
         return {
           label: 'IN PROGRESS',
-          bgColor: '#F3E8FF',
-          textColor: '#7C3AED'
+          bgColor: '#f3e8ff',
+          textColor: '#7c3aed'
         };
       case 'resolved':
         return {
           label: 'RESOLVED',
-          bgColor: '#DCFCE7',
-          textColor: '#15803D'
+          bgColor: '#dcfce7',
+          textColor: '#15803d'
         };
       case 'closed':
         return {
           label: 'CLOSED',
-          bgColor: '#F3F4F6',
+          bgColor: '#f3f4f6',
           textColor: '#374151'
         };
       case 'pending':
         return {
           label: 'PENDING',
-          bgColor: '#FEF3C7',
-          textColor: '#D97706'
+          bgColor: '#fef3c7',
+          textColor: '#d97706'
         };
       default:
         return {
           label: status.toUpperCase(),
-          bgColor: '#F3F4F6',
-          textColor: '#6B7280'
+          bgColor: '#f3f4f6',
+          textColor: '#6b7280'
         };
     }
   };
@@ -335,32 +234,32 @@ export const generateCasePDF = (data: PDFData): void => {
       case 'low':
         return {
           label: 'LOW',
-          bgColor: '#DCFCE7',
-          textColor: '#15803D'
+          bgColor: '#dcfce7',
+          textColor: '#15803d'
         };
       case 'medium':
         return {
           label: 'MEDIUM',
-          bgColor: '#FEF3C7',
-          textColor: '#D97706'
+          bgColor: '#fef3c7',
+          textColor: '#d97706'
         };
       case 'high':
         return {
           label: 'HIGH',
-          bgColor: '#FEE2E2',
-          textColor: '#DC2626'
+          bgColor: '#fee2e2',
+          textColor: '#dc2626'
         };
       case 'critical':
         return {
           label: 'CRITICAL',
-          bgColor: '#FEE2E2',
-          textColor: '#991B1B'
+          bgColor: '#fee2e2',
+          textColor: '#991b1b'
         };
       default:
         return {
           label: priority.toUpperCase(),
-          bgColor: '#F3F4F6',
-          textColor: '#6B7280'
+          bgColor: '#f3f4f6',
+          textColor: '#6b7280'
         };
     }
   };
@@ -369,122 +268,127 @@ export const generateCasePDF = (data: PDFData): void => {
     const footerY = pageHeight - 15;
     doc.setFontSize(8);
     doc.setTextColor(colors.secondary);
-    doc.text(`Generated on ${formatDateTime(new Date().toISOString())} from IQCase Management System`, margin, footerY);
+    doc.text(`Generated on ${formatDateTime(new Date().toISOString())} from Case Management System`, margin, footerY);
     doc.text(`Page ${doc.getCurrentPageInfo().pageNumber}`, pageWidth - margin - 20, footerY);
   };
 
   const generateCaseNumber = (id: string, createdAt: string) => {
     const year = new Date(createdAt).getFullYear();
     const shortId = id.slice(-6).toUpperCase();
-    return `#${year}-${shortId}`;
+    return `${year}-${shortId}`;
   };
 
-  const getSLAStatus = (sla_due_at?: string, status?: string) => {
-    if (!sla_due_at || status === 'closed' || status === 'resolved') {
-      return { text: 'N/A', color: colors.gray };
+  const addTableRow = (columns: string[], isHeader: boolean = false) => {
+    const colWidth = contentWidth / columns.length;
+    
+    if (isHeader) {
+      // Header background
+      doc.setFillColor(colors.lightGray);
+      doc.rect(margin, yPosition - 5, contentWidth, 12, 'F');
+      
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(colors.primary);
+    } else {
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(colors.primary);
     }
-
-    const dueDate = new Date(sla_due_at);
-    const now = new Date();
-    const timeDiff = dueDate.getTime() - now.getTime();
-    const hoursRemaining = timeDiff / (1000 * 60 * 60);
-
-    if (hoursRemaining < 0) {
-      const hoursOverdue = Math.abs(hoursRemaining);
-      return { 
-        text: `BREACHED (${Math.round(hoursOverdue)} hours overdue)`, 
-        color: colors.danger 
-      };
-    } else if (hoursRemaining < 2) {
-      return { 
-        text: `CRITICAL (Due in ${Math.round(hoursRemaining)} hours)`, 
-        color: colors.warning 
-      };
-    } else if (hoursRemaining < 24) {
-      return { 
-        text: `Due in ${Math.round(hoursRemaining)} hours`, 
-        color: colors.warning 
-      };
-    }
-    return { 
-      text: `Due in ${Math.round(hoursRemaining / 24)} days`, 
-      color: colors.success 
-    };
+    
+    columns.forEach((text, index) => {
+      const x = margin + (index * colWidth) + 4;
+      const truncatedText = text.length > 25 ? text.substring(0, 22) + '...' : text;
+      doc.text(truncatedText, x, yPosition + 2);
+    });
+    
+    // Row border
+    doc.setDrawColor(colors.border);
+    doc.setLineWidth(0.3);
+    doc.line(margin, yPosition + 7, pageWidth - margin, yPosition + 7);
+    
+    yPosition += 12;
   };
 
-  // Header with enhanced design
+  // Clean header design
   doc.setFillColor(colors.primary);
-  doc.rect(0, 0, pageWidth, 40, 'F');
+  doc.rect(0, 0, pageWidth, 35, 'F');
   
-  // Logo placeholder with better design
-  doc.setFillColor('#ffffff');
-  doc.circle(25, 20, 10, 'F');
-  doc.setFontSize(6);
-  doc.setTextColor(colors.primary);
-  doc.text('LOGO', 20, 22);
-
-  // Main title with icon
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor('#ffffff');
-  doc.text('📋 CASE MANAGEMENT REPORT', 45, 22);
+  doc.text('Case Management Report', margin, 22);
 
-  yPosition = 55;
+  yPosition = 50;
 
-  // Case number and basic info with enhanced styling
-  addText(`Case ${generateCaseNumber(data.caseData.id, data.caseData.created_at)}`, 16, true, colors.accent);
-  addText(`${data.caseData.title}`, 14, true);
+  // Case title and number
+  const caseNumber = generateCaseNumber(data.caseData.id, data.caseData.created_at);
+  addText(`Case #${caseNumber}`, 16, true, colors.primary);
+  addText(data.caseData.title, 14, true, colors.primary);
   
-  // Status and Priority badges with proper text labels
+  // Status and Priority badges
   yPosition += 8;
   const statusWidth = addStatusBadge(data.caseData.status);
   addPriorityBadge(data.caseData.priority, statusWidth);
   yPosition += 15;
 
-  // Overview section with icons
-  addSection('CASE OVERVIEW', 'circle');
-  addKeyValue('Created', formatDateTime(data.caseData.created_at), colors.secondary, 'calendar');
-  addKeyValue('Last Updated', formatDateTime(data.caseData.updated_at), colors.secondary, 'calendar');
-  addKeyValue('Status', getStatusConfig(data.caseData.status).label, colors.secondary);
-  addKeyValue('Priority', getPriorityConfig(data.caseData.priority).label, colors.secondary, 'flag');
-  
-  if (data.caseData.sla_due_at) {
-    addKeyValue('SLA Due Date', formatDateTime(data.caseData.sla_due_at), colors.secondary, 'calendar');
-    const slaStatus = getSLAStatus(data.caseData.sla_due_at, data.caseData.status);
-    addKeyValue('SLA Status', slaStatus.text, slaStatus.color);
-  }
-
-  // Participants section with icons
-  addSection('PARTICIPANTS', 'user');
-  addKeyValue('Submitted By', data.caseData.submitted_by_user?.name || data.caseData.submitted_by_user?.email || 'Unknown', colors.secondary, 'user');
-  addKeyValue('Assigned To', data.caseData.assigned_to_user?.name || 'Unassigned', colors.secondary, 'user');
+  // Case Details section
+  addSectionTitle('Case Details');
+  addKeyValuePair('Case Number:', `#${caseNumber}`);
+  addKeyValuePair('Status:', getStatusConfig(data.caseData.status).label);
+  addKeyValuePair('Priority:', getPriorityConfig(data.caseData.priority).label);
+  addKeyValuePair('Created:', formatDateTime(data.caseData.created_at));
+  addKeyValuePair('Updated:', formatDateTime(data.caseData.updated_at));
   
   if (data.caseData.category) {
-    addKeyValue('Category', data.caseData.category.name, colors.secondary);
+    addKeyValuePair('Category:', data.caseData.category.name);
   }
   
   if (data.caseData.location) {
-    addKeyValue('Location', data.caseData.location, colors.secondary);
+    addKeyValuePair('Location:', data.caseData.location);
+  }
+
+  // Overview section
+  addSectionTitle('Overview');
+  addKeyValuePair('Created:', formatDateTime(data.caseData.created_at));
+  addKeyValuePair('Updated:', formatDateTime(data.caseData.updated_at));
+
+  // Participants section
+  addSectionTitle('Participants');
+  if (data.caseData.submitted_by_user) {
+    addTableRow(['Name', 'Role', 'Location'], true);
+    addTableRow([
+      data.caseData.submitted_by_user.name || data.caseData.submitted_by_user.email || 'Unknown',
+      'Plaintiff',
+      data.caseData.location || 'Not specified'
+    ]);
+    
+    if (data.caseData.assigned_to_user) {
+      addTableRow([
+        data.caseData.assigned_to_user.name || 'Unassigned',
+        'Assigned Agent',
+        'Internal'
+      ]);
+    }
   }
 
   // Description section
-  addSection('DESCRIPTION');
+  addSectionTitle('Description');
   addText(data.caseData.description || 'No description provided', 10, false, colors.primary);
 
   if (data.caseData.tags && data.caseData.tags.length > 0) {
     yPosition += 5;
-    addKeyValue('Tags', data.caseData.tags.join(', '), colors.secondary);
+    addKeyValuePair('Tags:', data.caseData.tags.join(', '));
   }
 
   // Case Notes section (only show if notes exist)
   if (data.caseNotes && data.caseNotes.length > 0) {
-    addSection('CASE NOTES');
+    addSectionTitle('Case Notes');
     data.caseNotes.forEach(note => {
       const authorName = note.users?.name || note.users?.email || 'Unknown';
-      const noteType = note.is_internal ? '[INTERNAL] ' : '[CASE NOTE] ';
+      const noteType = note.is_internal ? '[INTERNAL]' : '[CASE NOTE]';
       
-      addText(`${noteType}${authorName}`, 9, true, note.is_internal ? colors.warning : colors.accent);
-      addText(`${formatDateTime(note.created_at)}`, 8, false, colors.secondary);
+      addText(`${noteType} ${authorName}`, 9, true, note.is_internal ? colors.warning : colors.accent);
+      addText(formatDateTime(note.created_at), 8, false, colors.secondary);
       addText(note.note, 9, false, colors.primary);
       yPosition += 5;
     });
@@ -492,7 +396,7 @@ export const generateCasePDF = (data: PDFData): void => {
 
   // Attachments section (only show if attachments exist)
   if (data.attachments && data.attachments.length > 0) {
-    addSection('ATTACHMENTS');
+    addSectionTitle('Attachments');
     data.attachments.forEach(attachment => {
       addText(`📎 ${attachment.file_name}`, 9, false, colors.primary);
       addText(`   ${attachment.file_type || 'Unknown type'} • ${formatDateTime(attachment.created_at)}`, 8, false, colors.secondary);
@@ -500,15 +404,18 @@ export const generateCasePDF = (data: PDFData): void => {
     });
   }
 
-  // Communication section (only show if external messages exist)
+  // Messages section (only show if external messages exist)
   const externalMessages = data.messages.filter(message => !message.is_internal);
   if (externalMessages && externalMessages.length > 0) {
-    addSection('MESSAGES & COMMUNICATION');
+    addSectionTitle('Messages/Communication Logs');
+    addText('Communication logs between the parties and the court are documented here. This includes emails, letters, and other forms of correspondence.', 9, false, colors.secondary);
+    yPosition += 5;
+    
     externalMessages.forEach(message => {
       const senderName = message.users?.name || message.users?.email || 'Unknown';
       
-      addText(`${senderName}`, 9, true, colors.accent);
-      addText(`${formatDateTime(message.created_at)}`, 8, false, colors.secondary);
+      addText(senderName, 9, true, colors.accent);
+      addText(formatDateTime(message.created_at), 8, false, colors.secondary);
       addText(message.message, 9, false, colors.primary);
       yPosition += 5;
     });
@@ -516,9 +423,9 @@ export const generateCasePDF = (data: PDFData): void => {
 
   // Tasks section (only show if tasks exist)
   if (data.tasks && data.tasks.length > 0) {
-    addSection('TASKS');
+    addSectionTitle('Tasks');
     data.tasks.forEach(task => {
-      addText(`✓ ${task.task_name}`, 9, true, colors.primary);
+      addText(`• ${task.task_name}`, 9, true, colors.primary);
       addText(`   Status: ${task.status.toUpperCase()}`, 8, false, colors.secondary);
       if (task.assigned_to_user) {
         addText(`   Assigned to: ${task.assigned_to_user.name}`, 8, false, colors.secondary);
@@ -530,27 +437,29 @@ export const generateCasePDF = (data: PDFData): void => {
     });
   }
 
-  // Activities section (only show if activities exist)
+  // Recent Activity History section (only show if activities exist)
   if (data.activities && data.activities.length > 0) {
-    addSection('RECENT ACTIVITIES');
-    data.activities.slice(0, 15).forEach(activity => {
+    addSectionTitle('Recent Activity History');
+    data.activities.slice(0, 10).forEach(activity => {
       const actorName = activity.users?.name || activity.users?.email || 'System';
-      addText(`• ${activity.activity_type.replace(/_/g, ' ').toUpperCase()}`, 8, true, colors.primary);
-      addText(`  ${actorName} • ${formatDateTime(activity.created_at)}`, 7, false, colors.secondary);
+      const activityDate = formatDate(activity.created_at);
+      
+      addText(`📄 ${activity.activity_type.replace(/_/g, ' ').toUpperCase()}`, 9, true, colors.primary);
+      addText(`   ${activityDate}`, 8, false, colors.secondary);
       if (activity.description) {
-        addText(`  ${activity.description}`, 8, false, colors.primary);
+        addText(`   ${activity.description}`, 8, false, colors.primary);
       }
-      yPosition += 2;
+      yPosition += 3;
     });
   }
 
   // Feedback section (only show if feedback exists)
   if (data.feedback && data.feedback.length > 0) {
-    addSection('CUSTOMER FEEDBACK');
+    addSectionTitle('Customer Feedback');
     data.feedback.forEach(fb => {
       const stars = '★'.repeat(fb.rating) + '☆'.repeat(5 - fb.rating);
       addText(`${stars} ${fb.rating}/5`, 10, true, colors.warning);
-      addText(`${formatDateTime(fb.submitted_at)}`, 8, false, colors.secondary);
+      addText(formatDateTime(fb.submitted_at), 8, false, colors.secondary);
       if (fb.comment) {
         addText(fb.comment, 9, false, colors.primary);
       }
@@ -558,10 +467,22 @@ export const generateCasePDF = (data: PDFData): void => {
     });
   }
 
+  // Footer
+  yPosition = pageHeight - 30;
+  doc.setDrawColor(colors.border);
+  doc.setLineWidth(0.5);
+  doc.line(margin, yPosition, pageWidth - margin, yPosition);
+  yPosition += 10;
+  
+  doc.setFontSize(8);
+  doc.setTextColor(colors.secondary);
+  doc.text('Privacy Policy', margin, yPosition);
+  doc.text('Terms of Service', margin + 80, yPosition);
+  doc.text(`© ${new Date().getFullYear()} PDF Extract. All rights reserved.`, pageWidth - margin - 100, yPosition);
+
   // Add final footer
   addPageFooter();
 
   // Save the PDF
-  const caseNumber = generateCaseNumber(data.caseData.id, data.caseData.created_at);
   doc.save(`Case_Report_${caseNumber}.pdf`);
 };
