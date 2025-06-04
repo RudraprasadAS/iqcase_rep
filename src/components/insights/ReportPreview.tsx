@@ -96,7 +96,7 @@ export const ReportPreview = ({
         return (
           <div className="flex items-center justify-center h-32">
             <div className="text-center">
-              <div className="text-4xl font-bold text-primary">{kpiValue}</div>
+              <div className="text-4xl font-bold text-primary">{String(kpiValue)}</div>
               <div className="text-sm text-muted-foreground">{chartConfig.yAxis || 'Value'}</div>
             </div>
           </div>
@@ -124,7 +124,9 @@ export const ReportPreview = ({
             <TableRow key={index}>
               {data.columns.map((column) => (
                 <TableCell key={column}>
-                  {row[column]?.toString() || '-'}
+                  {row[column] !== null && row[column] !== undefined
+                    ? String(row[column])
+                    : '-'}
                 </TableCell>
               ))}
             </TableRow>
