@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -50,33 +49,29 @@ const CaseUpdates = ({ caseId, isInternal = true }: CaseUpdatesProps) => {
         throw error;
       }
 
-      // Filter activities based on whether this is internal or external view
-      let filteredActivities = data || [];
+      // Filter activities to show only relevant ones for both internal and external
+      // Keep the same filtering logic for both views to maintain consistency
+      const allowedActivityTypes = [
+        'case_created',
+        'case_assigned',
+        'case_unassigned', 
+        'status_changed',
+        'priority_changed',
+        'message_added',
+        'attachment_added'
+      ];
       
-      if (!isInternal) {
-        // For external users, only show relevant activities
-        const allowedActivityTypes = [
-          'case_created',
-          'case_assigned',
-          'case_unassigned',
-          'status_changed',
-          'priority_changed',
-          'message_added',
-          'attachment_added'
-        ];
-        
-        filteredActivities = (data || []).filter(activity => {
-          // Include allowed activity types
-          if (allowedActivityTypes.includes(activity.activity_type)) {
-            // Exclude internal messages for external users
-            if (activity.activity_type === 'message_added' && activity.description.includes('Internal message')) {
-              return false;
-            }
-            return true;
+      let filteredActivities = (data || []).filter(activity => {
+        // Include allowed activity types
+        if (allowedActivityTypes.includes(activity.activity_type)) {
+          // Exclude internal messages for external users only
+          if (!isInternal && activity.activity_type === 'message_added' && activity.description.includes('Internal message')) {
+            return false;
           }
-          return false;
-        });
-      }
+          return true;
+        }
+        return false;
+      });
 
       console.log('Activities loaded:', filteredActivities.length);
       setActivities(filteredActivities);

@@ -89,8 +89,15 @@ const CaseFeedback = ({ caseId, caseTitle, caseStatus, isInternal = true }: Case
   const checkFeedbackEligibility = async () => {
     console.log('🔍 Checking feedback eligibility - Case status:', caseStatus, 'User:', !!user, 'Is case closed:', isCaseClosed);
     
-    if (!user || !isCaseClosed) {
-      console.log('❌ Not eligible - missing user or case not closed');
+    if (!user) {
+      console.log('❌ Not eligible - no user');
+      setCanSubmitFeedback(false);
+      return;
+    }
+
+    // Allow feedback for resolved cases too, not just closed
+    if (!isCaseClosed) {
+      console.log('❌ Not eligible - case not closed or resolved');
       setCanSubmitFeedback(false);
       return;
     }
@@ -247,7 +254,7 @@ const CaseFeedback = ({ caseId, caseTitle, caseStatus, isInternal = true }: Case
         </CardHeader>
         
         <CardContent className="space-y-4">
-          {/* For external users with no feedback but can submit */}
+          {/* Show feedback prompt for external users who can submit feedback */}
           {!isInternal && canSubmitFeedback && feedback.length === 0 && (
             <div className="text-center py-8">
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
@@ -277,7 +284,7 @@ const CaseFeedback = ({ caseId, caseTitle, caseStatus, isInternal = true }: Case
             </div>
           )}
 
-          {/* For cases with existing feedback or no feedback eligibility */}
+          {/* Show existing feedback or empty state */}
           {(feedback.length > 0 || (!canSubmitFeedback && feedback.length === 0)) && (
             <>
               {feedback.length === 0 ? (
