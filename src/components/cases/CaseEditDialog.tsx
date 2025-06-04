@@ -8,6 +8,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { logCaseUpdated, logCaseAssigned, logCaseUnassigned, logPriorityChanged, logStatusChanged } from '@/utils/activityLogger';
+import { useAuth } from '@/hooks/useAuth';
 
 interface Case {
   id: string;
@@ -53,6 +55,36 @@ const CaseEditDialog = ({ case: caseData, isOpen, onClose, onCaseUpdate }: CaseE
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
+  const [internalUserId, setInternalUserId] = useState<string | null>(null);
+
+  // Fetch internal user ID when component loads
+  useEffect(() => {
+    if (user) {
+      fetchInternalUserId();
+    }
+  }, [user]);
+
+  const fetchInternalUserId = async () => {
+    if (!user) return;
+
+    try {
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (userError) {
+        console.error('User lookup error:', userError);
+        return;
+      }
+
+      setInternalUserId(userData.id);
+    } catch (error) {
+      console.error('Error fetching internal user ID:', error);
+    }
+  };
 
   useEffect(() => {
     if (caseData && isOpen) {
@@ -99,10 +131,65 @@ const CaseEditDialog = ({ case: caseData, isOpen, onClose, onCaseUpdate }: CaseE
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!caseData) return;
+    if (!caseData || !internalUserId) return;
 
     setLoading(true);
     try {
+      // Track changes for activity logging
+      const changes: Record<string, { old: any, new: any }> = {};
+      
+      // Check for assignment changes
+      if (
+        (caseData.assigned_to === null && formData.assigned_to !== 'unassigned') || 
+        (caseData.assigned_to !== null && formData.assigned_to === 'unassigned') || 
+        (caseData.assigned_to !== formData.assigned_to && formData.assigned_to !== 'unassigned')
+      ) {
+        changes.assigned_to = {
+          old: caseData.assigned_to || null,
+          new: formData.assigned_to === 'unassigned' ? null : formData.assigned_to
+        };
+      }
+      
+      // Check for status changes
+      if (caseData.status !== formData.status) {
+        changes.status = {
+          old: caseData.status,
+          new: formData.status
+        };
+      }
+      
+      // Check for priority changes
+      if (caseData.priority !== formData.priority) {
+        changes.priority = {
+          old: caseData.priority,
+          new: formData.priority
+        };
+      }
+      
+      // Check for title changes
+      if (caseData.title !== formData.title) {
+        changes.title = {
+          old: caseData.title,
+          new: formData.title
+        };
+      }
+      
+      // Check for description changes
+      if (caseData.description !== formData.description) {
+        changes.description = {
+          old: caseData.description || '',
+          new: formData.description || ''
+        };
+      }
+      
+      // Check for category changes
+      if ((caseData.category_id || 'none') !== formData.category_id) {
+        changes.category_id = {
+          old: caseData.category_id || null,
+          new: formData.category_id === 'none' ? null : formData.category_id
+        };
+      }
+
       // Clean the data before sending
       const updateData: any = {
         title: formData.title,
@@ -132,10 +219,53 @@ const CaseEditDialog = ({ case: caseData, isOpen, onClose, onCaseUpdate }: CaseE
         .from('cases')
         .update(updateData)
         .eq('id', caseData.id)
-        .select()
+        .select(`
+          *,
+          submitted_by_user:users!cases_submitted_by_fkey(name, email),
+          assigned_to_user:users!cases_assigned_to_fkey(name, email),
+          category:case_categories!cases_category_id_fkey(name)
+        `)
         .single();
 
       if (error) throw error;
+
+      console.log('Case updated successfully, returned data:', data);
+
+      // Log specific activities based on what changed
+      const logPromises = [];
+      
+      // Handle specific logging for important changes
+      if (changes.assigned_to) {
+        if (changes.assigned_to.new) {
+          // Find the assignee name
+          const assigneeUser = users.find(u => u.id === changes.assigned_to.new);
+          const assigneeName = assigneeUser ? assigneeUser.name : 'Unknown user';
+          logPromises.push(logCaseAssigned(caseData.id, assigneeName, internalUserId));
+        } else {
+          logPromises.push(logCaseUnassigned(caseData.id, internalUserId));
+        }
+      }
+      
+      if (changes.status) {
+        logPromises.push(logStatusChanged(caseData.id, changes.status.old, changes.status.new, internalUserId));
+      }
+      
+      if (changes.priority) {
+        logPromises.push(logPriorityChanged(caseData.id, changes.priority.old, changes.priority.new, internalUserId));
+      }
+      
+      // Log any other changes
+      const otherChanges = { ...changes };
+      delete otherChanges.assigned_to;
+      delete otherChanges.status;
+      delete otherChanges.priority;
+      
+      if (Object.keys(otherChanges).length > 0) {
+        logPromises.push(logCaseUpdated(caseData.id, otherChanges, internalUserId));
+      }
+      
+      // Wait for all log operations to complete
+      await Promise.all(logPromises);
 
       onCaseUpdate(data);
       onClose();

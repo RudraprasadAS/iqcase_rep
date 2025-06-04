@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
@@ -8,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Edit, MessageSquare, Clock, FileText, AlertTriangle, Sparkles, Send, Download, Paperclip } from 'lucide-react';
+import { ArrowLeft, Edit, MessageSquare, Clock, FileText, AlertTriangle, Sparkles, Send, Download, Paperclip, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import SLABadge from '@/components/cases/SLABadge';
 import StatusBadge from '@/components/cases/StatusBadge';
@@ -88,6 +89,7 @@ const CaseDetail = () => {
   const [sendingMessage, setSendingMessage] = useState(false);
   const [generatingAI, setGeneratingAI] = useState(false);
   const [internalUserId, setInternalUserId] = useState<string | null>(null);
+  const [refreshingActivities, setRefreshingActivities] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -202,6 +204,8 @@ const CaseDetail = () => {
 
   const fetchActivities = async () => {
     if (!caseId) return;
+    
+    setRefreshingActivities(true);
 
     try {
       console.log('📋 Fetching activities for case:', caseId);
@@ -223,16 +227,19 @@ const CaseDetail = () => {
       setActivities(data || []);
     } catch (error) {
       console.error('Error fetching activities:', error);
+    } finally {
+      setRefreshingActivities(false);
     }
   };
 
-  // ENHANCED real-time subscription for activities with immediate refresh
+  // Enhanced real-time subscription for both case updates and activities
   useEffect(() => {
     if (!caseId) return;
 
-    console.log('📋 Setting up ENHANCED real-time subscription for case activities:', caseId);
+    console.log('📋 Setting up ENHANCED real-time subscription for case activities and updates:', caseId);
 
-    const channel = supabase
+    // Subscribe to case activities changes
+    const activitiesChannel = supabase
       .channel(`case_activities_realtime_${caseId}`)
       .on(
         'postgres_changes',
@@ -252,18 +259,44 @@ const CaseDetail = () => {
         }
       )
       .subscribe((status) => {
-        console.log('📋 Real-time subscription status:', status);
+        console.log('📋 Activities subscription status:', status);
+      });
+
+    // Subscribe to case data changes
+    const caseChannel = supabase
+      .channel(`case_data_realtime_${caseId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'cases',
+          filter: `id=eq.${caseId}`
+        },
+        (payload) => {
+          console.log('🔔 Real-time case data change detected:', payload);
+          // Immediate refresh of case data
+          setTimeout(() => {
+            console.log('🔄 Triggering case data refresh due to real-time update');
+            fetchCaseData();
+          }, 100); // Small delay to ensure data is committed
+        }
+      )
+      .subscribe((status) => {
+        console.log('Case data subscription status:', status);
       });
 
     // Also set up a periodic refresh as backup
     const intervalId = setInterval(() => {
-      console.log('📋 🔄 Periodic activity refresh');
+      console.log('📋 🔄 Periodic activity and case refresh');
       fetchActivities();
-    }, 3000); // Refresh every 3 seconds
+      fetchCaseData();
+    }, 5000); // Refresh every 5 seconds
 
     return () => {
-      console.log('📋 Cleaning up enhanced activities subscription and interval');
-      supabase.removeChannel(channel);
+      console.log('📋 Cleaning up enhanced activities and case subscriptions and interval');
+      supabase.removeChannel(activitiesChannel);
+      supabase.removeChannel(caseChannel);
       clearInterval(intervalId);
     };
   }, [caseId]);
@@ -393,6 +426,16 @@ ${conversationContext}
     });
   };
 
+  const handleManualRefresh = () => {
+    fetchCaseData();
+    fetchActivities();
+    
+    toast({
+      title: "Refreshing",
+      description: "Case data and activities updated"
+    });
+  };
+
   const generateCaseNumber = (id: string, createdAt: string) => {
     const year = new Date(createdAt).getFullYear();
     const shortId = id.slice(-6).toUpperCase();
@@ -501,10 +544,16 @@ ${conversationContext}
               </div>
             </div>
           </div>
-          <Button onClick={() => setIsEditDialogOpen(true)}>
-            <Edit className="h-4 w-4 mr-2" />
-            Edit Case
-          </Button>
+          <div className="flex space-x-2">
+            <Button variant="outline" onClick={handleManualRefresh} className="flex items-center gap-2">
+              <RefreshCw className="h-4 w-4" />
+              Refresh
+            </Button>
+            <Button onClick={() => setIsEditDialogOpen(true)}>
+              <Edit className="h-4 w-4 mr-2" />
+              Edit Case
+            </Button>
+          </div>
         </div>
 
         {slaInfo && (
@@ -691,14 +740,16 @@ ${conversationContext}
                   <TabsContent value="activities" className="space-y-4">
                     <div className="space-y-3 max-h-96 overflow-y-auto">
                       <div className="text-xs text-muted-foreground mb-2 flex items-center justify-between">
-                        <span>Activities ({activities.length}) - Auto-refreshing every 3s</span>
+                        <span>Activities ({activities.length})</span>
                         <Button 
                           onClick={fetchActivities} 
                           variant="outline" 
                           size="sm"
-                          className="h-6 px-2 text-xs"
+                          disabled={refreshingActivities}
+                          className="h-6 px-2 text-xs flex items-center gap-1"
                         >
-                          Refresh
+                          <RefreshCw className={`h-3 w-3 ${refreshingActivities ? 'animate-spin' : ''}`} />
+                          {refreshingActivities ? 'Refreshing...' : 'Refresh'}
                         </Button>
                       </div>
                       {activities.map((activity) => (
