@@ -74,7 +74,7 @@ interface Activity {
 }
 
 const CaseDetail = () => {
-  const { id } = useParams<{ id: string }>();
+  const { id: caseId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -96,13 +96,13 @@ const CaseDetail = () => {
   }, [user]);
 
   useEffect(() => {
-    if (id && internalUserId) {
+    if (caseId && internalUserId) {
       fetchCaseData();
       fetchMessages();
       fetchAttachments();
       fetchActivities();
     }
-  }, [id, internalUserId]);
+  }, [caseId, internalUserId]);
 
   const fetchInternalUserId = async () => {
     if (!user) return;
@@ -135,7 +135,7 @@ const CaseDetail = () => {
           assigned_to_user:users!cases_assigned_to_fkey(name, email),
           category:case_categories!cases_category_id_fkey(name)
         `)
-        .eq('id', id)
+        .eq('id', caseId)
         .single();
 
       if (error) {
@@ -165,7 +165,7 @@ const CaseDetail = () => {
           *,
           users!case_messages_sender_id_fkey(name, email)
         `)
-        .eq('case_id', id)
+        .eq('case_id', caseId)
         .order('created_at', { ascending: true });
 
       if (error) {
@@ -185,7 +185,7 @@ const CaseDetail = () => {
       const { data, error } = await supabase
         .from('case_attachments')
         .select('*')
-        .eq('case_id', id)
+        .eq('case_id', caseId)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -201,14 +201,17 @@ const CaseDetail = () => {
   };
 
   const fetchActivities = async () => {
+    if (!caseId) return;
+
     try {
+      console.log('📋 Fetching activities for case:', caseId);
       const { data, error } = await supabase
         .from('case_activities')
         .select(`
           *,
-          users!case_activities_performed_by_fkey(name, email)
+          performed_by_user:users!case_activities_performed_by_fkey(name, email)
         `)
-        .eq('case_id', id)
+        .eq('case_id', caseId)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -216,12 +219,40 @@ const CaseDetail = () => {
         throw error;
       }
 
-      console.log('Activities fetched:', data);
+      console.log('📋 Activities fetched:', data?.length || 0, 'items');
       setActivities(data || []);
     } catch (error) {
       console.error('Error fetching activities:', error);
     }
   };
+
+  useEffect(() => {
+    if (!caseId) return;
+
+    console.log('📋 Setting up real-time subscription for case activities:', caseId);
+
+    const channel = supabase
+      .channel(`case_activities_${caseId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'case_activities',
+          filter: `case_id=eq.${caseId}`
+        },
+        (payload) => {
+          console.log('📋 Real-time activity change:', payload);
+          fetchActivities(); // Refetch activities when changes occur
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log('📋 Cleaning up activities subscription');
+      supabase.removeChannel(channel);
+    };
+  }, [caseId]);
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !internalUserId) {
@@ -238,7 +269,7 @@ const CaseDetail = () => {
       const { error } = await supabase
         .from('case_messages')
         .insert({
-          case_id: id,
+          case_id: caseId,
           message: newMessage.trim(),
           sender_id: internalUserId,
           is_internal: false
@@ -253,7 +284,7 @@ const CaseDetail = () => {
       await fetchMessages();
       
       // Log activity using the centralized logger
-      await logMessageAdded(id!, newMessage.trim(), false, internalUserId);
+      await logMessageAdded(caseId!, newMessage.trim(), false, internalUserId);
       
       await fetchActivities();
       

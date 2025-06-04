@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -358,6 +357,35 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
     return new Date(dueDateString) < new Date();
   };
 
+  // Add real-time subscription for tasks
+  useEffect(() => {
+    if (!caseId) return;
+
+    console.log('🔄 Setting up real-time subscription for case tasks:', caseId);
+
+    const channel = supabase
+      .channel(`case_tasks_${caseId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'case_tasks',
+          filter: `case_id=eq.${caseId}`
+        },
+        (payload) => {
+          console.log('🔄 Real-time task change:', payload);
+          fetchTasks(); // Refetch tasks when changes occur
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log('🔄 Cleaning up tasks subscription');
+      supabase.removeChannel(channel);
+    };
+  }, [caseId]);
+
   if (loading) {
     return <div>Loading tasks...</div>;
   }
@@ -396,7 +424,7 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
                     <SelectValue placeholder="Select user (optional)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Unassigned</SelectItem>
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
                     {users.map((user) => (
                       <SelectItem key={user.id} value={user.id}>
                         {user.name} ({user.email})
@@ -511,14 +539,14 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
               <div>
                 <label className="text-sm font-medium">Assign To</label>
                 <Select 
-                  value={editingTask.assigned_to || ''} 
-                  onValueChange={(value) => setEditingTask(prev => prev ? { ...prev, assigned_to: value } : null)}
+                  value={editingTask.assigned_to || 'unassigned'} 
+                  onValueChange={(value) => setEditingTask(prev => prev ? { ...prev, assigned_to: value === 'unassigned' ? null : value } : null)}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select user (optional)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Unassigned</SelectItem>
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
                     {users.map((user) => (
                       <SelectItem key={user.id} value={user.id}>
                         {user.name} ({user.email})

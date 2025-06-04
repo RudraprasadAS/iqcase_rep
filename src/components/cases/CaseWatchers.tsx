@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -206,6 +205,35 @@ const CaseWatchers = ({ caseId }: CaseWatchersProps) => {
 
   const watcherUserIds = watchers.map(w => w.user_id);
   const availableUsersToAdd = availableUsers.filter(u => !watcherUserIds.includes(u.id));
+
+  // Add real-time subscription for watchers
+  useEffect(() => {
+    if (!caseId) return;
+
+    console.log('👁️ Setting up real-time subscription for case watchers:', caseId);
+
+    const channel = supabase
+      .channel(`case_watchers_${caseId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'case_watchers',
+          filter: `case_id=eq.${caseId}`
+        },
+        (payload) => {
+          console.log('👁️ Real-time watcher change:', payload);
+          fetchWatchers(); // Refetch watchers when changes occur
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log('👁️ Cleaning up watchers subscription');
+      supabase.removeChannel(channel);
+    };
+  }, [caseId]);
 
   if (loading) {
     return <div>Loading watchers...</div>;
