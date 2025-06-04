@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { notifyExternalUserOfCaseUpdate } from './externalNotificationUtils';
 
@@ -319,5 +318,117 @@ export const logAttachmentAdded = async (caseId: string, fileName: string, perfo
     console.log('📋 Attachment added activity logged successfully');
   } catch (error) {
     console.error('📋 Exception in logAttachmentAdded:', error);
+  }
+};
+
+export const logWatcherAdded = async (caseId: string, watcherName: string, performedBy: string) => {
+  try {
+    console.log('👁️ Logging watcher added activity:', { caseId, watcherName, performedBy });
+    
+    const { error } = await supabase
+      .from('case_activities')
+      .insert({
+        case_id: caseId,
+        activity_type: 'watcher_added',
+        description: `${watcherName} was added as a watcher`,
+        performed_by: performedBy
+      });
+
+    if (error) {
+      console.error('👁️ Error logging watcher added activity:', error);
+      throw error;
+    }
+
+    console.log('👁️ Watcher added activity logged successfully');
+  } catch (error) {
+    console.error('👁️ Exception in logWatcherAdded:', error);
+  }
+};
+
+export const logWatcherRemoved = async (caseId: string, watcherName: string, performedBy: string) => {
+  try {
+    console.log('👁️ Logging watcher removed activity:', { caseId, watcherName, performedBy });
+    
+    const { error } = await supabase
+      .from('case_activities')
+      .insert({
+        case_id: caseId,
+        activity_type: 'watcher_removed',
+        description: `${watcherName} was removed as a watcher`,
+        performed_by: performedBy
+      });
+
+    if (error) {
+      console.error('👁️ Error logging watcher removed activity:', error);
+      throw error;
+    }
+
+    console.log('👁️ Watcher removed activity logged successfully');
+  } catch (error) {
+    console.error('👁️ Exception in logWatcherRemoved:', error);
+  }
+};
+
+export const logTaskUpdated = async (caseId: string, taskName: string, changes: Record<string, any>, performedBy: string) => {
+  try {
+    console.log('✅ Logging task updated activity:', { caseId, taskName, changes, performedBy });
+    
+    // Create descriptions for each change
+    const descriptions = Object.entries(changes).map(([field, value]) => {
+      switch (field) {
+        case 'status':
+          return `Status changed to "${value}"`;
+        case 'assigned_to':
+          return value ? `Assigned to user` : `Unassigned`;
+        case 'due_date':
+          return value ? `Due date set to ${value}` : `Due date removed`;
+        case 'task_name':
+          return `Name changed to "${value}"`;
+        default:
+          return `${field} updated`;
+      }
+    });
+
+    const { error } = await supabase
+      .from('case_activities')
+      .insert({
+        case_id: caseId,
+        activity_type: 'task_updated',
+        description: `Task "${taskName}" updated: ${descriptions.join(', ')}`,
+        performed_by: performedBy
+      });
+
+    if (error) {
+      console.error('✅ Error logging task updated activity:', error);
+      throw error;
+    }
+
+    console.log('✅ Task updated activity logged successfully');
+  } catch (error) {
+    console.error('✅ Exception in logTaskUpdated:', error);
+  }
+};
+
+export const logTaskDeleted = async (caseId: string, taskName: string, performedBy: string) => {
+  try {
+    console.log('✅ Logging task deleted activity:', { caseId, taskName, performedBy });
+    
+    const { error } = await supabase
+      .from('case_activities')
+      .insert({
+        case_id: caseId,
+        activity_type: 'task_deleted',
+        description: `Task "${taskName}" was deleted`,
+        performed_by: performedBy
+      });
+
+    if (error) {
+      console.error('✅ Error logging task deleted activity:', error);
+      throw error;
+    }
+
+    console.log('✅ Task deleted activity logged successfully');
+  } catch (error) {
+    console.error('✅ Exception in logTaskDeleted:', error);
   }
 };
