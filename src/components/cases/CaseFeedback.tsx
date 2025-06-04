@@ -36,18 +36,23 @@ const CaseFeedback = ({ caseId, caseTitle, caseStatus, isInternal = true }: Case
   const [canSubmitFeedback, setCanSubmitFeedback] = useState(false);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
 
   const isCaseClosed = caseStatus === 'closed' || caseStatus === 'resolved';
 
   useEffect(() => {
     if (caseId) {
       fetchFeedback();
-      if (!isInternal) {
-        checkFeedbackEligibility();
-      }
     }
-  }, [caseId, user, isInternal, caseStatus]);
+  }, [caseId]);
+
+  // Separate effect for checking feedback eligibility when user loads
+  useEffect(() => {
+    if (caseId && !isInternal && !isLoading) {
+      console.log('🔍 Auth loading finished, checking feedback eligibility...');
+      checkFeedbackEligibility();
+    }
+  }, [caseId, user, isInternal, caseStatus, isLoading]);
 
   const fetchFeedback = async () => {
     try {
@@ -90,7 +95,13 @@ const CaseFeedback = ({ caseId, caseTitle, caseStatus, isInternal = true }: Case
     console.log('🔍 Checking feedback eligibility for case:', caseId);
     console.log('🔍 Case status:', caseStatus, 'Is case closed/resolved:', isCaseClosed);
     console.log('🔍 Current user:', user);
+    console.log('🔍 Auth loading:', isLoading);
     
+    if (isLoading) {
+      console.log('❌ Still loading auth, waiting...');
+      return;
+    }
+
     if (!user) {
       console.log('❌ Not eligible - no user logged in');
       setCanSubmitFeedback(false);
@@ -104,7 +115,7 @@ const CaseFeedback = ({ caseId, caseTitle, caseStatus, isInternal = true }: Case
     }
 
     try {
-      // Get current authenticated user
+      // Get current authenticated user (double check)
       const { data: authData, error: authError } = await supabase.auth.getUser();
       
       if (authError || !authData.user) {
