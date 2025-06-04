@@ -253,6 +253,10 @@ export const generateCasePDF = (data: PDFData): void => {
   const getStatusLabel = (status: string) => {
     switch (status.toLowerCase()) {
       case 'in_progress': return 'IN PROGRESS';
+      case 'open': return 'OPEN';
+      case 'closed': return 'CLOSED';
+      case 'resolved': return 'RESOLVED';
+      case 'pending': return 'PENDING';
       default: return status.toUpperCase();
     }
   };
@@ -310,7 +314,7 @@ export const generateCasePDF = (data: PDFData): void => {
     addKeyValue('Tags', data.caseData.tags.join(', '));
   }
 
-  // Case Notes section (for internal reports)
+  // Case Notes section (only show if notes exist)
   if (data.caseNotes && data.caseNotes.length > 0) {
     addSection('CASE NOTES');
     data.caseNotes.forEach(note => {
@@ -324,8 +328,8 @@ export const generateCasePDF = (data: PDFData): void => {
     });
   }
 
-  // Attachments section
-  if (data.attachments.length > 0) {
+  // Attachments section (only show if attachments exist)
+  if (data.attachments && data.attachments.length > 0) {
     addSection('ATTACHMENTS');
     data.attachments.forEach(attachment => {
       addText(`📎 ${attachment.file_name}`, 9, false, colors.primary);
@@ -334,21 +338,21 @@ export const generateCasePDF = (data: PDFData): void => {
     });
   }
 
-  // Communication section
-  if (data.messages.length > 0) {
+  // Communication section (only show if external messages exist)
+  const externalMessages = data.messages.filter(message => !message.is_internal);
+  if (externalMessages && externalMessages.length > 0) {
     addSection('MESSAGES & COMMUNICATION');
-    data.messages.forEach(message => {
+    externalMessages.forEach(message => {
       const senderName = message.users?.name || message.users?.email || 'Unknown';
-      const messageType = message.is_internal ? '[INTERNAL] ' : '[EXTERNAL] ';
       
-      addText(`${messageType}${senderName}`, 9, true, message.is_internal ? colors.warning : colors.accent);
+      addText(`${senderName}`, 9, true, colors.accent);
       addText(`${formatDateTime(message.created_at)}`, 8, false, colors.secondary);
       addText(message.message, 9, false, colors.primary);
       yPosition += 5;
     });
   }
 
-  // Tasks section
+  // Tasks section (only show if tasks exist)
   if (data.tasks && data.tasks.length > 0) {
     addSection('TASKS');
     data.tasks.forEach(task => {
@@ -364,8 +368,8 @@ export const generateCasePDF = (data: PDFData): void => {
     });
   }
 
-  // Activities section
-  if (data.activities.length > 0) {
+  // Activities section (only show if activities exist)
+  if (data.activities && data.activities.length > 0) {
     addSection('RECENT ACTIVITIES');
     data.activities.slice(0, 15).forEach(activity => {
       const actorName = activity.users?.name || activity.users?.email || 'System';
@@ -378,7 +382,7 @@ export const generateCasePDF = (data: PDFData): void => {
     });
   }
 
-  // Feedback section
+  // Feedback section (only show if feedback exists)
   if (data.feedback && data.feedback.length > 0) {
     addSection('CUSTOMER FEEDBACK');
     data.feedback.forEach(fb => {
