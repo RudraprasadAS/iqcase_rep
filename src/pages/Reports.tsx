@@ -1,204 +1,210 @@
-
+import { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { supabase } from '@/integrations/supabase/client';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from '@/components/ui/button';
-import { BarChart, FileText, Plus, Settings, Database, Eye, Edit } from 'lucide-react';
-import { useReports } from '@/hooks/useReports';
+import { useToast } from '@/hooks/use-toast';
+import { useReportExport } from '@/hooks/useReportExport';
+import { FileDown, Download } from 'lucide-react';
 
 const Reports = () => {
-  const navigate = useNavigate();
-  const { reports, isLoadingReports } = useReports();
-  
-  const handleViewReport = (reportId: string) => {
-    // Navigate to report builder in view mode with the report ID
-    navigate(`/reports/builder?id=${reportId}&view=true`);
+  const [reports, setReports] = useState([]);
+  const [selectedReport, setSelectedReport] = useState(null);
+  const [reportData, setReportData] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
+  const { exportToCSV, exportToPDF, isExporting } = useReportExport();
+
+  useEffect(() => {
+    fetchReports();
+  }, []);
+
+  const fetchReports = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('reports')
+        .select('*')
+        .order('name', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching reports:', error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch reports",
+          variant: "destructive"
+        });
+      } else {
+        setReports(data);
+      }
+    } catch (error) {
+      console.error('Error fetching reports:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch reports",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleEditReport = (reportId: string) => {
-    // Navigate to report builder in edit mode with the report ID
-    navigate(`/reports/builder?id=${reportId}&edit=true`);
+  const fetchReportData = async (reportId: string) => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('report_data')
+        .select('*')
+        .eq('report_id', reportId);
+
+      if (error) {
+        console.error('Error fetching report data:', error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch report data",
+          variant: "destructive"
+        });
+      } else {
+        setReportData(data);
+      }
+    } catch (error) {
+      console.error('Error fetching report data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch report data",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
   };
-  
+
+  const handleReportChange = (reportId: string) => {
+    const selected = reports.find(report => report.id === reportId);
+    setSelectedReport(selected);
+    if (selected) {
+      fetchReportData(selected.id);
+    } else {
+      setReportData([]);
+    }
+  };
+
+  const handleExportCSV = () => {
+    if (reportData.length > 0) {
+      exportToCSV(reportData, selectedReport?.name || 'report');
+    }
+  };
+
+  const handleExportPDF = () => {
+    if (reportData.length > 0) {
+      exportToPDF(
+        reportData, 
+        selectedReport?.name || 'report',
+        selectedReport?.name || 'Report',
+        { module: selectedReport?.module }
+      );
+    }
+  };
+
   return (
     <>
       <Helmet>
-        <title>Reports | Case Management</title>
+        <title>Reports - IQCase</title>
       </Helmet>
-      
-      <div className="container mx-auto py-6">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+
+      <div className="container mx-auto py-6 space-y-6">
+        <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Reports</h1>
-            <p className="text-muted-foreground">View and manage reports</p>
-            {reports && reports.length > 0 && (
-              <p className="text-sm text-green-600 mt-1">
-                {reports.length} custom report{reports.length > 1 ? 's' : ''} available
-              </p>
-            )}
+            <h1 className="text-3xl font-bold">Reports</h1>
+            <p className="text-muted-foreground">Generate and analyze reports</p>
           </div>
-          
-          <div className="flex flex-wrap gap-2">
-            <Button 
-              onClick={() => navigate('/reports/builder')}
-              className="gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              Create Report
-            </Button>
-            
-            <Button 
-              variant="outline"
-              onClick={() => navigate('/reports/standard')}
-              className="gap-2"
-            >
-              <FileText className="h-4 w-4" />
-              Standard Reports
-            </Button>
-            
-            <Button 
-              variant="outline"
-              onClick={() => navigate('/reports/table-builder')}
-              className="gap-2"
-            >
-              <Database className="h-4 w-4" />
-              Table Report Builder
-            </Button>
-          </div>
-        </div>
-        
-        {/* Custom Reports Section */}
-        {isLoadingReports ? (
-          <div className="flex items-center justify-center p-8">
-            <div className="w-8 h-8 border-4 border-gray-300 border-t-primary rounded-full animate-spin"></div>
-          </div>
-        ) : reports && reports.length > 0 ? (
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold mb-4">Your Custom Reports</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-              {reports.map((report) => (
-                <Card key={report.id} className="hover:shadow-md transition-shadow">
-                  <CardHeader>
-                    <CardTitle className="flex items-center justify-between">
-                      <span className="truncate">{report.name}</span>
-                      <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                        {report.chart_type || 'table'}
-                      </span>
-                    </CardTitle>
-                    {report.description && (
-                      <CardDescription className="truncate">
-                        {report.description}
-                      </CardDescription>
-                    )}
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2 text-sm text-muted-foreground">
-                      <div>
-                        <span className="font-medium">Module:</span> {report.module}
-                      </div>
-                      <div>
-                        <span className="font-medium">Fields:</span> {Array.isArray(report.selected_fields) ? report.selected_fields.length : 0} selected
-                      </div>
-                      <div>
-                        <span className="font-medium">Created:</span> {new Date(report.created_at || '').toLocaleDateString()}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">Visibility:</span>
-                        <span className={`px-2 py-1 rounded-full text-xs ${report.is_public ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-                          {report.is_public ? 'Public' : 'Private'}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="mt-4 flex gap-2">
-                      <Button 
-                        size="sm" 
-                        onClick={() => handleViewReport(report.id)}
-                        className="flex-1 gap-1"
-                      >
-                        <Eye className="h-3 w-3" />
-                        View
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => handleEditReport(report.id)}
-                        className="gap-1"
-                      >
-                        <Edit className="h-3 w-3" />
-                        Edit
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div className="text-center p-8 text-muted-foreground">
-            <Settings className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-            <h3 className="text-lg font-medium mb-2">No Custom Reports</h3>
-            <p>You haven't created any custom reports yet.</p>
-            <Button 
-              onClick={() => navigate('/reports/builder')}
-              className="mt-4"
-            >
-              Create Your First Report
-            </Button>
-          </div>
-        )}
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Standard Reports Card */}
-          <Card className="hover:shadow-md transition-shadow">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <BarChart className="mr-2 h-5 w-5" />
-                Standard Reports
-              </CardTitle>
-              <CardDescription>
-                Access pre-built reports for common use cases
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="mb-6 text-muted-foreground">
-                View standard reports for cases, users, and more. These reports are pre-configured
-                and ready to use.
-              </p>
-              <Button 
-                variant="default" 
-                onClick={() => navigate('/reports/standard')}
-                className="w-full"
-              >
-                <FileText className="mr-2 h-4 w-4" />
-                View Standard Reports
-              </Button>
-            </CardContent>
-          </Card>
-          
-          {/* Custom Reports Card */}
-          <Card className="hover:shadow-md transition-shadow">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Settings className="mr-2 h-5 w-5" />
-                Custom Reports
-              </CardTitle>
-              <CardDescription>
-                Build your own custom reports
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="mb-6 text-muted-foreground">
-                Create customized reports with the fields, filters, and visualizations of your choice.
-                Save and share your reports with your team.
-              </p>
+          {selectedReport && reportData.length > 0 && (
+            <div className="flex space-x-2">
               <Button 
                 variant="outline" 
-                onClick={() => navigate('/reports/builder')}
-                className="w-full"
+                onClick={handleExportCSV}
+                className="flex items-center gap-2"
               >
-                <Plus className="mr-2 h-4 w-4" />
-                Create Custom Report
+                <Download className="h-4 w-4" />
+                Export CSV
               </Button>
+              <Button 
+                variant="outline" 
+                onClick={handleExportPDF}
+                disabled={isExporting}
+                className="flex items-center gap-2"
+              >
+                <FileDown className="h-4 w-4" />
+                {isExporting ? 'Generating PDF...' : 'Export PDF'}
+              </Button>
+            </div>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Select Report</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Select onValueChange={handleReportChange}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Choose a report" />
+                </SelectTrigger>
+                <SelectContent>
+                  {reports.map((report) => (
+                    <SelectItem key={report.id} value={report.id}>
+                      {report.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Report Data</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="text-center">Loading data...</div>
+              ) : selectedReport ? (
+                reportData.length > 0 ? (
+                  <ScrollArea className="rounded-md border">
+                    <div className="relative overflow-x-auto">
+                      <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+                        <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                          <tr>
+                            {reportData.length > 0 && Object.keys(reportData[0]).map(key => (
+                              <th key={key} scope="col" className="px-6 py-3">
+                                {key}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {reportData.map((row, index) => (
+                            <tr key={index} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
+                              {Object.values(row).map((value, i) => (
+                                <td key={i} className="px-6 py-4">
+                                  {String(value)}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </ScrollArea>
+                ) : (
+                  <div className="text-center">No data available for this report.</div>
+                )
+              ) : (
+                <div className="text-center">Select a report to view data.</div>
+              )}
             </CardContent>
           </Card>
         </div>

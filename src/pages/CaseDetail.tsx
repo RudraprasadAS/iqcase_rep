@@ -561,7 +561,7 @@ ${conversationContext}
               className="flex items-center gap-2"
             >
               <FileDown className="h-4 w-4" />
-              {isExporting ? 'Generating...' : 'Download PDF Report'}
+              {isExporting ? 'Generating PDF...' : 'Download Case Report (PDF)'}
             </Button>
             <Button variant="outline" onClick={handleManualRefresh} className="flex items-center gap-2">
               <RefreshCw className="h-4 w-4" />

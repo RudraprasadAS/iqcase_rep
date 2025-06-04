@@ -406,7 +406,7 @@ const CitizenCaseDetail = () => {
             className="flex items-center gap-2"
           >
             <FileDown className="h-4 w-4" />
-            {isExporting ? 'Generating...' : 'Download Case Report'}
+            {isExporting ? 'Generating PDF...' : 'Download Case Report (PDF)'}
           </Button>
         </div>
 
@@ -493,7 +493,7 @@ const CitizenCaseDetail = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-4 max-h-96 overflow-y-auto">
-                  {messages.map((message) => (
+                  {messages.filter(message => !message.is_internal).map((message) => (
                     <div key={message.id} className="flex space-x-3">
                       <Avatar className="h-8 w-8">
                         <AvatarFallback>
@@ -515,7 +515,7 @@ const CitizenCaseDetail = () => {
                       </div>
                     </div>
                   ))}
-                  {messages.length === 0 && (
+                  {messages.filter(message => !message.is_internal).length === 0 && (
                     <div className="text-center text-muted-foreground py-4">
                       No messages yet
                     </div>
