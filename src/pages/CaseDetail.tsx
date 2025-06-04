@@ -226,7 +226,7 @@ const CaseDetail = () => {
     }
   };
 
-  // Enhanced real-time subscription for activities with more aggressive refresh
+  // ENHANCED real-time subscription for activities with immediate refresh
   useEffect(() => {
     if (!caseId) return;
 
@@ -246,6 +246,7 @@ const CaseDetail = () => {
           console.log('📋 🔔 Real-time activity change detected:', payload);
           // Immediate refresh on any change
           setTimeout(() => {
+            console.log('📋 🔄 Triggering activity refresh due to real-time update');
             fetchActivities();
           }, 100); // Small delay to ensure data is committed
         }
@@ -258,7 +259,7 @@ const CaseDetail = () => {
     const intervalId = setInterval(() => {
       console.log('📋 🔄 Periodic activity refresh');
       fetchActivities();
-    }, 5000); // Refresh every 5 seconds
+    }, 3000); // Refresh every 3 seconds
 
     return () => {
       console.log('📋 Cleaning up enhanced activities subscription and interval');
@@ -373,8 +374,18 @@ ${conversationContext}
     }
   };
 
-  const handleCaseUpdate = (updatedCase: CaseData) => {
+  const handleCaseUpdate = async (updatedCase: CaseData) => {
+    console.log('🔄 Case updated, refreshing activities and data:', updatedCase);
+    
+    // Update local case data immediately
     setCaseData(updatedCase);
+    
+    // Force refresh activities to see any new activity logs
+    setTimeout(() => {
+      console.log('🔄 Forcing activity refresh after case update');
+      fetchActivities();
+    }, 500); // Small delay to ensure activity logging is complete
+    
     setIsEditDialogOpen(false);
     toast({
       title: "Success",
@@ -679,12 +690,22 @@ ${conversationContext}
                   </TabsContent>
                   <TabsContent value="activities" className="space-y-4">
                     <div className="space-y-3 max-h-96 overflow-y-auto">
-                      <div className="text-xs text-muted-foreground mb-2">
-                        Activities ({activities.length}) - Auto-refreshing
+                      <div className="text-xs text-muted-foreground mb-2 flex items-center justify-between">
+                        <span>Activities ({activities.length}) - Auto-refreshing every 3s</span>
+                        <Button 
+                          onClick={fetchActivities} 
+                          variant="outline" 
+                          size="sm"
+                          className="h-6 px-2 text-xs"
+                        >
+                          Refresh
+                        </Button>
                       </div>
                       {activities.map((activity) => (
                         <div key={activity.id} className="border-l-2 border-muted pl-4">
-                          <div className="text-sm font-medium">{activity.activity_type.replace('_', ' ')}</div>
+                          <div className="text-sm font-medium capitalize">
+                            {activity.activity_type.replace(/_/g, ' ')}
+                          </div>
                           {activity.description && (
                             <div className="text-sm text-muted-foreground">{activity.description}</div>
                           )}
@@ -702,14 +723,6 @@ ${conversationContext}
                         </div>
                       )}
                     </div>
-                    <Button 
-                      onClick={fetchActivities} 
-                      variant="outline" 
-                      size="sm" 
-                      className="w-full"
-                    >
-                      Refresh Activities
-                    </Button>
                   </TabsContent>
                   <TabsContent value="updates">
                     <div className="text-sm text-muted-foreground">Last updated: {formatDateTime(caseData.updated_at)}</div>

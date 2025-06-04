@@ -119,3 +119,91 @@ export const logMessageAdded = async (caseId: string, messagePreview: string, is
     metadata: { messagePreview, isInternal }
   });
 };
+
+// NEW: Case field update logging functions
+export const logCaseAssigned = async (caseId: string, assignedToName: string, performedBy: string) => {
+  console.log('📝 Logging case assignment:', { caseId, assignedToName, performedBy });
+  return await logActivity({
+    caseId,
+    activityType: 'case_assigned',
+    description: `Case assigned to: ${assignedToName}`,
+    performedBy,
+    metadata: { assignedToName }
+  });
+};
+
+export const logCaseUnassigned = async (caseId: string, performedBy: string) => {
+  console.log('📝 Logging case unassignment:', { caseId, performedBy });
+  return await logActivity({
+    caseId,
+    activityType: 'case_unassigned',
+    description: 'Case unassigned',
+    performedBy,
+    metadata: {}
+  });
+};
+
+export const logPriorityChanged = async (caseId: string, oldPriority: string, newPriority: string, performedBy: string) => {
+  console.log('📝 Logging priority change:', { caseId, oldPriority, newPriority, performedBy });
+  return await logActivity({
+    caseId,
+    activityType: 'priority_changed',
+    description: `Priority changed from ${oldPriority} to ${newPriority}`,
+    performedBy,
+    metadata: { oldPriority, newPriority }
+  });
+};
+
+export const logStatusChanged = async (caseId: string, oldStatus: string, newStatus: string, performedBy: string) => {
+  console.log('📝 Logging status change:', { caseId, oldStatus, newStatus, performedBy });
+  return await logActivity({
+    caseId,
+    activityType: 'status_changed',
+    description: `Status changed from ${oldStatus} to ${newStatus}`,
+    performedBy,
+    metadata: { oldStatus, newStatus }
+  });
+};
+
+export const logCaseUpdated = async (caseId: string, changes: Record<string, { old: any, new: any }>, performedBy: string) => {
+  console.log('📝 Logging case update:', { caseId, changes, performedBy });
+  
+  // Log each change separately for better tracking
+  const results = [];
+  
+  for (const [field, change] of Object.entries(changes)) {
+    let activityType = 'case_updated';
+    let description = `${field} updated`;
+    
+    // Use specific logging functions for key fields
+    if (field === 'assigned_to') {
+      if (change.new) {
+        await logCaseAssigned(caseId, change.new, performedBy);
+      } else {
+        await logCaseUnassigned(caseId, performedBy);
+      }
+      continue;
+    } else if (field === 'priority') {
+      await logPriorityChanged(caseId, change.old, change.new, performedBy);
+      continue;
+    } else if (field === 'status') {
+      await logStatusChanged(caseId, change.old, change.new, performedBy);
+      continue;
+    } else {
+      // Generic field update
+      description = `${field.replace('_', ' ')} changed from "${change.old}" to "${change.new}"`;
+    }
+    
+    const result = await logActivity({
+      caseId,
+      activityType,
+      description,
+      performedBy,
+      metadata: { field, oldValue: change.old, newValue: change.new }
+    });
+    
+    results.push(result);
+  }
+  
+  return results;
+};
