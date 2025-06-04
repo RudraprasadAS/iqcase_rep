@@ -780,7 +780,7 @@ ${conversationContext}
                     </div>
                   </TabsContent>
                   <TabsContent value="updates">
-                    <div className="text-sm text-muted-foreground">Last updated: {formatDateTime(caseData.updated_at)}</div>
+                    <CaseUpdates caseId={caseData.id} isInternal={true} />
                   </TabsContent>
                 </Tabs>
               </CardContent>
