@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -48,7 +47,7 @@ const CaseFeedback = ({ caseId, caseTitle, caseStatus, isInternal = true }: Case
         checkFeedbackEligibility();
       }
     }
-  }, [caseId, user, isInternal]);
+  }, [caseId, user, isInternal, caseStatus]);
 
   const fetchFeedback = async () => {
     try {
@@ -88,26 +87,42 @@ const CaseFeedback = ({ caseId, caseTitle, caseStatus, isInternal = true }: Case
   };
 
   const checkFeedbackEligibility = async () => {
+    console.log('Checking feedback eligibility - Case status:', caseStatus, 'User:', !!user, 'Is case closed:', isCaseClosed);
+    
     if (!user || !isCaseClosed) {
+      console.log('Not eligible - missing user or case not closed');
       setCanSubmitFeedback(false);
       return;
     }
 
     try {
+      // Get current user
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      
+      if (authError || !authData.user) {
+        console.error('Auth error:', authError);
+        setCanSubmitFeedback(false);
+        return;
+      }
+
       // Get internal user ID
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('id, user_type')
-        .eq('auth_user_id', user.id)
+        .eq('auth_user_id', authData.user.id)
         .single();
 
       if (userError || !userData) {
         console.error('Error fetching user data:', userError);
+        setCanSubmitFeedback(false);
         return;
       }
 
+      console.log('User data:', userData);
+
       // Only external/citizen users should be able to submit feedback
       if (userData.user_type !== 'external') {
+        console.log('User is not external, cannot submit feedback');
         setCanSubmitFeedback(false);
         return;
       }
@@ -121,28 +136,42 @@ const CaseFeedback = ({ caseId, caseTitle, caseStatus, isInternal = true }: Case
 
       if (caseError || !caseData) {
         console.error('Error fetching case data:', caseError);
+        setCanSubmitFeedback(false);
         return;
       }
 
+      console.log('Case submitted by:', caseData.submitted_by, 'Current user:', userData.id);
+
       const isEligible = caseData.submitted_by === userData.id;
       
-      // Check if user has already submitted feedback
-      if (isEligible) {
-        const { data: existingFeedback, error: feedbackError } = await supabase
-          .from('case_feedback')
-          .select('id')
-          .eq('case_id', caseId)
-          .eq('submitted_by', userData.id)
-          .single();
-
-        // User can submit feedback if they haven't already
-        setCanSubmitFeedback(!existingFeedback);
-      } else {
+      if (!isEligible) {
+        console.log('User did not submit this case, cannot provide feedback');
         setCanSubmitFeedback(false);
+        return;
       }
+
+      // Check if user has already submitted feedback
+      const { data: existingFeedback, error: feedbackError } = await supabase
+        .from('case_feedback')
+        .select('id')
+        .eq('case_id', caseId)
+        .eq('submitted_by', userData.id)
+        .maybeSingle();
+
+      if (feedbackError) {
+        console.error('Error checking existing feedback:', feedbackError);
+        setCanSubmitFeedback(false);
+        return;
+      }
+
+      // User can submit feedback if they haven't already
+      const canSubmit = !existingFeedback;
+      console.log('Can submit feedback:', canSubmit, 'Existing feedback:', !!existingFeedback);
+      setCanSubmitFeedback(canSubmit);
       
     } catch (error) {
       console.error('Error checking feedback eligibility:', error);
+      setCanSubmitFeedback(false);
     }
   };
 
@@ -252,13 +281,31 @@ const CaseFeedback = ({ caseId, caseTitle, caseStatus, isInternal = true }: Case
           {(feedback.length > 0 || (!canSubmitFeedback && feedback.length === 0)) && (
             <>
               {feedback.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  {isInternal 
-                    ? 'No customer feedback received yet'
-                    : isCaseClosed 
-                      ? 'No feedback submitted yet' 
-                      : 'Feedback will be available when case is closed'
-                  }
+                <div className="text-center py-8">
+                  {isInternal ? (
+                    <div className="text-muted-foreground">
+                      No customer feedback received yet
+                    </div>
+                  ) : isCaseClosed ? (
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
+                      <div className="text-gray-600 mb-4">
+                        No feedback submitted yet
+                      </div>
+                      {canSubmitFeedback && (
+                        <Button 
+                          onClick={() => setShowFeedbackDialog(true)}
+                          className="bg-blue-600 hover:bg-blue-700"
+                        >
+                          <Star className="h-4 w-4 mr-2" />
+                          Provide Feedback
+                        </Button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-muted-foreground">
+                      Feedback will be available when case is closed
+                    </div>
+                  )}
                 </div>
               ) : (
                 feedback.map((fb) => (
