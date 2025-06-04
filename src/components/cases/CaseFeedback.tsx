@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -217,38 +218,41 @@ const CaseFeedback = ({ caseId, caseTitle, caseStatus, isInternal = true }: Case
         </CardHeader>
         
         <CardContent className="space-y-4">
-          {/* Display existing feedback */}
-          {feedback.length === 0 ? (
+          {/* For external users with no feedback but can submit */}
+          {!isInternal && canSubmitFeedback && feedback.length === 0 && (
             <div className="text-center py-8">
-              {!isInternal && canSubmitFeedback ? (
-                <div className="space-y-4">
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-                    <div className="flex items-center justify-center text-blue-800 mb-3">
-                      <MessageSquare className="h-6 w-6 mr-2" />
-                      <span className="font-medium text-lg">Your feedback matters!</span>
-                    </div>
-                    <p className="text-blue-700 mb-4">
-                      Your case has been {caseStatus}. Help us improve by sharing your experience.
-                    </p>
-                    <div className="flex gap-3 justify-center">
-                      <Button 
-                        onClick={() => setShowFeedbackDialog(true)}
-                        className="bg-blue-600 hover:bg-blue-700"
-                      >
-                        <Star className="h-4 w-4 mr-2" />
-                        Provide Feedback
-                      </Button>
-                      <Button 
-                        variant="outline"
-                        onClick={() => setCanSubmitFeedback(false)}
-                      >
-                        Maybe Later
-                      </Button>
-                    </div>
-                  </div>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                <div className="flex items-center justify-center text-blue-800 mb-3">
+                  <MessageSquare className="h-6 w-6 mr-2" />
+                  <span className="font-medium text-lg">Your feedback matters!</span>
                 </div>
-              ) : (
-                <div className="text-muted-foreground">
+                <p className="text-blue-700 mb-4">
+                  Your case has been {caseStatus}. Help us improve by sharing your experience.
+                </p>
+                <div className="flex gap-3 justify-center">
+                  <Button 
+                    onClick={() => setShowFeedbackDialog(true)}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    <Star className="h-4 w-4 mr-2" />
+                    Provide Feedback
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    onClick={() => setCanSubmitFeedback(false)}
+                  >
+                    Maybe Later
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* For cases with existing feedback or no feedback eligibility */}
+          {(feedback.length > 0 || (!canSubmitFeedback && feedback.length === 0)) && (
+            <>
+              {feedback.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
                   {isInternal 
                     ? 'No customer feedback received yet'
                     : isCaseClosed 
@@ -256,71 +260,71 @@ const CaseFeedback = ({ caseId, caseTitle, caseStatus, isInternal = true }: Case
                       : 'Feedback will be available when case is closed'
                   }
                 </div>
+              ) : (
+                feedback.map((fb) => (
+                  <div key={fb.id} className="border rounded-lg p-4 space-y-3">
+                    {/* Header with rating and date */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        {renderStars(fb.rating)}
+                        <span className="font-medium text-sm">
+                          {fb.rating}/5 stars
+                        </span>
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {formatDate(fb.submitted_at)}
+                      </div>
+                    </div>
+
+                    {/* Comment */}
+                    {fb.comment && (
+                      <div>
+                        <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                          {fb.comment}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Additional feedback details */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                      {fb.resolved_satisfaction !== null && (
+                        <div>
+                          <span className="font-medium">Resolved to satisfaction: </span>
+                          <span className={fb.resolved_satisfaction ? 'text-green-600' : 'text-red-600'}>
+                            {fb.resolved_satisfaction ? 'Yes' : 'No'}
+                          </span>
+                        </div>
+                      )}
+                      
+                      {fb.staff_score && (
+                        <div>
+                          <span className="font-medium">Staff rating: </span>
+                          <span className={getStaffScoreColor(fb.staff_score)}>
+                            {fb.staff_score.charAt(0).toUpperCase() + fb.staff_score.slice(1)}
+                          </span>
+                        </div>
+                      )}
+                      
+                      {fb.would_use_again !== null && (
+                        <div>
+                          <span className="font-medium">Would use again: </span>
+                          <span className={fb.would_use_again ? 'text-green-600' : 'text-red-600'}>
+                            {fb.would_use_again ? 'Yes' : 'No'}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Submitted by - only show in internal view */}
+                    {isInternal && fb.users && (
+                      <div className="text-xs text-muted-foreground border-t pt-2">
+                        Submitted by {fb.users.name || fb.users.email}
+                      </div>
+                    )}
+                  </div>
+                ))
               )}
-            </div>
-          ) : (
-            feedback.map((fb) => (
-              <div key={fb.id} className="border rounded-lg p-4 space-y-3">
-                {/* Header with rating and date */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    {renderStars(fb.rating)}
-                    <span className="font-medium text-sm">
-                      {fb.rating}/5 stars
-                    </span>
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    {formatDate(fb.submitted_at)}
-                  </div>
-                </div>
-
-                {/* Comment */}
-                {fb.comment && (
-                  <div>
-                    <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                      {fb.comment}
-                    </p>
-                  </div>
-                )}
-
-                {/* Additional feedback details */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                  {fb.resolved_satisfaction !== null && (
-                    <div>
-                      <span className="font-medium">Resolved to satisfaction: </span>
-                      <span className={fb.resolved_satisfaction ? 'text-green-600' : 'text-red-600'}>
-                        {fb.resolved_satisfaction ? 'Yes' : 'No'}
-                      </span>
-                    </div>
-                  )}
-                  
-                  {fb.staff_score && (
-                    <div>
-                      <span className="font-medium">Staff rating: </span>
-                      <span className={getStaffScoreColor(fb.staff_score)}>
-                        {fb.staff_score.charAt(0).toUpperCase() + fb.staff_score.slice(1)}
-                      </span>
-                    </div>
-                  )}
-                  
-                  {fb.would_use_again !== null && (
-                    <div>
-                      <span className="font-medium">Would use again: </span>
-                      <span className={fb.would_use_again ? 'text-green-600' : 'text-red-600'}>
-                        {fb.would_use_again ? 'Yes' : 'No'}
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Submitted by - only show in internal view */}
-                {isInternal && fb.users && (
-                  <div className="text-xs text-muted-foreground border-t pt-2">
-                    Submitted by {fb.users.name || fb.users.email}
-                  </div>
-                )}
-              </div>
-            ))
+            </>
           )}
         </CardContent>
       </Card>

@@ -1,5 +1,3 @@
-
-
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,6 +14,7 @@ import PriorityBadge from '@/components/cases/PriorityBadge';
 import SLABadge from '@/components/cases/SLABadge';
 import MessageCenter from '@/components/messaging/MessageCenter';
 import CaseFeedback from '@/components/cases/CaseFeedback';
+import CaseUpdates from '@/components/cases/CaseUpdates';
 import CaseNotifications from '@/components/citizen/CaseNotifications';
 import { Helmet } from 'react-helmet-async';
 import { generateCaseNumber } from '@/utils/caseNumberGenerator';
@@ -300,7 +299,7 @@ const CitizenCaseDetail = () => {
                 <div className="flex items-start justify-between">
                   <div>
                     <CardTitle className="text-xl">{caseData.title}</CardTitle>
-                    <p className="text-sm text-gray-500 mt-1">Case #{caseData.id.slice(0, 8)}</p>
+                    <p className="text-sm text-gray-500 mt-1">Case #{generateCaseNumber(caseData.id, caseData.created_at)}</p>
                   </div>
                   <div className="flex gap-2">
                     <StatusBadge status={caseData.status} />
@@ -402,19 +401,20 @@ const CitizenCaseDetail = () => {
             <MessageCenter caseId={caseData.id} isInternal={false} />
             
             {/* Show Case Feedback section for resolved or closed cases */}
-            {canProvideFeedback && (
-              <CaseFeedback 
-                caseId={caseData.id} 
-                caseTitle={caseData.title}
-                caseStatus={caseData.status}
-                isInternal={false}
-              />
-            )}
+            <CaseFeedback 
+              caseId={caseData.id} 
+              caseTitle={caseData.title}
+              caseStatus={caseData.status}
+              isInternal={false}
+            />
           </div>
 
           <div className="space-y-6">
             {/* Case Notifications for External Users */}
             <CaseNotifications caseId={caseData.id} />
+
+            {/* Case Updates for External Users */}
+            <CaseUpdates caseId={caseData.id} isInternal={false} />
 
             <Card>
               <CardHeader>
