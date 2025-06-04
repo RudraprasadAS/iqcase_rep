@@ -34,7 +34,13 @@ export const useInsights = () => {
         .order('name');
       
       if (error) throw error;
-      return data as DataSource[];
+      
+      // Cast the Json types to our proper types
+      return data.map(item => ({
+        ...item,
+        fields: item.fields as any,
+        relationships: item.relationships as any
+      })) as DataSource[];
     }
   });
 
@@ -48,7 +54,17 @@ export const useInsights = () => {
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return data as InsightReport[];
+      
+      // Cast the Json types to our proper types
+      return data.map(item => ({
+        ...item,
+        selected_fields: item.selected_fields as string[],
+        calculated_fields: item.calculated_fields as any,
+        filters: item.filters as any,
+        group_by: item.group_by as any,
+        aggregations: item.aggregations as any,
+        chart_config: item.chart_config as any
+      })) as InsightReport[];
     }
   });
 
@@ -62,7 +78,13 @@ export const useInsights = () => {
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return data as InsightDashboard[];
+      
+      // Cast the Json types to our proper types
+      return data.map(item => ({
+        ...item,
+        layout_config: item.layout_config as any,
+        filters: item.filters as any
+      })) as InsightDashboard[];
     }
   });
 
@@ -79,7 +101,17 @@ export const useInsights = () => {
         .single();
       
       if (error) throw error;
-      return data as InsightReport;
+      
+      // Cast the Json types to our proper types
+      return {
+        ...data,
+        selected_fields: data.selected_fields as string[],
+        calculated_fields: data.calculated_fields as any,
+        filters: data.filters as any,
+        group_by: data.group_by as any,
+        aggregations: data.aggregations as any,
+        chart_config: data.chart_config as any
+      } as InsightReport;
     },
     enabled: !!selectedReportId
   });
@@ -100,7 +132,14 @@ export const useInsights = () => {
         .single();
       
       if (error) throw error;
-      return data as InsightDashboard & { widgets: DashboardWidget[] };
+      
+      // Cast the Json types to our proper types
+      return {
+        ...data,
+        layout_config: data.layout_config as any,
+        filters: data.filters as any,
+        widgets: data.widgets as DashboardWidget[]
+      } as InsightDashboard & { widgets: DashboardWidget[] };
     },
     enabled: !!selectedDashboardId
   });
@@ -122,10 +161,10 @@ export const useInsights = () => {
     }) => {
       const { data, error } = await supabase.rpc('execute_insight_query', {
         data_source_name: dataSourceName,
-        selected_fields: selectedFields,
-        filters: filters,
-        group_by_fields: groupBy,
-        aggregations: aggregations,
+        selected_fields: selectedFields as any,
+        filters: filters as any,
+        group_by_fields: groupBy as any,
+        aggregations: aggregations as any,
         limit_count: 1000
       });
 
@@ -153,13 +192,29 @@ export const useInsights = () => {
         .from('insight_reports')
         .insert({
           ...report,
-          created_by: user.id
+          created_by: user.id,
+          // Cast our types to Json for Supabase
+          selected_fields: report.selected_fields as any,
+          calculated_fields: report.calculated_fields as any,
+          filters: report.filters as any,
+          group_by: report.group_by as any,
+          aggregations: report.aggregations as any,
+          chart_config: report.chart_config as any
         })
         .select()
         .single();
       
       if (error) throw error;
-      return data as InsightReport;
+      
+      return {
+        ...data,
+        selected_fields: data.selected_fields as string[],
+        calculated_fields: data.calculated_fields as any,
+        filters: data.filters as any,
+        group_by: data.group_by as any,
+        aggregations: data.aggregations as any,
+        chart_config: data.chart_config as any
+      } as InsightReport;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['insightReports'] });
@@ -180,15 +235,34 @@ export const useInsights = () => {
   // Update a report
   const updateReport = useMutation({
     mutationFn: async ({ id, ...report }: Partial<InsightReport> & { id: string }) => {
+      const updateData: any = { ...report };
+      
+      // Convert our types to Json for Supabase if they exist
+      if (report.selected_fields) updateData.selected_fields = report.selected_fields as any;
+      if (report.calculated_fields) updateData.calculated_fields = report.calculated_fields as any;
+      if (report.filters) updateData.filters = report.filters as any;
+      if (report.group_by) updateData.group_by = report.group_by as any;
+      if (report.aggregations) updateData.aggregations = report.aggregations as any;
+      if (report.chart_config) updateData.chart_config = report.chart_config as any;
+      
       const { data, error } = await supabase
         .from('insight_reports')
-        .update(report)
+        .update(updateData)
         .eq('id', id)
         .select()
         .single();
       
       if (error) throw error;
-      return data as InsightReport;
+      
+      return {
+        ...data,
+        selected_fields: data.selected_fields as string[],
+        calculated_fields: data.calculated_fields as any,
+        filters: data.filters as any,
+        group_by: data.group_by as any,
+        aggregations: data.aggregations as any,
+        chart_config: data.chart_config as any
+      } as InsightReport;
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['insightReports'] });
@@ -246,13 +320,21 @@ export const useInsights = () => {
         .from('insight_dashboards')
         .insert({
           ...dashboard,
-          created_by: user.id
+          created_by: user.id,
+          // Cast our types to Json for Supabase
+          layout_config: dashboard.layout_config as any,
+          filters: dashboard.filters as any
         })
         .select()
         .single();
       
       if (error) throw error;
-      return data as InsightDashboard;
+      
+      return {
+        ...data,
+        layout_config: data.layout_config as any,
+        filters: data.filters as any
+      } as InsightDashboard;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['insightDashboards'] });
@@ -275,12 +357,21 @@ export const useInsights = () => {
     mutationFn: async (widget: Omit<DashboardWidget, 'id' | 'created_at' | 'updated_at'>) => {
       const { data, error } = await supabase
         .from('insight_widgets')
-        .insert(widget)
+        .insert({
+          ...widget,
+          config: widget.config as any,
+          position: widget.position as any
+        })
         .select()
         .single();
       
       if (error) throw error;
-      return data as DashboardWidget;
+      
+      return {
+        ...data,
+        config: data.config as any,
+        position: data.position as any
+      } as DashboardWidget;
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['insightDashboards'] });

@@ -17,7 +17,7 @@ import { useAuth } from '@/hooks/useAuth';
 export const Sidebar = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, signOut } = useAuth();
+  const { user, logout } = useAuth();
 
   const menuItems = [
     { icon: Home, label: 'Dashboard', path: '/dashboard' },
@@ -37,6 +37,9 @@ export const Sidebar = () => {
   const isActive = (path: string) => {
     return location.pathname.startsWith(path);
   };
+
+  // Helper to check if user is admin (assuming admin role has specific ID)
+  const isAdmin = user && user.email?.includes('admin'); // Temporary check
 
   return (
     <div className="flex flex-col h-full bg-gray-100 border-r py-4 w-60">
@@ -62,7 +65,7 @@ export const Sidebar = () => {
             </li>
           ))}
         </ul>
-        {user?.role_id === '00000000-0000-0000-0000-000000000001' && (
+        {isAdmin && (
           <>
             <Separator className="my-4" />
             <ul className="space-y-2">
@@ -84,7 +87,7 @@ export const Sidebar = () => {
       </div>
       <Separator />
       <div className="p-4">
-        <Button variant="outline" className="w-full" onClick={() => signOut()}>
+        <Button variant="outline" className="w-full" onClick={() => logout()}>
           Logout
         </Button>
       </div>
