@@ -1,263 +1,337 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
+import { Textarea } from '@/components/ui/textarea';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { CheckCircle, ArrowLeft, MessageSquare, MapPin, FileText, FileImage, Send, Download, Paperclip } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Calendar, MapPin, User, Tag, Clock, Paperclip, Download, FileText, AlertCircle } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
 import StatusBadge from '@/components/cases/StatusBadge';
 import PriorityBadge from '@/components/cases/PriorityBadge';
-import SLABadge from '@/components/cases/SLABadge';
-import MessageCenter from '@/components/messaging/MessageCenter';
 import CaseFeedback from '@/components/cases/CaseFeedback';
 import CaseUpdates from '@/components/cases/CaseUpdates';
-import CaseNotifications from '@/components/citizen/CaseNotifications';
-import { Helmet } from 'react-helmet-async';
-import { generateCaseNumber } from '@/utils/caseNumberGenerator';
+import { formatDistanceToNow } from 'date-fns';
 
 interface CaseData {
   id: string;
   title: string;
-  description: string;
   status: string;
   priority: string;
-  location?: string;
-  tags?: string[];
+  category_id?: string;
+  submitted_by: string;
+  assigned_to?: string;
   created_at: string;
   updated_at: string;
+  description?: string;
   sla_due_at?: string;
-  category: { name: string } | null;
-  submitted_by_user: { name: string } | null;
-  assigned_to_user: { name: string } | null;
+  location?: string;
+  // Joined user data
+  submitted_by_user?: { name: string; email: string };
+  assigned_to_user?: { name: string; email: string };
+  category?: { name: string };
 }
 
-interface Activity {
+interface Message {
   id: string;
-  activity_type: string;
-  description: string;
+  message: string;
+  sender_id: string;
   created_at: string;
-  users: { name: string } | null;
+  is_internal: boolean;
+  users?: { name: string; email: string };
 }
 
 interface Attachment {
   id: string;
   file_name: string;
   file_url: string;
-  file_type: string;
+  file_type?: string;
   created_at: string;
-  uploaded_by: string;
+  uploaded_by?: string;
 }
 
 const CitizenCaseDetail = () => {
-  const { id } = useParams();
+  const { id: caseId } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
   const { toast } = useToast();
-  
   const [caseData, setCaseData] = useState<CaseData | null>(null);
-  const [activities, setActivities] = useState<Activity[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
-  const [downloading, setDownloading] = useState<string | null>(null);
+  const [sendingMessage, setSendingMessage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
   useEffect(() => {
-    if (id && user) {
+    if (caseId) {
       fetchCaseData();
+      fetchMessages();
+      fetchAttachments();
     }
-  }, [id, user]);
+  }, [caseId]);
 
   const fetchCaseData = async () => {
-    if (!id || !user) return;
-
     try {
-      console.log('Fetching case details for case:', id, 'user:', user.id);
-
-      // Get internal user ID first
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('id')
-        .eq('auth_user_id', user.id)
-        .maybeSingle();
-
-      if (userError) {
-        console.error('User lookup error:', userError);
-        throw userError;
-      }
-
-      if (!userData) {
-        console.log('No internal user found');
-        throw new Error('User not found');
-      }
-
-      console.log('Internal user ID:', userData.id);
-
-      const { data: caseData, error: caseError } = await supabase
+      const { data, error } = await supabase
         .from('cases')
         .select(`
           *,
-          case_categories!category_id(name),
-          users!submitted_by(name),
-          assigned_users:users!assigned_to(name)
+          submitted_by_user:users!cases_submitted_by_fkey(name, email),
+          assigned_to_user:users!cases_assigned_to_fkey(name, email),
+          category:case_categories!cases_category_id_fkey(name)
         `)
-        .eq('id', id)
-        .eq('submitted_by', userData.id)
-        .maybeSingle();
+        .eq('id', caseId)
+        .single();
 
-      if (caseError) {
-        console.error('Case fetch error:', caseError);
-        throw caseError;
+      if (error) {
+        console.error('Case fetch error:', error);
+        throw error;
       }
 
-      if (!caseData) {
-        console.log('Case not found or access denied');
-        throw new Error('Case not found');
-      }
-
-      console.log('Case data loaded:', caseData);
-
-      setCaseData({
-        ...caseData,
-        category: caseData.case_categories,
-        submitted_by_user: caseData.users,
-        assigned_to_user: caseData.assigned_users
-      });
-
-      // Fetch case activities
-      const { data: activitiesData, error: activitiesError } = await supabase
-        .from('case_activities')
-        .select(`
-          *,
-          users!case_activities_performed_by_fkey(name)
-        `)
-        .eq('case_id', id)
-        .order('created_at', { ascending: false });
-
-      if (activitiesError) {
-        console.error('Activities fetch error:', activitiesError);
-      } else {
-        console.log('Activities loaded:', activitiesData?.length || 0);
-        setActivities(activitiesData || []);
-      }
-
-      // Fetch case attachments - only non-private ones for citizens
-      await fetchAttachments(id);
-
+      setCaseData(data);
     } catch (error) {
-      console.error('Error fetching case data:', error);
+      console.error('Error fetching case:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to load case details',
-        variant: 'destructive'
+        title: "Error",
+        description: "Failed to fetch case details",
+        variant: "destructive"
       });
-      navigate('/citizen/cases');
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchAttachments = async (caseId: string) => {
+  const fetchMessages = async () => {
     try {
-      console.log('Fetching attachments for case:', caseId);
-      
-      const { data: attachmentsData, error: attachmentsError } = await supabase
+      const { data, error } = await supabase
+        .from('case_messages')
+        .select(`
+          *,
+          users!case_messages_sender_id_fkey(name, email)
+        `)
+        .eq('case_id', caseId)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error('Messages fetch error:', error);
+        throw error;
+      }
+
+      setMessages(data || []);
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+    }
+  };
+
+  const fetchAttachments = async () => {
+    try {
+      const { data, error } = await supabase
         .from('case_attachments')
         .select('*')
         .eq('case_id', caseId)
-        .eq('is_private', false)
         .order('created_at', { ascending: false });
 
-      if (attachmentsError) {
-        console.error('Attachments fetch error:', attachmentsError);
-        toast({
-          title: 'Warning',
-          description: 'Failed to load attachments',
-          variant: 'destructive'
-        });
-        return;
+      if (error) {
+        console.error('Attachments fetch error:', error);
+        throw error;
       }
 
-      console.log('Attachments loaded:', attachmentsData?.length || 0);
-      setAttachments(attachmentsData || []);
-      
+      setAttachments(data || []);
     } catch (error) {
       console.error('Error fetching attachments:', error);
     }
   };
 
-  const downloadAttachment = async (fileUrl: string, fileName: string, attachmentId: string) => {
-    setDownloading(attachmentId);
-    
-    try {
-      console.log('Starting download:', fileName, fileUrl);
-      
-      // Try to download directly from the public URL
-      const response = await fetch(fileUrl);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const blob = await response.blob();
-      
-      // Create download link
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      
-      // Trigger download
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      // Cleanup
-      window.URL.revokeObjectURL(url);
-      
+  const handleSendMessage = async () => {
+    if (!newMessage.trim()) {
       toast({
-        title: 'Download Complete',
-        description: `${fileName} has been downloaded`,
+        title: "Error",
+        description: "Please enter a message",
+        variant: "destructive"
       });
-      
-    } catch (error) {
-      console.error('Download error:', error);
+      return;
+    }
+
+    setSendingMessage(true);
+    try {
+      // Get internal user ID
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('auth_user_id', supabase.auth.getUser()?.data?.user?.id)
+        .single();
+
+      if (userError) {
+        console.error('User lookup error:', userError);
+        return;
+      }
+
+      const { error } = await supabase
+        .from('case_messages')
+        .insert({
+          case_id: caseId,
+          message: newMessage.trim(),
+          sender_id: userData?.id,
+          is_internal: false
+        });
+
+      if (error) {
+        console.error('Message send error:', error);
+        throw error;
+      }
+
+      setNewMessage('');
+      await fetchMessages();
       toast({
-        title: 'Download Failed',
-        description: `Failed to download ${fileName}. Please try again.`,
-        variant: 'destructive'
+        title: "Message sent successfully"
+      });
+    } catch (error) {
+      console.error('Error sending message:', error);
+      toast({
+        title: "Error",
+        description: "Failed to send message",
+        variant: "destructive"
       });
     } finally {
-      setDownloading(null);
+      setSendingMessage(false);
     }
   };
 
-  const getFileIcon = (fileType: string) => {
-    if (fileType?.startsWith('image/')) {
-      return '🖼️';
-    } else if (fileType?.includes('pdf')) {
-      return '📄';
-    } else if (fileType?.includes('word') || fileType?.includes('document')) {
-      return '📝';
-    } else if (fileType?.includes('text')) {
-      return '📃';
-    }
-    return '📎';
+  const downloadAttachment = (fileUrl: string, fileName: string) => {
+    const link = document.createElement('a');
+    link.href = fileUrl;
+    link.download = fileName;
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  const generateCaseNumber = (id: string, createdAt: string) => {
+    const year = new Date(createdAt).getFullYear();
+    const shortId = id.slice(-6).toUpperCase();
+    return `#${year}-${shortId}`;
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  const formatDateTime = (dateString: string) => {
+    return new Date(dateString).toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const handleFileUpload = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    setSelectedFiles(files);
+    uploadFiles(files);
+  };
+
+  const uploadFiles = async (files: File[]) => {
+    if (!caseId) {
+      toast({
+        title: "Error",
+        description: "Case ID is missing",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    for (const file of files) {
+      const filePath = `case-attachments/${caseId}/${file.name}`;
+      try {
+        const { data, error } = await supabase.storage
+          .from('case-attachments')
+          .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: false
+          });
+
+        if (error) {
+          console.error('File upload error:', error);
+          toast({
+            title: "Error",
+            description: `Failed to upload ${file.name}`,
+            variant: "destructive"
+          });
+        } else {
+          const fileUrl = `${supabase.storageUrl}/case-attachments/${filePath}`;
+          await saveAttachmentToDatabase(file.name, fileUrl, file.type);
+          toast({
+            title: "File uploaded",
+            description: `${file.name} uploaded successfully`
+          });
+        }
+      } catch (error) {
+        console.error('File upload error:', error);
+        toast({
+          title: "Error",
+          description: `Failed to upload ${file.name}`,
+          variant: "destructive"
+        });
+      }
+    }
+  };
+
+  const saveAttachmentToDatabase = async (fileName: string, fileUrl: string, fileType?: string) => {
+    try {
+      // Get internal user ID
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('auth_user_id', supabase.auth.getUser()?.data?.user?.id)
+        .single();
+
+      if (userError) {
+        console.error('User lookup error:', userError);
+        return;
+      }
+
+      const { error } = await supabase
+        .from('case_attachments')
+        .insert({
+          case_id: caseId,
+          file_name: fileName,
+          file_url: fileUrl,
+          file_type: fileType,
+          uploaded_by: userData?.id
+        });
+
+      if (error) {
+        console.error('Attachment save error:', error);
+        throw error;
+      }
+
+      await fetchAttachments();
+    } catch (error) {
+      console.error('Error saving attachment to database:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save attachment details",
+        variant: "destructive"
+      });
+    }
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center min-h-screen">
         <div className="text-lg">Loading case details...</div>
       </div>
     );
@@ -265,197 +339,234 @@ const CitizenCaseDetail = () => {
 
   if (!caseData) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center min-h-screen">
         <div className="text-lg">Case not found</div>
       </div>
     );
   }
 
-  // Check if case is in a state where feedback can be provided
-  const canProvideFeedback = caseData.status === 'closed' || caseData.status === 'resolved';
+  const isCaseClosed = caseData.status === 'closed' || caseData.status === 'resolved';
 
   return (
     <>
       <Helmet>
-        <title>Case {generateCaseNumber(caseData.id, caseData.created_at)} - IQCase</title>
+        <title>Case {generateCaseNumber(caseData.id, caseData.created_at)} - Citizen Portal</title>
       </Helmet>
 
       <div className="container mx-auto py-6 space-y-6">
         <div className="flex items-center space-x-4">
-          <Button 
-            variant="ghost" 
-            size="sm"
-            onClick={() => navigate('/citizen/cases')}
-          >
+          <Button variant="ghost" onClick={() => navigate('/cases')}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Cases
           </Button>
+          <div>
+            <h1 className="text-3xl font-bold">{caseData.title}</h1>
+            <p className="text-sm text-muted-foreground">
+              Case {generateCaseNumber(caseData.id, caseData.created_at)}
+            </p>
+            <div className="flex items-center space-x-2 mt-2">
+              <StatusBadge status={caseData.status} />
+              <PriorityBadge priority={caseData.priority} />
+            </div>
+          </div>
         </div>
+
+        {isCaseClosed && (
+          <Card className="border-2 bg-green-50 border-green-200">
+            <CardContent className="py-4">
+              <div className="flex items-center text-green-800">
+                <CheckCircle className="h-5 w-5 mr-2" />
+                <div>
+                  <span className="font-medium">Your case has been {caseData.status}!</span>
+                  <p className="text-sm text-green-700 mt-1">
+                    We'd love to hear about your experience. Please scroll down to provide feedback.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
             <Card>
               <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="text-xl">{caseData.title}</CardTitle>
-                    <p className="text-sm text-gray-500 mt-1">Case #{generateCaseNumber(caseData.id, caseData.created_at)}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <StatusBadge status={caseData.status} />
-                    <PriorityBadge priority={caseData.priority} />
-                  </div>
-                </div>
+                <CardTitle>Description</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Show feedback prompt for resolved/closed cases */}
-                {canProvideFeedback && (
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <div className="flex items-center text-green-800">
-                      <AlertCircle className="h-5 w-5 mr-2" />
-                      <span className="font-medium">
-                        Your case has been {caseData.status}!
-                      </span>
-                    </div>
-                    <p className="text-green-700 mt-1 text-sm">
-                      We'd love to hear about your experience. Please scroll down to provide feedback.
-                    </p>
-                  </div>
-                )}
-
-                <div>
-                  <h4 className="font-medium mb-2">Description</h4>
-                  <p className="text-gray-700 whitespace-pre-wrap">{caseData.description}</p>
-                </div>
-
+              <CardContent>
+                <p className="whitespace-pre-wrap">{caseData.description || 'No description provided'}</p>
                 {caseData.location && (
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <MapPin className="h-4 w-4" />
-                    {caseData.location}
-                  </div>
-                )}
-
-                {caseData.tags && caseData.tags.length > 0 && (
-                  <div className="flex items-center gap-2">
-                    <Tag className="h-4 w-4 text-gray-500" />
-                    <div className="flex flex-wrap gap-1">
-                      {caseData.tags.map((tag) => (
-                        <Badge key={tag} variant="outline" className="text-xs">
-                          {tag}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {attachments.length > 0 && (
-                  <div>
-                    <h4 className="font-medium mb-3 flex items-center gap-2">
-                      <FileText className="h-4 w-4" />
-                      Attachments ({attachments.length})
-                    </h4>
-                    <div className="space-y-3">
-                      {attachments.map((attachment) => (
-                        <div key={attachment.id} className="flex items-center justify-between bg-gray-50 border border-gray-200 p-4 rounded-lg hover:bg-gray-100 transition-colors">
-                          <div className="flex items-center gap-3">
-                            <div className="text-2xl">
-                              {getFileIcon(attachment.file_type)}
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-gray-900">{attachment.file_name}</p>
-                              <p className="text-xs text-gray-500">
-                                {attachment.file_type && (
-                                  <span className="mr-3">{attachment.file_type}</span>
-                                )}
-                                Uploaded {formatDistanceToNow(new Date(attachment.created_at), { addSuffix: true })}
-                              </p>
-                            </div>
-                          </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => downloadAttachment(attachment.file_url, attachment.file_name, attachment.id)}
-                            disabled={downloading === attachment.id}
-                            className="hover:bg-blue-50 hover:border-blue-200"
-                          >
-                            {downloading === attachment.id ? (
-                              <>
-                                <Clock className="h-4 w-4 mr-1 animate-spin" />
-                                Downloading...
-                              </>
-                            ) : (
-                              <>
-                                <Download className="h-4 w-4 mr-1" />
-                                Download
-                              </>
-                            )}
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
+                  <div className="mt-4 flex items-center text-muted-foreground">
+                    <MapPin className="h-4 w-4 mr-2" />
+                    <span className="text-sm">{caseData.location}</span>
                   </div>
                 )}
               </CardContent>
             </Card>
 
-            <MessageCenter caseId={caseData.id} isInternal={false} />
-            
-            {/* Show Case Feedback section for resolved or closed cases */}
+            {attachments.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Paperclip className="h-5 w-5 mr-2" />
+                    Attachments ({attachments.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {attachments.map((attachment) => (
+                    <div key={attachment.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        {attachment.file_type?.startsWith('image/') ? (
+                          <FileImage className="h-5 w-5 text-blue-500" />
+                        ) : (
+                          <FileText className="h-5 w-5 text-gray-500" />
+                        )}
+                        <div>
+                          <p className="text-sm font-medium">{attachment.file_name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {attachment.file_type}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Uploaded {formatDistanceToNow(new Date(attachment.created_at), { addSuffix: true })}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => downloadAttachment(attachment.file_url, attachment.file_name)}
+                      >
+                        <Download className="h-4 w-4 mr-1" />
+                        Download
+                      </Button>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <MessageSquare className="h-5 w-5 mr-2" />
+                  Case Messages
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-4 max-h-96 overflow-y-auto">
+                  {messages.map((message) => (
+                    <div key={message.id} className="flex space-x-3">
+                      <Avatar className="h-8 w-8">
+                        <AvatarFallback>
+                          {(message.users?.name || message.sender_id).slice(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <div className="text-sm">
+                          <span className="font-medium">
+                            {message.users?.name || message.users?.email || message.sender_id}
+                          </span>
+                          <span className="text-muted-foreground ml-2">
+                            {formatDateTime(message.created_at)}
+                          </span>
+                        </div>
+                        <div className="mt-1 text-sm bg-muted rounded-lg p-3">
+                          {message.message}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {messages.length === 0 && (
+                    <div className="text-center text-muted-foreground py-4">
+                      No messages yet
+                    </div>
+                  )}
+                </div>
+                <div className="border-t pt-4 space-y-2">
+                  <div className="flex gap-2 mb-2">
+                    <Button
+                      onClick={handleFileUpload}
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center gap-2"
+                    >
+                      <Paperclip className="h-4 w-4" />
+                      Attach Files
+                    </Button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      className="hidden"
+                      onChange={handleFileChange}
+                    />
+                  </div>
+                  <Textarea
+                    placeholder="Type your message..."
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    className="mb-2"
+                    rows={3}
+                  />
+                  <Button 
+                    onClick={handleSendMessage} 
+                    size="sm"
+                    disabled={sendingMessage || !newMessage.trim()}
+                    className="w-full"
+                  >
+                    <Send className="h-4 w-4 mr-2" />
+                    {sendingMessage ? 'Sending...' : 'Send Message'}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
             <CaseFeedback 
               caseId={caseData.id} 
               caseTitle={caseData.title}
-              caseStatus={caseData.status}
+              caseStatus={caseData.status} 
               isInternal={false}
             />
           </div>
 
           <div className="space-y-6">
-            {/* Case Notifications for External Users */}
-            <CaseNotifications caseId={caseData.id} />
-
-            {/* Case Updates for External Users */}
             <CaseUpdates caseId={caseData.id} isInternal={false} />
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Case Information</CardTitle>
+                <CardTitle>Case Information</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {caseData.category && (
+                <div className="grid grid-cols-1 gap-4">
+                  {caseData.category && (
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">Category</label>
+                      <div className="mt-1">{caseData.category.name}</div>
+                    </div>
+                  )}
                   <div>
-                    <p className="text-sm font-medium text-gray-500">Category</p>
-                    <p className="text-sm">{caseData.category.name}</p>
+                    <label className="text-sm font-medium text-muted-foreground">Submitted By</label>
+                    <div className="mt-1">{caseData.submitted_by_user?.name || caseData.submitted_by_user?.email || 'You'}</div>
                   </div>
-                )}
-
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Submitted By</p>
-                  <p className="text-sm">{caseData.submitted_by_user?.name || 'Unknown'}</p>
-                </div>
-
-                {caseData.assigned_to_user && (
                   <div>
-                    <p className="text-sm font-medium text-gray-500">Assigned To</p>
-                    <p className="text-sm">{caseData.assigned_to_user.name}</p>
+                    <label className="text-sm font-medium text-muted-foreground">Assigned To</label>
+                    <div className="mt-1">{caseData.assigned_to_user?.name || 'Unassigned'}</div>
                   </div>
-                )}
-
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Created</p>
-                  <p className="text-sm">{formatDistanceToNow(new Date(caseData.created_at), { addSuffix: true })}</p>
-                </div>
-
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Last Updated</p>
-                  <p className="text-sm">{formatDistanceToNow(new Date(caseData.updated_at), { addSuffix: true })}</p>
-                </div>
-
-                {caseData.sla_due_at && (
                   <div>
-                    <p className="text-sm font-medium text-gray-500">SLA Due</p>
-                    <SLABadge sla_due_at={caseData.sla_due_at} status={caseData.status} />
+                    <label className="text-sm font-medium text-muted-foreground">Created</label>
+                    <div className="mt-1">{formatDate(caseData.created_at)}</div>
                   </div>
-                )}
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Last Updated</label>
+                    <div className="mt-1">{formatDate(caseData.updated_at)}</div>
+                  </div>
+                  {caseData.sla_due_at && (
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">SLA Due</label>
+                      <div className="mt-1">{formatDateTime(caseData.sla_due_at)}</div>
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </div>
