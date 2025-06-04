@@ -786,6 +786,351 @@ export type Database = {
           },
         ]
       }
+      data_sources: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          fields: Json
+          id: string
+          is_active: boolean | null
+          name: string
+          relationships: Json | null
+          table_name: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          fields?: Json
+          id?: string
+          is_active?: boolean | null
+          name: string
+          relationships?: Json | null
+          table_name: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          fields?: Json
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          relationships?: Json | null
+          table_name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      insight_dashboards: {
+        Row: {
+          created_at: string | null
+          created_by: string
+          description: string | null
+          filters: Json | null
+          id: string
+          is_public: boolean | null
+          layout_config: Json
+          name: string
+          refresh_interval: number | null
+          tags: string[] | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by: string
+          description?: string | null
+          filters?: Json | null
+          id?: string
+          is_public?: boolean | null
+          layout_config?: Json
+          name: string
+          refresh_interval?: number | null
+          tags?: string[] | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string
+          description?: string | null
+          filters?: Json | null
+          id?: string
+          is_public?: boolean | null
+          layout_config?: Json
+          name?: string
+          refresh_interval?: number | null
+          tags?: string[] | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      insight_executions: {
+        Row: {
+          cached_result: Json | null
+          created_at: string | null
+          executed_by: string | null
+          execution_time_ms: number | null
+          filters_applied: Json | null
+          id: string
+          report_id: string | null
+          result_count: number | null
+        }
+        Insert: {
+          cached_result?: Json | null
+          created_at?: string | null
+          executed_by?: string | null
+          execution_time_ms?: number | null
+          filters_applied?: Json | null
+          id?: string
+          report_id?: string | null
+          result_count?: number | null
+        }
+        Update: {
+          cached_result?: Json | null
+          created_at?: string | null
+          executed_by?: string | null
+          execution_time_ms?: number | null
+          filters_applied?: Json | null
+          id?: string
+          report_id?: string | null
+          result_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insight_executions_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "insight_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      insight_reports: {
+        Row: {
+          aggregations: Json | null
+          alert_config: Json | null
+          calculated_fields: Json | null
+          chart_config: Json | null
+          created_at: string | null
+          created_by: string
+          data_source_id: string | null
+          description: string | null
+          filters: Json | null
+          group_by: Json | null
+          id: string
+          is_public: boolean | null
+          is_template: boolean | null
+          name: string
+          schedule_config: Json | null
+          selected_fields: Json
+          tags: string[] | null
+          updated_at: string | null
+        }
+        Insert: {
+          aggregations?: Json | null
+          alert_config?: Json | null
+          calculated_fields?: Json | null
+          chart_config?: Json | null
+          created_at?: string | null
+          created_by: string
+          data_source_id?: string | null
+          description?: string | null
+          filters?: Json | null
+          group_by?: Json | null
+          id?: string
+          is_public?: boolean | null
+          is_template?: boolean | null
+          name: string
+          schedule_config?: Json | null
+          selected_fields?: Json
+          tags?: string[] | null
+          updated_at?: string | null
+        }
+        Update: {
+          aggregations?: Json | null
+          alert_config?: Json | null
+          calculated_fields?: Json | null
+          chart_config?: Json | null
+          created_at?: string | null
+          created_by?: string
+          data_source_id?: string | null
+          description?: string | null
+          filters?: Json | null
+          group_by?: Json | null
+          id?: string
+          is_public?: boolean | null
+          is_template?: boolean | null
+          name?: string
+          schedule_config?: Json | null
+          selected_fields?: Json
+          tags?: string[] | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insight_reports_data_source_id_fkey"
+            columns: ["data_source_id"]
+            isOneToOne: false
+            referencedRelation: "data_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      insight_schedules: {
+        Row: {
+          created_at: string | null
+          created_by: string
+          dashboard_id: string | null
+          id: string
+          is_active: boolean | null
+          last_run: string | null
+          next_run: string | null
+          recipients: Json
+          report_id: string | null
+          schedule_config: Json
+          schedule_type: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by: string
+          dashboard_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_run?: string | null
+          next_run?: string | null
+          recipients: Json
+          report_id?: string | null
+          schedule_config: Json
+          schedule_type: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string
+          dashboard_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_run?: string | null
+          next_run?: string | null
+          recipients?: Json
+          report_id?: string | null
+          schedule_config?: Json
+          schedule_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insight_schedules_dashboard_id_fkey"
+            columns: ["dashboard_id"]
+            isOneToOne: false
+            referencedRelation: "insight_dashboards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insight_schedules_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "insight_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      insight_shares: {
+        Row: {
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          resource_id: string
+          resource_type: string
+          share_token: string | null
+          share_type: string
+          share_with_role: string | null
+          share_with_user: string | null
+          shared_by: string
+        }
+        Insert: {
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          resource_id: string
+          resource_type: string
+          share_token?: string | null
+          share_type?: string
+          share_with_role?: string | null
+          share_with_user?: string | null
+          shared_by: string
+        }
+        Update: {
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          resource_id?: string
+          resource_type?: string
+          share_token?: string | null
+          share_type?: string
+          share_with_role?: string | null
+          share_with_user?: string | null
+          shared_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insight_shares_share_with_role_fkey"
+            columns: ["share_with_role"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      insight_widgets: {
+        Row: {
+          config: Json
+          created_at: string | null
+          dashboard_id: string | null
+          id: string
+          position: Json
+          report_id: string | null
+          title: string
+          updated_at: string | null
+          widget_type: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string | null
+          dashboard_id?: string | null
+          id?: string
+          position?: Json
+          report_id?: string | null
+          title: string
+          updated_at?: string | null
+          widget_type: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string | null
+          dashboard_id?: string | null
+          id?: string
+          position?: Json
+          report_id?: string | null
+          title?: string
+          updated_at?: string | null
+          widget_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insight_widgets_dashboard_id_fkey"
+            columns: ["dashboard_id"]
+            isOneToOne: false
+            referencedRelation: "insight_dashboards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insight_widgets_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "insight_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       locations: {
         Row: {
           address: string | null
@@ -1284,6 +1629,17 @@ export type Database = {
         Args: { role_name: string; role_description: string }
         Returns: string
       }
+      execute_insight_query: {
+        Args: {
+          data_source_name: string
+          selected_fields: Json
+          filters?: Json
+          group_by_fields?: Json
+          aggregations?: Json
+          limit_count?: number
+        }
+        Returns: Json
+      }
       execute_query: {
         Args: { query_text: string }
         Returns: Json
@@ -1295,6 +1651,10 @@ export type Database = {
           schema: string
           fields: string[]
         }[]
+      }
+      populate_data_sources: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
     }
     Enums: {

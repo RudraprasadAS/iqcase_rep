@@ -1,102 +1,92 @@
-
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import React from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
-import Index from "./pages/Index";
-import NotFound from "./pages/NotFound";
-import Login from "./pages/auth/Login";
-import Register from "./pages/auth/Register";
-import ForgotPassword from "./pages/auth/ForgotPassword";
-import ResetPassword from "./pages/auth/ResetPassword";
-import Dashboard from "./pages/Dashboard";
-import Layout from "./components/layout/Layout";
-import CitizenLayout from "./components/layout/CitizenLayout";
-import AuthLayout from "./components/layout/AuthLayout";
-import RequireAuth from "./components/auth/RequireAuth";
-import Permissions from "./pages/admin/Permissions";
-import Users from "./pages/admin/Users";
-import Reports from "./pages/Reports";
-import StandardReports from "./pages/StandardReports";
-import ReportBuilder from "./pages/ReportBuilder";
-import TableReportBuilder from './pages/TableReportBuilder';
-import Cases from './pages/Cases';
-import CaseDetail from './pages/CaseDetail';
-import NewCase from './pages/NewCase';
-import KnowledgeBase from './pages/KnowledgeBase';
-import CitizenDashboard from './pages/citizen/CitizenDashboard';
-import CitizenCases from './pages/citizen/CitizenCases';
-import CitizenCaseDetail from './pages/citizen/CitizenCaseDetail';
-import NewCitizenCase from './pages/citizen/NewCase';
-import CitizenKnowledgeBase from './pages/citizen/CitizenKnowledgeBase';
-import Notifications from './pages/Notifications';
-import Roles from './pages/admin/Roles';
+import { QueryClient } from '@tanstack/react-query';
+import { Toaster } from 'react-hot-toast';
 
-const queryClient = new QueryClient();
-const helmetContext = {};
+// Auth Layout
+import AuthLayout from '@/layouts/AuthLayout';
+import Login from '@/pages/auth/Login';
+import Register from '@/pages/auth/Register';
+import ForgotPassword from '@/pages/auth/ForgotPassword';
+import ResetPassword from '@/pages/auth/ResetPassword';
+
+// Main Layout
+import Layout from '@/layouts/Layout';
+import RequireAuth from '@/components/auth/RequireAuth';
+import NotFound from '@/pages/NotFound';
+import Index from '@/pages/Index';
+import Dashboard from '@/pages/Dashboard';
+import Cases from '@/pages/Cases';
+import CaseDetail from '@/pages/CaseDetail';
+import Reports from '@/pages/Reports';
+import TableReportBuilder from '@/pages/TableReportBuilder';
+import StandardReports from '@/pages/StandardReports';
+import KnowledgeBase from '@/pages/KnowledgeBase';
+import Notifications from '@/pages/Notifications';
+import Users from '@/pages/admin/Users';
+import Roles from '@/pages/admin/Roles';
+import Permissions from '@/pages/admin/Permissions';
+import NewCase from '@/pages/NewCase';
+
+// Citizen Portal
+import CitizenLayout from '@/layouts/CitizenLayout';
+import CitizenDashboard from '@/pages/citizen/CitizenDashboard';
+import CitizenCases from '@/pages/citizen/CitizenCases';
+import CitizenCaseDetail from '@/pages/citizen/CitizenCaseDetail';
+import CitizenKnowledgeBase from '@/pages/citizen/CitizenKnowledgeBase';
+import Insights from '@/pages/Insights';
+import { ReportBuilder } from '@/components/insights/ReportBuilder';
 
 function App() {
   return (
-    <HelmetProvider context={helmetContext}>
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
+    <QueryClient>
+      <HelmetProvider>
+        <BrowserRouter>
           <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              {/* Public routes */}
-              <Route path="/" element={<Index />} />
-              
-              {/* Auth routes */}
-              <Route element={<AuthLayout />}>
-                <Route path="/auth/login" element={<Login />} />
-                <Route path="/auth/register" element={<Register />} />
-                <Route path="/auth/forgot-password" element={<ForgotPassword />} />
-                <Route path="/auth/reset-password" element={<ResetPassword />} />
-              </Route>
-              
-              {/* Protected internal routes */}
-              <Route element={<RequireAuth />}>
-                <Route element={<Layout />}>
-                  <Route path="/dashboard" element={<Dashboard />} />
-                  <Route path="/cases" element={<Cases />} />
-                  <Route path="/cases/:id" element={<CaseDetail />} />
-                  <Route path="/cases/new" element={<NewCase />} />
-                  <Route path="/knowledge" element={<KnowledgeBase />} />
-                  <Route path="/notifications" element={<Notifications />} />
-                  
-                  {/* Reports */}
-                  <Route path="/reports" element={<Reports />} />
-                  <Route path="/reports/standard" element={<StandardReports />} />
-                  <Route path="/reports/builder" element={<ReportBuilder />} />
-                  <Route path="/reports/table-builder" element={<TableReportBuilder />} />
-                  
-                  {/* Admin */}
-                  <Route path="/admin/users" element={<Users />} />
-                  <Route path="/admin/permissions" element={<Permissions />} />
-                  <Route path="/admin/roles" element={<Roles />} />
-                </Route>
+          <Routes>
+            <Route path="/auth/login" element={<AuthLayout><Login /></AuthLayout>} />
+            <Route path="/auth/register" element={<AuthLayout><Register /></AuthLayout>} />
+            <Route path="/auth/forgot-password" element={<AuthLayout><ForgotPassword /></AuthLayout>} />
+            <Route path="/auth/reset-password" element={<AuthLayout><ResetPassword /></AuthLayout>} />
+            
+            {/* Citizen Portal Routes */}
+            <Route path="/citizen" element={<CitizenLayout />}>
+              <Route index element={<CitizenDashboard />} />
+              <Route path="cases" element={<CitizenCases />} />
+              <Route path="cases/new" element={<NewCase />} />
+              <Route path="cases/:id" element={<CitizenCaseDetail />} />
+              <Route path="knowledge" element={<CitizenKnowledgeBase />} />
+            </Route>
+            
+            {/* Protected Admin Routes */}
+            <Route element={<RequireAuth />}>
+              <Route path="/" element={<Layout />}>
+                <Route index element={<Index />} />
+                <Route path="dashboard" element={<Dashboard />} />
+                <Route path="cases" element={<Cases />} />
+                <Route path="cases/new" element={<NewCase />} />
+                <Route path="cases/:id" element={<CaseDetail />} />
+                <Route path="reports" element={<Reports />} />
+                <Route path="insights" element={<Insights />} />
+                <Route path="report-builder" element={<ReportBuilder />} />
+                <Route path="table-report-builder" element={<TableReportBuilder />} />
+                <Route path="standard-reports" element={<StandardReports />} />
+                <Route path="knowledge" element={<KnowledgeBase />} />
+                <Route path="notifications" element={<Notifications />} />
                 
-                {/* Citizen Portal Routes */}
-                <Route element={<CitizenLayout />}>
-                  <Route path="/citizen/dashboard" element={<CitizenDashboard />} />
-                  <Route path="/citizen/cases" element={<CitizenCases />} />
-                  <Route path="/citizen/cases/:id" element={<CitizenCaseDetail />} />
-                  <Route path="/citizen/cases/new" element={<NewCitizenCase />} />
-                  <Route path="/citizen/knowledge" element={<CitizenKnowledgeBase />} />
-                  <Route path="/citizen/notifications" element={<Notifications />} />
-                </Route>
+                {/* Admin Routes */}
+                <Route path="admin/users" element={<Users />} />
+                <Route path="admin/roles" element={<Roles />} />
+                <Route path="admin/permissions" element={<Permissions />} />
               </Route>
-              
-              {/* Catch-all route */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
-      </QueryClientProvider>
-    </HelmetProvider>
+            </Route>
+            
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </HelmetProvider>
+    </QueryClient>
   );
 }
 
