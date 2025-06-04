@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
@@ -22,6 +21,7 @@ import CaseWatchers from '@/components/cases/CaseWatchers';
 import CaseTasks from '@/components/cases/CaseTasks';
 import CaseFeedback from '@/components/cases/CaseFeedback';
 import InternalNotes from '@/components/cases/InternalNotes';
+import CaseNotes from '@/components/cases/CaseNotes';
 import { formatDistanceToNow } from 'date-fns';
 import { logMessageAdded } from '@/utils/activityLogger';
 
@@ -650,6 +650,8 @@ ${conversationContext}
             <RelatedCases caseId={caseData.id} />
 
             <CaseTasks caseId={caseData.id} />
+
+            <CaseNotes caseId={caseData.id} />
           </div>
 
           <div className="space-y-6">
