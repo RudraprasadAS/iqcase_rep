@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
@@ -7,13 +6,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { CheckCircle, ArrowLeft, MessageSquare, MapPin, FileText, FileImage, Send, Download, Paperclip } from 'lucide-react';
+import { CheckCircle, ArrowLeft, MessageSquare, MapPin, FileText, FileImage, Send, Download, Paperclip, FileDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import StatusBadge from '@/components/cases/StatusBadge';
 import PriorityBadge from '@/components/cases/PriorityBadge';
 import CaseFeedback from '@/components/cases/CaseFeedback';
 import CaseUpdates from '@/components/cases/CaseUpdates';
 import { formatDistanceToNow } from 'date-fns';
+import { useCaseExport } from '@/hooks/useCaseExport';
 
 interface CaseData {
   id: string;
@@ -56,6 +56,7 @@ const CitizenCaseDetail = () => {
   const { id: caseId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { exportCaseToPDF, isExporting } = useCaseExport();
   const [caseData, setCaseData] = useState<CaseData | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -350,6 +351,12 @@ const CitizenCaseDetail = () => {
     }
   };
 
+  const handleExportPDF = () => {
+    if (caseId) {
+      exportCaseToPDF(caseId);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -375,21 +382,32 @@ const CitizenCaseDetail = () => {
       </Helmet>
 
       <div className="container mx-auto py-6 space-y-6">
-        <div className="flex items-center space-x-4">
-          <Button variant="ghost" onClick={() => navigate('/cases')}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Cases
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold">{caseData.title}</h1>
-            <p className="text-sm text-muted-foreground">
-              Case {generateCaseNumber(caseData.id, caseData.created_at)}
-            </p>
-            <div className="flex items-center space-x-2 mt-2">
-              <StatusBadge status={caseData.status} />
-              <PriorityBadge priority={caseData.priority} />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <Button variant="ghost" onClick={() => navigate('/cases')}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Cases
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold">{caseData.title}</h1>
+              <p className="text-sm text-muted-foreground">
+                Case {generateCaseNumber(caseData.id, caseData.created_at)}
+              </p>
+              <div className="flex items-center space-x-2 mt-2">
+                <StatusBadge status={caseData.status} />
+                <PriorityBadge priority={caseData.priority} />
+              </div>
             </div>
           </div>
+          <Button 
+            variant="outline" 
+            onClick={handleExportPDF}
+            disabled={isExporting}
+            className="flex items-center gap-2"
+          >
+            <FileDown className="h-4 w-4" />
+            {isExporting ? 'Generating...' : 'Download Case Report'}
+          </Button>
         </div>
 
         {isCaseClosed && (

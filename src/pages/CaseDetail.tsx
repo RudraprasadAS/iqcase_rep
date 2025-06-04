@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
@@ -9,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Edit, MessageSquare, Clock, FileText, AlertTriangle, Sparkles, Send, Download, Paperclip, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Edit, MessageSquare, Clock, FileText, AlertTriangle, Sparkles, Send, Download, Paperclip, RefreshCw, FileDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import SLABadge from '@/components/cases/SLABadge';
 import StatusBadge from '@/components/cases/StatusBadge';
@@ -26,6 +25,7 @@ import CaseNotes from '@/components/cases/CaseNotes';
 import CaseUpdates from '@/components/cases/CaseUpdates';
 import { formatDistanceToNow } from 'date-fns';
 import { logMessageAdded } from '@/utils/activityLogger';
+import { useCaseExport } from '@/hooks/useCaseExport';
 
 interface CaseData {
   id: string;
@@ -81,6 +81,7 @@ const CaseDetail = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
+  const { exportCaseToPDF, isExporting } = useCaseExport();
   const [caseData, setCaseData] = useState<CaseData | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -438,6 +439,12 @@ ${conversationContext}
     });
   };
 
+  const handleExportPDF = () => {
+    if (caseId) {
+      exportCaseToPDF(caseId);
+    }
+  };
+
   const generateCaseNumber = (id: string, createdAt: string) => {
     const year = new Date(createdAt).getFullYear();
     const shortId = id.slice(-6).toUpperCase();
@@ -547,6 +554,15 @@ ${conversationContext}
             </div>
           </div>
           <div className="flex space-x-2">
+            <Button 
+              variant="outline" 
+              onClick={handleExportPDF}
+              disabled={isExporting}
+              className="flex items-center gap-2"
+            >
+              <FileDown className="h-4 w-4" />
+              {isExporting ? 'Generating...' : 'Download PDF Report'}
+            </Button>
             <Button variant="outline" onClick={handleManualRefresh} className="flex items-center gap-2">
               <RefreshCw className="h-4 w-4" />
               Refresh
