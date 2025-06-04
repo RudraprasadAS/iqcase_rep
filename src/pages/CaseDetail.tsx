@@ -70,7 +70,7 @@ interface Activity {
   travel_minutes?: number;
   performed_by: string;
   created_at: string;
-  performed_by_user?: { name: string; email: string };
+  users?: { name: string; email: string };
 }
 
 const CaseDetail = () => {
@@ -209,7 +209,7 @@ const CaseDetail = () => {
         .from('case_activities')
         .select(`
           *,
-          performed_by_user:users!case_activities_performed_by_fkey(name, email)
+          users!case_activities_performed_by_fkey(name, email)
         `)
         .eq('case_id', caseId)
         .order('created_at', { ascending: false });
@@ -689,7 +689,7 @@ ${conversationContext}
                             <div className="text-sm text-muted-foreground">{activity.description}</div>
                           )}
                           <div className="text-xs text-muted-foreground mt-1">
-                            {formatDateTime(activity.created_at)} by {activity.performed_by_user?.name || activity.performed_by_user?.email || activity.performed_by}
+                            {formatDateTime(activity.created_at)} by {activity.users?.name || activity.users?.email || activity.performed_by}
                             {activity.duration_minutes && (
                               <span className="ml-2">({activity.duration_minutes} min)</span>
                             )}
