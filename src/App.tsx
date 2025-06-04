@@ -66,8 +66,8 @@ function App() {
                 <Route path="/citizen/knowledge" element={<CitizenKnowledgeBase />} />
               </Route>
 
-              {/* Protected admin routes */}
-              <Route path="/*" element={<RequireAuth />}>
+              {/* Protected admin routes - Fixed structure */}
+              <Route element={<RequireAuth />}>
                 <Route element={<Layout />}>
                   <Route path="/" element={<Index />} />
                   <Route path="/dashboard" element={<Dashboard />} />
