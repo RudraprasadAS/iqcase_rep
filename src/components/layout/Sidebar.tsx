@@ -1,96 +1,135 @@
-import {
-  Home,
-  FileText,
-  BarChart3,
-  TrendingUp,
+
+import { useState } from 'react';
+import { NavLink } from 'react-router-dom';
+import { cn } from '@/lib/utils';
+import { 
+  LayoutDashboard, 
+  FileText, 
+  Users, 
+  BarChart3, 
+  Settings, 
   BookOpen,
   Bell,
-  Users,
-  Shield,
-  Lock,
+  ChevronDown,
+  Shield
 } from 'lucide-react';
-import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
-import { useAuth } from '@/hooks/useAuth';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
-export const Sidebar = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { user, logout } = useAuth();
+const Sidebar = () => {
+  const [isReportsOpen, setIsReportsOpen] = useState(false);
+  const [isAdminOpen, setIsAdminOpen] = useState(false);
 
-  const menuItems = [
-    { icon: Home, label: 'Dashboard', path: '/dashboard' },
-    { icon: FileText, label: 'Cases', path: '/cases' },
-    { icon: BarChart3, label: 'Reports', path: '/reports' },
-    { icon: TrendingUp, label: 'Insights', path: '/insights' },
-    { icon: BookOpen, label: 'Knowledge Base', path: '/knowledge' },
-    { icon: Bell, label: 'Notifications', path: '/notifications' },
+  const navigation = [
+    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+    { name: 'Cases', href: '/cases', icon: FileText },
+    { name: 'Knowledge Base', href: '/knowledge', icon: BookOpen },
+    { name: 'Notifications', href: '/notifications', icon: Bell },
   ];
 
-  const adminItems = [
-    { icon: Users, label: 'Users', path: '/admin/users' },
-    { icon: Shield, label: 'Roles', path: '/admin/roles' },
-    { icon: Lock, label: 'Permissions', path: '/admin/permissions' },
+  const reportNavigation = [
+    { name: 'Standard Reports', href: '/reports/standard' },
+    { name: 'Report Builder', href: '/reports/builder' },
+    { name: 'Table Builder', href: '/reports/table-builder' },
   ];
 
-  const isActive = (path: string) => {
-    return location.pathname.startsWith(path);
-  };
-
-  // Helper to check if user is admin (assuming admin role has specific ID)
-  const isAdmin = user && user.email?.includes('admin'); // Temporary check
+  const adminNavigation = [
+    { name: 'Users', href: '/admin/users' },
+    { name: 'Permissions', href: '/admin/permissions' },
+  ];
 
   return (
-    <div className="flex flex-col h-full bg-gray-100 border-r py-4 w-60">
-      <div className="px-4 mb-4">
-        <Button variant="ghost" className="w-full justify-start font-normal" onClick={() => navigate('/')}>
-          <Home className="mr-2 h-4 w-4" />
-          Go to Homepage
-        </Button>
-      </div>
-      <Separator />
-      <div className="flex-grow p-4">
-        <ul className="space-y-2">
-          {menuItems.map((item) => (
-            <li key={item.label}>
-              <Button
-                variant="ghost"
-                className={`w-full justify-start font-normal ${isActive(item.path) ? 'text-blue-600' : ''}`}
-                onClick={() => navigate(item.path)}
-              >
-                <item.icon className="mr-2 h-4 w-4" />
-                {item.label}
-              </Button>
-            </li>
+    <div className="flex flex-col w-64 bg-gray-50 border-r border-gray-200 h-full">
+      <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
+        <nav className="mt-5 flex-1 px-2 bg-gray-50 space-y-1">
+          {navigation.map((item) => (
+            <NavLink
+              key={item.name}
+              to={item.href}
+              className={({ isActive }) =>
+                cn(
+                  'group flex items-center px-2 py-2 text-sm font-medium rounded-md',
+                  isActive
+                    ? 'bg-blue-100 text-blue-900'
+                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                )
+              }
+            >
+              <item.icon
+                className="mr-3 flex-shrink-0 h-6 w-6"
+                aria-hidden="true"
+              />
+              {item.name}
+            </NavLink>
           ))}
-        </ul>
-        {isAdmin && (
-          <>
-            <Separator className="my-4" />
-            <ul className="space-y-2">
-              {adminItems.map((item) => (
-                <li key={item.label}>
-                  <Button
-                    variant="ghost"
-                    className={`w-full justify-start font-normal ${isActive(item.path) ? 'text-blue-600' : ''}`}
-                    onClick={() => navigate(item.path)}
-                  >
-                    <item.icon className="mr-2 h-4 w-4" />
-                    {item.label}
-                  </Button>
-                </li>
+
+          {/* Reports Section */}
+          <Collapsible open={isReportsOpen} onOpenChange={setIsReportsOpen}>
+            <CollapsibleTrigger asChild>
+              <Button 
+                variant="ghost" 
+                className="w-full justify-start px-2 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+              >
+                <BarChart3 className="mr-3 h-6 w-6" />
+                Reports
+                <ChevronDown className={cn("ml-auto h-4 w-4 transition-transform", isReportsOpen && "rotate-180")} />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="ml-6 space-y-1">
+              {reportNavigation.map((item) => (
+                <NavLink
+                  key={item.name}
+                  to={item.href}
+                  className={({ isActive }) =>
+                    cn(
+                      'block px-2 py-2 text-sm font-medium rounded-md',
+                      isActive
+                        ? 'bg-blue-100 text-blue-900'
+                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                    )
+                  }
+                >
+                  {item.name}
+                </NavLink>
               ))}
-            </ul>
-          </>
-        )}
-      </div>
-      <Separator />
-      <div className="p-4">
-        <Button variant="outline" className="w-full" onClick={() => logout()}>
-          Logout
-        </Button>
+            </CollapsibleContent>
+          </Collapsible>
+
+          {/* Admin Section */}
+          <Collapsible open={isAdminOpen} onOpenChange={setIsAdminOpen}>
+            <CollapsibleTrigger asChild>
+              <Button 
+                variant="ghost" 
+                className="w-full justify-start px-2 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+              >
+                <Shield className="mr-3 h-6 w-6" />
+                Admin
+                <ChevronDown className={cn("ml-auto h-4 w-4 transition-transform", isAdminOpen && "rotate-180")} />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="ml-6 space-y-1">
+              {adminNavigation.map((item) => (
+                <NavLink
+                  key={item.name}
+                  to={item.href}
+                  className={({ isActive }) =>
+                    cn(
+                      'block px-2 py-2 text-sm font-medium rounded-md',
+                      isActive
+                        ? 'bg-blue-100 text-blue-900'
+                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                    )
+                  }
+                >
+                  {item.name}
+                </NavLink>
+              ))}
+            </CollapsibleContent>
+          </Collapsible>
+        </nav>
       </div>
     </div>
   );
 };
+
+export default Sidebar;
