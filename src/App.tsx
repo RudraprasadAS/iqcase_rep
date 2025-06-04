@@ -67,13 +67,7 @@ function App() {
               </Route>
 
               {/* Protected admin routes */}
-              <Route
-                element={
-                  <RequireAuth>
-                    <Layout />
-                  </RequireAuth>
-                }
-              >
+              <Route element={<RequireAuth><Layout /></RequireAuth>}>
                 <Route path="/" element={<Index />} />
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/cases" element={<Cases />} />
