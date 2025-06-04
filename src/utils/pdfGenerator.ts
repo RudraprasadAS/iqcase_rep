@@ -26,15 +26,6 @@ interface Activity {
   users?: { name: string; email: string };
 }
 
-interface Task {
-  id: string;
-  task_name: string;
-  status: string;
-  due_date?: string;
-  created_at: string;
-  assigned_to_user?: { name: string };
-}
-
 interface Feedback {
   id: string;
   rating: number;
@@ -54,11 +45,8 @@ interface CaseNote {
 interface PDFData {
   caseData: CaseData;
   activities: Activity[];
-  tasks?: Task[];
   feedback?: Feedback[];
   caseNotes?: CaseNote[];
-  relatedCases?: any[];
-  watchers?: any[];
 }
 
 export const generateCasePDF = (data: PDFData): void => {
@@ -239,8 +227,8 @@ export const generateCasePDF = (data: PDFData): void => {
   addPriorityBadge(data.caseData.priority, statusWidth);
   yPosition += 15;
 
-  // Case Details section
-  addSectionTitle('Case Details');
+  // Core Case Details section
+  addSectionTitle('Core Case Details');
   addKeyValuePair('Case Number:', `#${caseNumber}`);
   addKeyValuePair('Status:', getStatusConfig(data.caseData.status).label);
   addKeyValuePair('Priority:', getPriorityConfig(data.caseData.priority).label);
@@ -251,63 +239,30 @@ export const generateCasePDF = (data: PDFData): void => {
     addKeyValuePair('Category:', data.caseData.category.name);
   }
 
-  // Participants section
-  addSectionTitle('Participants');
+  // Who submitted and who resolved
   if (data.caseData.submitted_by_user) {
-    addKeyValuePair('Submitted by:', `${data.caseData.submitted_by_user.name || data.caseData.submitted_by_user.email || 'Unknown'} (External)`);
-    
-    if (data.caseData.assigned_to_user) {
-      addKeyValuePair('Assigned to:', `${data.caseData.assigned_to_user.name || 'Unassigned'} (Internal)`);
-    }
+    const submitterRole = data.caseData.submitted_by_user.email?.includes('@') ? 'External' : 'Internal';
+    addKeyValuePair('Submitted by:', `${data.caseData.submitted_by_user.name || data.caseData.submitted_by_user.email} (${submitterRole})`);
+  }
+  
+  if (data.caseData.assigned_to_user) {
+    addKeyValuePair('Assigned to:', `${data.caseData.assigned_to_user.name} (Internal)`);
   }
 
-  // Description section
+  // Description
   addSectionTitle('Description');
   addText(data.caseData.description || 'No description provided', 10, false, colors.primary);
 
-  if (data.caseData.tags && data.caseData.tags.length > 0) {
-    yPosition += 5;
-    addKeyValuePair('Tags:', data.caseData.tags.join(', '));
-  }
-
-  // Case Notes section (only show if notes exist)
-  if (data.caseNotes && data.caseNotes.length > 0) {
-    addSectionTitle('Case Notes');
-    data.caseNotes.forEach(note => {
-      const authorName = note.users?.name || note.users?.email || 'Unknown';
-      const noteType = note.is_internal ? '[INTERNAL]' : '[CASE NOTE]';
-      
-      addText(`${noteType} ${authorName}`, 9, true, note.is_internal ? colors.warning : colors.accent);
-      addText(formatDateTime(note.created_at), 8, false, colors.secondary);
-      addText(note.note, 9, false, colors.primary);
-      yPosition += 5;
-    });
-  }
-
-  // Tasks section (only show if tasks exist)
-  if (data.tasks && data.tasks.length > 0) {
-    addSectionTitle('Tasks');
-    data.tasks.forEach(task => {
-      addText(`• ${task.task_name}`, 9, true, colors.primary);
-      addText(`   Status: ${task.status.toUpperCase()}`, 8, false, colors.secondary);
-      if (task.assigned_to_user) {
-        addText(`   Assigned to: ${task.assigned_to_user.name}`, 8, false, colors.secondary);
-      }
-      if (task.due_date) {
-        addText(`   Due: ${formatDateTime(task.due_date)}`, 8, false, colors.secondary);
-      }
-      yPosition += 3;
-    });
-  }
-
-  // Case Updates section (activities)
+  // Case Updates section
   if (data.activities && data.activities.length > 0) {
     addSectionTitle('Case Updates');
-    data.activities.slice(0, 15).forEach(activity => {
+    data.activities.slice(0, 10).forEach(activity => {
       const actorName = activity.users?.name || activity.users?.email || 'System';
       const activityDate = formatDate(activity.created_at);
       
-      addText(`• ${activity.activity_type.replace(/_/g, ' ').toUpperCase()}`, 9, true, colors.primary);
+      // Activity type with better formatting
+      const activityTypeFormatted = activity.activity_type.replace(/_/g, ' ').toUpperCase();
+      addText(`• ${activityTypeFormatted}`, 9, true, colors.accent);
       addText(`   ${activityDate} by ${actorName}`, 8, false, colors.secondary);
       if (activity.description) {
         addText(`   ${activity.description}`, 8, false, colors.primary);
@@ -316,15 +271,29 @@ export const generateCasePDF = (data: PDFData): void => {
     });
   }
 
-  // Feedback section (only show if feedback exists)
+  // Case Notes section
+  if (data.caseNotes && data.caseNotes.length > 0) {
+    addSectionTitle('Case Notes');
+    data.caseNotes.forEach(note => {
+      const authorName = note.users?.name || note.users?.email || 'Unknown';
+      const noteType = note.is_internal ? '[INTERNAL NOTE]' : '[CASE NOTE]';
+      
+      addText(`${noteType}`, 9, true, note.is_internal ? colors.warning : colors.accent);
+      addText(`${formatDateTime(note.created_at)} by ${authorName}`, 8, false, colors.secondary);
+      addText(note.note, 9, false, colors.primary);
+      yPosition += 5;
+    });
+  }
+
+  // Feedback section
   if (data.feedback && data.feedback.length > 0) {
     addSectionTitle('Customer Feedback');
     data.feedback.forEach(fb => {
       const stars = '★'.repeat(fb.rating) + '☆'.repeat(5 - fb.rating);
       addText(`${stars} ${fb.rating}/5`, 10, true, colors.warning);
-      addText(formatDateTime(fb.submitted_at), 8, false, colors.secondary);
+      addText(`${formatDateTime(fb.submitted_at)}`, 8, false, colors.secondary);
       if (fb.comment) {
-        addText(fb.comment, 9, false, colors.primary);
+        addText(`"${fb.comment}"`, 9, false, colors.primary);
       }
       yPosition += 5;
     });
@@ -339,9 +308,7 @@ export const generateCasePDF = (data: PDFData): void => {
   
   doc.setFontSize(8);
   doc.setTextColor(colors.secondary);
-  doc.text('Privacy Policy', margin, yPosition);
-  doc.text('Terms of Service', margin + 80, yPosition);
-  doc.text(`© ${new Date().getFullYear()} Case Management System. All rights reserved.`, pageWidth - margin - 120, yPosition);
+  doc.text(`© ${new Date().getFullYear()} Case Management System. All rights reserved.`, margin, yPosition);
 
   // Add final footer
   addPageFooter();
