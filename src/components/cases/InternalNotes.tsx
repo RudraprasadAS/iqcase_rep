@@ -1,14 +1,16 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Lock, Send } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { searchUsersByMention, processMentionsAndNotify } from '@/utils/mentionUtils';
 
 interface Note {
   id: string;
@@ -26,6 +28,12 @@ interface InternalNotesProps {
   onActivityUpdate?: () => void;
 }
 
+interface MentionUser {
+  id: string;
+  name: string;
+  email: string;
+}
+
 const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
   const [notes, setNotes] = useState<Note[]>([]);
   const [newNote, setNewNote] = useState('');
@@ -34,6 +42,14 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
   const [internalUserId, setInternalUserId] = useState<string | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  
+  // Mention state
+  const [mentionMode, setMentionMode] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState('');
+  const [mentionUsers, setMentionUsers] = useState<MentionUser[]>([]);
+  const [cursorPosition, setCursorPosition] = useState(0);
+  const [showMentionPopover, setShowMentionPopover] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -46,6 +62,71 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
       fetchNotes();
     }
   }, [caseId, internalUserId]);
+  
+  useEffect(() => {
+    // Set up real-time subscription for new notes
+    if (caseId) {
+      const channel = supabase
+        .channel(`case_notes_${caseId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'case_notes',
+            filter: `case_id=eq.${caseId}`,
+          },
+          (payload) => {
+            // When a new note is added, fetch the user details and add to state
+            fetchNoteWithUser(payload.new.id);
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [caseId]);
+  
+  // Search for users when in mention mode and query changes
+  useEffect(() => {
+    if (mentionMode && mentionQuery) {
+      const fetchMentionUsers = async () => {
+        const users = await searchUsersByMention(mentionQuery);
+        setMentionUsers(users);
+      };
+      fetchMentionUsers();
+    }
+  }, [mentionQuery, mentionMode]);
+
+  const fetchNoteWithUser = async (noteId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('case_notes')
+        .select(`
+          *,
+          users!case_notes_author_id_fkey (
+            name,
+            email
+          )
+        `)
+        .eq('id', noteId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching note details:', error);
+        return;
+      }
+
+      // Check if this note is already in our list to avoid duplicates
+      if (!notes.some(note => note.id === data.id)) {
+        setNotes(prev => [data, ...prev]);
+      }
+    } catch (error) {
+      console.error('Error fetching note with user:', error);
+    }
+  };
 
   const fetchInternalUserId = async () => {
     if (!user) return;
@@ -97,6 +178,104 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
     }
   };
 
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    setNewNote(value);
+    
+    // Get cursor position
+    const selectionStart = e.target.selectionStart;
+    setCursorPosition(selectionStart);
+    
+    // Check if we should activate mention mode
+    if (value[selectionStart - 1] === '@') {
+      setMentionMode(true);
+      setMentionQuery('');
+      setShowMentionPopover(true);
+      return;
+    }
+    
+    // If in mention mode, update query or exit if needed
+    if (mentionMode) {
+      // Find the text from the @ to the cursor
+      const beforeCursor = value.substring(0, selectionStart);
+      const lastAtPos = beforeCursor.lastIndexOf('@');
+      
+      if (lastAtPos >= 0) {
+        const query = beforeCursor.substring(lastAtPos + 1);
+        setMentionQuery(query);
+        
+        // Exit mention mode if space is typed
+        if (query.includes(' ') || query.length === 0) {
+          setMentionMode(false);
+          setShowMentionPopover(false);
+        } else {
+          setShowMentionPopover(true);
+        }
+      } else {
+        setMentionMode(false);
+        setShowMentionPopover(false);
+      }
+    }
+  };
+  
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Handle escape key to exit mention mode
+    if (e.key === 'Escape' && mentionMode) {
+      setMentionMode(false);
+      setShowMentionPopover(false);
+      return;
+    }
+    
+    // Handle arrow keys for navigating mention suggestions
+    if (mentionMode && showMentionPopover && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+      e.preventDefault(); // Prevent cursor movement in textarea
+      // Navigation would be handled by the Popover component
+    }
+    
+    // Handle tab or enter to select a mention
+    if (mentionMode && showMentionPopover && (e.key === 'Tab' || e.key === 'Enter') && mentionUsers.length > 0) {
+      e.preventDefault();
+      selectMention(mentionUsers[0]);
+    }
+  };
+  
+  const selectMention = (user: MentionUser) => {
+    if (!textareaRef.current) return;
+    
+    // Get current text and cursor position
+    const textarea = textareaRef.current;
+    const text = textarea.value;
+    const beforeCursor = text.substring(0, cursorPosition);
+    const afterCursor = text.substring(cursorPosition);
+    
+    // Find the position of the last @ symbol
+    const lastAtPos = beforeCursor.lastIndexOf('@');
+    
+    if (lastAtPos >= 0) {
+      // Replace the @query with @username
+      const newText = 
+        text.substring(0, lastAtPos) + 
+        `@${user.name.split(' ')[0]}` + 
+        afterCursor;
+      
+      setNewNote(newText);
+      
+      // Reset mention state
+      setMentionMode(false);
+      setMentionQuery('');
+      setShowMentionPopover(false);
+      
+      // Focus back on textarea
+      setTimeout(() => {
+        textarea.focus();
+        // Set cursor after the inserted mention
+        const newCursorPos = lastAtPos + user.name.split(' ')[0].length + 1;
+        textarea.setSelectionRange(newCursorPos, newCursorPos);
+        setCursorPosition(newCursorPos);
+      }, 0);
+    }
+  };
+
   const addNote = async () => {
     if (!newNote.trim() || !internalUserId) {
       toast({
@@ -109,11 +288,20 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
 
     setSendingNote(true);
     try {
+      // Process @mentions in the note text
+      const processedNote = await processMentionsAndNotify(
+        newNote.trim(),
+        caseId,
+        'internal_note',
+        'internal_note',
+        internalUserId
+      );
+      
       const { error } = await supabase
         .from('case_notes')
         .insert({
           case_id: caseId,
-          note: newNote.trim(),
+          note: processedNote,
           author_id: internalUserId,
           is_internal: true
         });
@@ -134,7 +322,6 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
         });
 
       setNewNote('');
-      await fetchNotes();
       
       // Call the callback to refresh activities in the parent component
       if (onActivityUpdate) {
@@ -205,13 +392,58 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
         )}
       </div>
       <div className="border-t pt-4 space-y-2">
-        <Textarea
-          placeholder="Add an internal note (staff only)..."
-          value={newNote}
-          onChange={(e) => setNewNote(e.target.value)}
-          className="mb-2 border-orange-200 focus:border-orange-400"
-          rows={3}
-        />
+        <Popover open={showMentionPopover} onOpenChange={setShowMentionPopover}>
+          <PopoverTrigger asChild>
+            <div className="relative">
+              <Textarea
+                ref={textareaRef}
+                placeholder="Add an internal note (staff only)... use @ to mention colleagues"
+                value={newNote}
+                onChange={handleTextareaChange}
+                onKeyDown={handleKeyDown}
+                className="mb-2 border-orange-200 focus:border-orange-400"
+                rows={3}
+              />
+            </div>
+          </PopoverTrigger>
+          {mentionMode && (
+            <PopoverContent 
+              className="w-64 p-0" 
+              align="start"
+              onOpenAutoFocus={e => e.preventDefault()}
+            >
+              {mentionUsers.length > 0 ? (
+                <div className="py-1">
+                  {mentionUsers.map((user) => (
+                    <div
+                      key={user.id}
+                      className="px-2 py-1.5 hover:bg-muted cursor-pointer flex items-center gap-2"
+                      onClick={() => selectMention(user)}
+                    >
+                      <Avatar className="h-6 w-6">
+                        <AvatarFallback className="text-xs">
+                          {user.name.slice(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <div className="text-sm font-medium">{user.name}</div>
+                        <div className="text-xs text-muted-foreground">{user.email}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : mentionQuery ? (
+                <div className="p-2 text-sm text-muted-foreground">
+                  No users found matching "{mentionQuery}"
+                </div>
+              ) : (
+                <div className="p-2 text-sm text-muted-foreground">
+                  Type a name to search
+                </div>
+              )}
+            </PopoverContent>
+          )}
+        </Popover>
         <Button 
           onClick={addNote} 
           size="sm"

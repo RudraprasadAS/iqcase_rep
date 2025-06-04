@@ -12,6 +12,7 @@ interface Notification {
   case_id?: string;
   is_read: boolean;
   created_at: string;
+  metadata?: Record<string, any>;
 }
 
 export const useNotifications = () => {
@@ -189,6 +190,23 @@ export const useNotifications = () => {
     }
   };
 
+  // Navigate to the source of a notification (e.g., case page for mentions)
+  const navigateToNotificationSource = (notification: Notification) => {
+    if (notification.case_id) {
+      // Mark as read first
+      markAsRead(notification.id);
+      
+      // Navigate based on notification type
+      if (notification.notification_type === 'mention') {
+        // For mentions, we might want to scroll to the specific message
+        window.location.href = `/cases/${notification.case_id}?highlight=${notification.metadata?.sourceId || ''}`;
+      } else {
+        // For other types, just go to the case
+        window.location.href = `/cases/${notification.case_id}`;
+      }
+    }
+  };
+
   // Fetch notifications when internal user ID is available
   useEffect(() => {
     if (internalUserId) {
@@ -268,5 +286,6 @@ export const useNotifications = () => {
     markAllAsRead,
     deleteNotification,
     fetchNotifications,
+    navigateToNotificationSource
   };
 };

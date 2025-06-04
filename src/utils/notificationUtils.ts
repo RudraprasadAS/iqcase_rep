@@ -7,6 +7,9 @@ export interface CreateNotificationParams {
   message: string;
   type?: string;
   caseId?: string;
+  sourceId?: string;
+  sourceType?: string;
+  metadata?: Record<string, any>;
 }
 
 export const createTaskAssignmentNotification = async (
@@ -137,6 +140,69 @@ export const createCaseStatusChangeNotification = async (
   }
 };
 
+export const createMentionNotification = async (
+  mentionedUserId: string,
+  mentionerUserId: string,
+  caseId: string,
+  sourceId: string,
+  sourceType: string,
+  contextMessage: string
+) => {
+  try {
+    console.log('🔔 Creating mention notification:', {
+      userId: mentionedUserId,
+      title: 'You were mentioned',
+      type: 'mention',
+      caseId: caseId,
+      sourceId: sourceId,
+      sourceType: sourceType
+    });
+
+    const { data: mentionerData, error: mentionerError } = await supabase
+      .from('users')
+      .select('name')
+      .eq('id', mentionerUserId)
+      .single();
+
+    if (mentionerError) {
+      console.error('🔔 Error fetching mentioner data:', mentionerError);
+      return { success: false, error: mentionerError };
+    }
+
+    const mentionerName = mentionerData?.name || 'A colleague';
+    const message = `${mentionerName} mentioned you in a message: "${contextMessage.substring(0, 100)}${contextMessage.length > 100 ? '...' : ''}"`;
+    
+    const { data, error } = await supabase
+      .from('notifications')
+      .insert({
+        user_id: mentionedUserId,
+        title: 'You were mentioned',
+        message: message,
+        notification_type: 'mention',
+        case_id: caseId,
+        is_read: false,
+        metadata: {
+          sourceId,
+          sourceType,
+          mentionerUserId
+        }
+      })
+      .select('*')
+      .single();
+
+    if (error) {
+      console.error('🔔 Error creating mention notification:', error);
+      return { success: false, error };
+    }
+
+    console.log('🔔 Mention notification created successfully:', data);
+    return { success: true, data };
+  } catch (error) {
+    console.error('🔔 Exception creating mention notification:', error);
+    return { success: false, error };
+  }
+};
+
 export const createNotification = async (params: CreateNotificationParams) => {
   try {
     console.log('🔔 Creating notification:', params);
@@ -150,6 +216,7 @@ export const createNotification = async (params: CreateNotificationParams) => {
         message: params.message,
         notification_type: params.type || 'general',
         case_id: params.caseId || null,
+        metadata: params.metadata || {},
         is_read: false
       })
       .select('*')
