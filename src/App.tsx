@@ -22,6 +22,9 @@ import Notifications from '@/pages/Notifications';
 // Auth Pages
 import Login from '@/pages/auth/Login';
 
+// Insights Pages
+import { ReportBuilder } from '@/components/insights/ReportBuilder';
+
 // Create a client instance
 const queryClient = new QueryClient();
 
@@ -46,6 +49,7 @@ function App() {
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/cases" element={<Cases />} />
                 <Route path="/insights" element={<Insights />} />
+                <Route path="/insights/report-builder" element={<ReportBuilder />} />
                 <Route path="/knowledge" element={<KnowledgeBase />} />
                 <Route path="/notifications" element={<Notifications />} />
               </Route>
