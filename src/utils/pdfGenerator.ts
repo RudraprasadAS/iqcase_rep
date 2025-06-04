@@ -144,17 +144,35 @@ export const generateCasePDF = (data: PDFData): void => {
         doc.line(x + size * 0.4, y - size * 0.2, x + size * 0.7, y - size * 0.7);
         break;
       case 'star':
-        // Star for feedback
+        // Star for feedback - simplified approach using lines
         const cx = x + size/2;
         const cy = y - size/2;
+        const outerRadius = size/3;
+        const innerRadius = size/6;
+        
+        // Draw star using lines connecting the points
+        const points = [];
         for (let i = 0; i < 5; i++) {
-          const angle = (i * 72 - 90) * Math.PI / 180;
-          const px = cx + Math.cos(angle) * size/3;
-          const py = cy + Math.sin(angle) * size/3;
-          if (i === 0) doc.moveTo(px, py);
-          else doc.lineTo(px, py);
+          // Outer point
+          const angle1 = (i * 72 - 90) * Math.PI / 180;
+          points.push({
+            x: cx + Math.cos(angle1) * outerRadius,
+            y: cy + Math.sin(angle1) * outerRadius
+          });
+          
+          // Inner point
+          const angle2 = ((i * 72) + 36 - 90) * Math.PI / 180;
+          points.push({
+            x: cx + Math.cos(angle2) * innerRadius,
+            y: cy + Math.sin(angle2) * innerRadius
+          });
         }
-        doc.closePath();
+        
+        // Draw the star by connecting all points
+        for (let i = 0; i < points.length; i++) {
+          const nextIndex = (i + 1) % points.length;
+          doc.line(points[i].x, points[i].y, points[nextIndex].x, points[nextIndex].y);
+        }
         break;
     }
   };
