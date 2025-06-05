@@ -34,6 +34,7 @@ interface MentionUser {
 }
 
 const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
+  console.log('📦 InternalNotes component mounted');
   const [notes, setNotes] = useState<Note[]>([]);
   const [newNote, setNewNote] = useState('');
   const [loading, setLoading] = useState(true);
