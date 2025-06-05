@@ -31,12 +31,12 @@ export const useCaseExport = () => {
         throw caseError;
       }
 
-      // Fetch case notes
+      // Fetch case notes - fixed the foreign key reference
       const { data: caseNotes, error: notesError } = await supabase
         .from('case_notes')
         .select(`
           *,
-          users!case_notes_created_by_fkey(name, email)
+          users!case_notes_author_id_fkey(name, email)
         `)
         .eq('case_id', caseId)
         .order('created_at', { ascending: false });
