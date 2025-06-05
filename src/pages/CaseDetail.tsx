@@ -224,7 +224,7 @@ const CaseDetail = () => {
     setRefreshingActivities(true);
 
     try {
-      console.log('📋 Fetching activities for case:', caseId);
+      console.log('📋 Fetching ALL activities for case:', caseId);
       const { data, error } = await supabase
         .from('case_activities')
         .select(`
@@ -239,7 +239,8 @@ const CaseDetail = () => {
         throw error;
       }
 
-      console.log('📋 Activities fetched:', data?.length || 0, 'items', data);
+      console.log('📋 ALL Activities fetched:', data?.length || 0, 'items', data);
+      // Don't filter anything - show ALL activities in the Activities tab
       setActivities(data || []);
     } catch (error) {
       console.error('Error fetching activities:', error);
@@ -729,7 +730,7 @@ ${conversationContext}
                   <TabsContent value="activities" className="space-y-4">
                     <div className="space-y-3 max-h-96 overflow-y-auto">
                       <div className="text-xs text-muted-foreground mb-2 flex items-center justify-between">
-                        <span>Activities ({activities.length})</span>
+                        <span>All Activities ({activities.length})</span>
                         <Button 
                           onClick={fetchActivities} 
                           variant="outline" 
