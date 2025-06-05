@@ -50,10 +50,18 @@ const Insights = () => {
         .eq('is_active', true);
 
       if (error) throw error;
-      setDataSources(data || []);
+      
+      // Convert the Json types to proper arrays
+      const convertedData: DataSource[] = (data || []).map(ds => ({
+        ...ds,
+        fields: Array.isArray(ds.fields) ? ds.fields : [],
+        relationships: Array.isArray(ds.relationships) ? ds.relationships : []
+      }));
+      
+      setDataSources(convertedData);
       
       // Default to Cases data source
-      const casesSource = data?.find(ds => ds.name === 'Cases');
+      const casesSource = convertedData.find(ds => ds.name === 'Cases');
       if (casesSource) {
         setSelectedDataSource(casesSource.id);
         fetchInsightData(casesSource.name);
