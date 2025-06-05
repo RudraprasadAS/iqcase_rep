@@ -8,102 +8,75 @@ export const useCaseExport = () => {
   const [isExporting, setIsExporting] = useState(false);
   const { toast } = useToast();
 
-  const exportCaseToPDF = async (caseId: string) => {
+  const exportCaseToPDF = async (caseId: string, isInternal: boolean = false) => {
     setIsExporting(true);
+    
     try {
-      // Fetch complete case data including case notes
-      const [caseResult, messagesResult, attachmentsResult, activitiesResult, tasksResult, feedbackResult, caseNotesResult] = await Promise.all([
-        supabase
-          .from('cases')
-          .select(`
-            *,
-            submitted_by_user:users!cases_submitted_by_fkey(name, email),
-            assigned_to_user:users!cases_assigned_to_fkey(name, email),
-            category:case_categories!cases_category_id_fkey(name)
-          `)
-          .eq('id', caseId)
-          .single(),
-        
-        supabase
-          .from('case_messages')
-          .select(`
-            *,
-            users!case_messages_sender_id_fkey(name, email)
-          `)
-          .eq('case_id', caseId)
-          .order('created_at', { ascending: true }),
-        
-        supabase
-          .from('case_attachments')
-          .select('*')
-          .eq('case_id', caseId)
-          .order('created_at', { ascending: false }),
-        
-        supabase
-          .from('case_activities')
-          .select(`
-            *,
-            users!case_activities_performed_by_fkey(name, email)
-          `)
-          .eq('case_id', caseId)
-          .order('created_at', { ascending: false }),
-        
-        supabase
-          .from('case_tasks')
-          .select(`
-            *,
-            assigned_to_user:users!case_tasks_assigned_to_fkey(name)
-          `)
-          .eq('case_id', caseId)
-          .order('created_at', { ascending: false }),
-        
-        supabase
-          .from('case_feedback')
-          .select(`
-            *,
-            users:submitted_by(name, email)
-          `)
-          .eq('case_id', caseId)
-          .order('submitted_at', { ascending: false }),
+      console.log('🔄 Starting PDF export for case:', caseId);
 
-        // Fetch case notes (both internal and external)
-        supabase
-          .from('case_notes')
-          .select(`
-            *,
-            users!case_notes_author_id_fkey(name, email)
-          `)
-          .eq('case_id', caseId)
-          .order('created_at', { ascending: false })
-      ]);
+      // Fetch case data
+      const { data: caseData, error: caseError } = await supabase
+        .from('cases')
+        .select(`
+          *,
+          submitted_by_user:users!cases_submitted_by_fkey(name, email),
+          assigned_to_user:users!cases_assigned_to_fkey(name, email),
+          category:case_categories!cases_category_id_fkey(name)
+        `)
+        .eq('id', caseId)
+        .single();
 
-      if (caseResult.error) throw caseResult.error;
-      if (messagesResult.error) throw messagesResult.error;
-      if (attachmentsResult.error) throw attachmentsResult.error;
-      if (activitiesResult.error) throw activitiesResult.error;
+      if (caseError) {
+        console.error('Error fetching case data:', caseError);
+        throw caseError;
+      }
 
-      const pdfData = {
-        caseData: caseResult.data,
-        messages: messagesResult.data || [],
-        attachments: attachmentsResult.data || [],
-        activities: activitiesResult.data || [],
-        tasks: tasksResult.data || [],
-        feedback: feedbackResult.data || [],
-        caseNotes: caseNotesResult.data || []
-      };
+      // Fetch case notes
+      const { data: caseNotes, error: notesError } = await supabase
+        .from('case_notes')
+        .select(`
+          *,
+          users!case_notes_created_by_fkey(name, email)
+        `)
+        .eq('case_id', caseId)
+        .order('created_at', { ascending: false });
 
-      generateCasePDF(pdfData);
+      if (notesError) {
+        console.error('Error fetching case notes:', notesError);
+      }
+
+      // Fetch activities
+      const { data: activities, error: activitiesError } = await supabase
+        .from('case_activities')
+        .select(`
+          *,
+          users!case_activities_performed_by_fkey(name, email)
+        `)
+        .eq('case_id', caseId)
+        .order('created_at', { ascending: false });
+
+      if (activitiesError) {
+        console.error('Error fetching activities:', activitiesError);
+      }
+
+      // Generate PDF with filtered content
+      generateCasePDF({
+        caseData,
+        caseNotes: caseNotes || [],
+        activities: activities || [],
+        isInternal
+      });
 
       toast({
-        title: "PDF Generated",
-        description: "Case report has been downloaded successfully"
+        title: "PDF Generated Successfully",
+        description: "Your case report has been downloaded."
       });
 
     } catch (error) {
-      console.error('Error exporting case to PDF:', error);
+      console.error('Error generating PDF:', error);
       toast({
         title: "Export Failed",
-        description: "Failed to generate PDF report",
+        description: "There was an error generating the PDF report.",
         variant: "destructive"
       });
     } finally {

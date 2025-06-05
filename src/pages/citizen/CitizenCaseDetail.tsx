@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
@@ -148,7 +147,8 @@ const CitizenCaseDetail = () => {
 
   const handleExportPDF = () => {
     if (caseId) {
-      exportCaseToPDF(caseId);
+      // Pass false for isInternal since this is citizen portal
+      exportCaseToPDF(caseId, false);
     }
   };
 

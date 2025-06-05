@@ -441,7 +441,8 @@ ${conversationContext}
 
   const handleExportPDF = () => {
     if (caseId) {
-      exportCaseToPDF(caseId);
+      // Pass true for isInternal since this is admin portal
+      exportCaseToPDF(caseId, true);
     }
   };
 

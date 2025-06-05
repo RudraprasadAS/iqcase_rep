@@ -14,24 +14,8 @@ interface CaseData {
   updated_at: string;
   description?: string;
   sla_due_at?: string;
+  location?: string;
   tags?: string[];
-}
-
-interface Activity {
-  id: string;
-  activity_type: string;
-  description?: string;
-  duration_minutes?: number;
-  created_at: string;
-  users?: { name: string; email: string };
-}
-
-interface Feedback {
-  id: string;
-  rating: number;
-  comment: string;
-  submitted_at: string;
-  users?: { name: string; email: string };
 }
 
 interface CaseNote {
@@ -42,11 +26,19 @@ interface CaseNote {
   users?: { name: string; email: string };
 }
 
+interface Activity {
+  id: string;
+  activity_type: string;
+  description?: string;
+  created_at: string;
+  users?: { name: string; email: string };
+}
+
 interface PDFData {
   caseData: CaseData;
-  activities: Activity[];
-  feedback?: Feedback[];
   caseNotes?: CaseNote[];
+  activities?: Activity[];
+  isInternal?: boolean;
 }
 
 export const generateCasePDF = (data: PDFData): void => {
@@ -57,13 +49,11 @@ export const generateCasePDF = (data: PDFData): void => {
   const margin = 20;
   const contentWidth = pageWidth - (margin * 2);
 
-  // Professional color scheme
+  // Color scheme
   const colors = {
     primary: '#1a1a1a',
     secondary: '#666666',
     accent: '#2563eb',
-    lightGray: '#f8f9fa',
-    border: '#e5e7eb',
     success: '#059669',
     warning: '#d97706',
     danger: '#dc2626',
@@ -95,17 +85,17 @@ export const generateCasePDF = (data: PDFData): void => {
     doc.text(title, margin, yPosition);
     yPosition += 8;
     
-    // Add subtle underline
-    doc.setDrawColor(colors.border);
+    // Add underline
+    doc.setDrawColor('#e5e7eb');
     doc.setLineWidth(0.5);
     doc.line(margin, yPosition, pageWidth - margin, yPosition);
     yPosition += 8;
   };
 
-  const addKeyValuePair = (key: string, value: string, keyColor: string = colors.secondary) => {
+  const addKeyValuePair = (key: string, value: string) => {
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(keyColor);
+    doc.setTextColor(colors.secondary);
     
     const keyWidth = 60;
     doc.text(key, margin, yPosition);
@@ -119,83 +109,11 @@ export const generateCasePDF = (data: PDFData): void => {
     yPosition += Math.max(1, valueLines.length) * 6 + 2;
   };
 
-  const addStatusBadge = (status: string) => {
-    const statusConfig = getStatusConfig(status);
-    const statusText = statusConfig.label;
-    const textWidth = doc.getTextWidth(statusText);
-    const badgeWidth = textWidth + 12;
-    const badgeHeight = 8;
-    
-    // Badge background
-    doc.setFillColor(statusConfig.bgColor);
-    doc.roundedRect(margin, yPosition - 6, badgeWidth, badgeHeight, 2, 2, 'F');
-    
-    // Status text
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(statusConfig.textColor);
-    doc.text(statusText, margin + 6, yPosition - 1);
-    
-    return badgeWidth + 15;
-  };
-
-  const addPriorityBadge = (priority: string, xOffset: number = 0) => {
-    const priorityConfig = getPriorityConfig(priority);
-    const priorityText = priorityConfig.label;
-    const textWidth = doc.getTextWidth(priorityText);
-    const badgeWidth = textWidth + 12;
-    const badgeHeight = 8;
-    
-    // Badge background
-    doc.setFillColor(priorityConfig.bgColor);
-    doc.roundedRect(margin + xOffset, yPosition - 6, badgeWidth, badgeHeight, 2, 2, 'F');
-    
-    // Priority text
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(priorityConfig.textColor);
-    doc.text(priorityText, margin + xOffset + 6, yPosition - 1);
-    
-    return badgeWidth;
-  };
-
-  const getStatusConfig = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'open':
-        return { label: 'OPEN', bgColor: '#dbeafe', textColor: '#1e40af' };
-      case 'in_progress':
-        return { label: 'IN PROGRESS', bgColor: '#f3e8ff', textColor: '#7c3aed' };
-      case 'resolved':
-        return { label: 'RESOLVED', bgColor: '#dcfce7', textColor: '#15803d' };
-      case 'closed':
-        return { label: 'CLOSED', bgColor: '#f3f4f6', textColor: '#374151' };
-      case 'pending':
-        return { label: 'PENDING', bgColor: '#fef3c7', textColor: '#d97706' };
-      default:
-        return { label: status.toUpperCase(), bgColor: '#f3f4f6', textColor: '#6b7280' };
-    }
-  };
-
-  const getPriorityConfig = (priority: string) => {
-    switch (priority.toLowerCase()) {
-      case 'low':
-        return { label: 'LOW', bgColor: '#dcfce7', textColor: '#15803d' };
-      case 'medium':
-        return { label: 'MEDIUM', bgColor: '#fef3c7', textColor: '#d97706' };
-      case 'high':
-        return { label: 'HIGH', bgColor: '#fee2e2', textColor: '#dc2626' };
-      case 'critical':
-        return { label: 'CRITICAL', bgColor: '#fee2e2', textColor: '#991b1b' };
-      default:
-        return { label: priority.toUpperCase(), bgColor: '#f3f4f6', textColor: '#6b7280' };
-    }
-  };
-
   const addPageFooter = () => {
     const footerY = pageHeight - 15;
     doc.setFontSize(8);
     doc.setTextColor(colors.secondary);
-    doc.text(`Generated on ${formatDateTime(new Date().toISOString())} from Case Management System`, margin, footerY);
+    doc.text(`Generated on ${formatDateTime(new Date().toISOString())}`, margin, footerY);
     doc.text(`Page ${doc.getCurrentPageInfo().pageNumber}`, pageWidth - margin - 20, footerY);
   };
 
@@ -205,103 +123,136 @@ export const generateCasePDF = (data: PDFData): void => {
     return `${year}-${shortId}`;
   };
 
-  // Header
+  const getStatusDisplay = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'open': return 'OPEN';
+      case 'in_progress': return 'IN PROGRESS';
+      case 'resolved': return 'RESOLVED';
+      case 'closed': return 'CLOSED';
+      case 'pending': return 'PENDING';
+      default: return status.toUpperCase();
+    }
+  };
+
+  const getPriorityDisplay = (priority: string) => {
+    switch (priority.toLowerCase()) {
+      case 'low': return 'LOW';
+      case 'medium': return 'MEDIUM';
+      case 'high': return 'HIGH';
+      case 'critical': return 'CRITICAL';
+      default: return priority.toUpperCase();
+    }
+  };
+
+  // Header with branding
   doc.setFillColor(colors.primary);
   doc.rect(0, 0, pageWidth, 35, 'F');
   
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor('#ffffff');
-  doc.text('Case Management Report', margin, 22);
+  doc.text('Case Report', margin, 22);
 
   yPosition = 50;
 
-  // Case title and number
+  // Case number and title
   const caseNumber = generateCaseNumber(data.caseData.id, data.caseData.created_at);
   addText(`Case #${caseNumber}`, 16, true, colors.primary);
   addText(data.caseData.title, 14, true, colors.primary);
-  
-  // Status and Priority badges
-  yPosition += 8;
-  const statusWidth = addStatusBadge(data.caseData.status);
-  addPriorityBadge(data.caseData.priority, statusWidth);
-  yPosition += 15;
+  yPosition += 10;
 
-  // Core Case Details section
-  addSectionTitle('Core Case Details');
+  // Core Case Details
+  addSectionTitle('Case Information');
   addKeyValuePair('Case Number:', `#${caseNumber}`);
-  addKeyValuePair('Status:', getStatusConfig(data.caseData.status).label);
-  addKeyValuePair('Priority:', getPriorityConfig(data.caseData.priority).label);
+  addKeyValuePair('Status:', getStatusDisplay(data.caseData.status));
+  addKeyValuePair('Priority:', getPriorityDisplay(data.caseData.priority));
   addKeyValuePair('Created:', formatDateTime(data.caseData.created_at));
-  addKeyValuePair('Updated:', formatDateTime(data.caseData.updated_at));
+  addKeyValuePair('Last Updated:', formatDateTime(data.caseData.updated_at));
   
   if (data.caseData.category) {
     addKeyValuePair('Category:', data.caseData.category.name);
   }
 
-  // Who submitted and who resolved
+  if (data.caseData.location) {
+    addKeyValuePair('Location:', data.caseData.location);
+  }
+
   if (data.caseData.submitted_by_user) {
-    const submitterRole = data.caseData.submitted_by_user.email?.includes('@') ? 'External' : 'Internal';
-    addKeyValuePair('Submitted by:', `${data.caseData.submitted_by_user.name || data.caseData.submitted_by_user.email} (${submitterRole})`);
+    addKeyValuePair('Submitted by:', data.caseData.submitted_by_user.name || data.caseData.submitted_by_user.email);
   }
   
-  if (data.caseData.assigned_to_user) {
-    addKeyValuePair('Assigned to:', `${data.caseData.assigned_to_user.name} (Internal)`);
+  if (data.caseData.assigned_to_user && data.isInternal) {
+    addKeyValuePair('Assigned to:', data.caseData.assigned_to_user.name);
+  }
+
+  if (data.caseData.sla_due_at) {
+    addKeyValuePair('SLA Due:', formatDateTime(data.caseData.sla_due_at));
   }
 
   // Description
   addSectionTitle('Description');
   addText(data.caseData.description || 'No description provided', 10, false, colors.primary);
 
-  // Case Updates section
-  if (data.activities && data.activities.length > 0) {
-    addSectionTitle('Case Updates');
-    data.activities.slice(0, 10).forEach(activity => {
-      const actorName = activity.users?.name || activity.users?.email || 'System';
-      const activityDate = formatDate(activity.created_at);
-      
-      // Activity type with better formatting
-      const activityTypeFormatted = activity.activity_type.replace(/_/g, ' ').toUpperCase();
-      addText(`• ${activityTypeFormatted}`, 9, true, colors.accent);
-      addText(`   ${activityDate} by ${actorName}`, 8, false, colors.secondary);
-      if (activity.description) {
-        addText(`   ${activity.description}`, 8, false, colors.primary);
-      }
-      yPosition += 3;
-    });
-  }
-
-  // Case Notes section
+  // Case Notes (only non-internal for external users)
   if (data.caseNotes && data.caseNotes.length > 0) {
-    addSectionTitle('Case Notes');
-    data.caseNotes.forEach(note => {
-      const authorName = note.users?.name || note.users?.email || 'Unknown';
-      const noteType = note.is_internal ? '[INTERNAL NOTE]' : '[CASE NOTE]';
-      
-      addText(`${noteType}`, 9, true, note.is_internal ? colors.warning : colors.accent);
-      addText(`${formatDateTime(note.created_at)} by ${authorName}`, 8, false, colors.secondary);
-      addText(note.note, 9, false, colors.primary);
-      yPosition += 5;
-    });
+    const relevantNotes = data.isInternal 
+      ? data.caseNotes 
+      : data.caseNotes.filter(note => !note.is_internal);
+
+    if (relevantNotes.length > 0) {
+      addSectionTitle('Case Notes');
+      relevantNotes.forEach(note => {
+        const authorName = note.users?.name || note.users?.email || 'Unknown';
+        const noteType = note.is_internal ? '[INTERNAL]' : '[NOTE]';
+        
+        if (data.isInternal || !note.is_internal) {
+          addText(`${noteType} ${formatDateTime(note.created_at)} by ${authorName}`, 9, true, colors.accent);
+          addText(note.note, 9, false, colors.primary);
+          yPosition += 5;
+        }
+      });
+    }
   }
 
-  // Feedback section
-  if (data.feedback && data.feedback.length > 0) {
-    addSectionTitle('Customer Feedback');
-    data.feedback.forEach(fb => {
-      const stars = '★'.repeat(fb.rating) + '☆'.repeat(5 - fb.rating);
-      addText(`${stars} ${fb.rating}/5`, 10, true, colors.warning);
-      addText(`${formatDateTime(fb.submitted_at)}`, 8, false, colors.secondary);
-      if (fb.comment) {
-        addText(`"${fb.comment}"`, 9, false, colors.primary);
-      }
-      yPosition += 5;
-    });
+  // Case Updates (filtered for relevance)
+  if (data.activities && data.activities.length > 0) {
+    // Filter activities to show only relevant ones
+    const allowedActivityTypes = [
+      'case_created',
+      'case_assigned', 
+      'status_changed',
+      'priority_changed'
+    ];
+    
+    // For internal users, show more activity types
+    if (data.isInternal) {
+      allowedActivityTypes.push('case_unassigned', 'attachment_added');
+    }
+    
+    const relevantActivities = data.activities.filter(activity => 
+      allowedActivityTypes.includes(activity.activity_type)
+    );
+
+    if (relevantActivities.length > 0) {
+      addSectionTitle('Case Updates');
+      relevantActivities.slice(0, 10).forEach(activity => {
+        const actorName = activity.users?.name || activity.users?.email || 'System';
+        const activityDate = formatDateTime(activity.created_at);
+        
+        const activityTypeFormatted = activity.activity_type.replace(/_/g, ' ').toUpperCase();
+        addText(`• ${activityTypeFormatted}`, 9, true, colors.accent);
+        addText(`   ${activityDate} by ${actorName}`, 8, false, colors.secondary);
+        if (activity.description) {
+          addText(`   ${activity.description}`, 8, false, colors.primary);
+        }
+        yPosition += 3;
+      });
+    }
   }
 
   // Footer
   yPosition = pageHeight - 30;
-  doc.setDrawColor(colors.border);
+  doc.setDrawColor('#e5e7eb');
   doc.setLineWidth(0.5);
   doc.line(margin, yPosition, pageWidth - margin, yPosition);
   yPosition += 10;
@@ -310,9 +261,12 @@ export const generateCasePDF = (data: PDFData): void => {
   doc.setTextColor(colors.secondary);
   doc.text(`© ${new Date().getFullYear()} Case Management System. All rights reserved.`, margin, yPosition);
 
-  // Add final footer
   addPageFooter();
 
   // Save the PDF
-  doc.save(`Case_Report_${caseNumber}.pdf`);
+  const fileName = data.isInternal 
+    ? `Internal_Case_Report_${caseNumber}.pdf`
+    : `Case_Report_${caseNumber}.pdf`;
+  
+  doc.save(fileName);
 };
