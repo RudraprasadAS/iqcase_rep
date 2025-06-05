@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Download, X } from 'lucide-react';
+import { Download, Maximize2, Minimize2, ZoomIn, ZoomOut } from 'lucide-react';
 
 interface AttachmentViewerProps {
   isOpen: boolean;
@@ -14,6 +14,8 @@ interface AttachmentViewerProps {
 
 const AttachmentViewer = ({ isOpen, onClose, fileName, fileUrl, fileType }: AttachmentViewerProps) => {
   const [loading, setLoading] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [zoom, setZoom] = useState(100);
 
   const downloadAttachment = () => {
     const link = document.createElement('a');
@@ -23,6 +25,22 @@ const AttachmentViewer = ({ isOpen, onClose, fileName, fileUrl, fileType }: Atta
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const toggleFullscreen = () => {
+    setIsFullscreen(!isFullscreen);
+  };
+
+  const zoomIn = () => {
+    setZoom(prev => Math.min(prev + 25, 200));
+  };
+
+  const zoomOut = () => {
+    setZoom(prev => Math.max(prev - 25, 50));
+  };
+
+  const resetZoom = () => {
+    setZoom(100);
   };
 
   const renderContent = () => {
@@ -36,11 +54,16 @@ const AttachmentViewer = ({ isOpen, onClose, fileName, fileUrl, fileType }: Atta
 
     if (fileType.startsWith('image/')) {
       return (
-        <div className="flex justify-center">
+        <div className="flex justify-center overflow-auto">
           <img 
             src={fileUrl} 
             alt={fileName}
-            className="max-w-full max-h-[70vh] object-contain"
+            className="object-contain transition-transform duration-200"
+            style={{ 
+              maxWidth: isFullscreen ? 'none' : '100%', 
+              maxHeight: isFullscreen ? 'none' : '70vh',
+              transform: `scale(${zoom / 100})`
+            }}
             onLoad={() => setLoading(false)}
             onError={() => setLoading(false)}
           />
@@ -52,7 +75,8 @@ const AttachmentViewer = ({ isOpen, onClose, fileName, fileUrl, fileType }: Atta
       return (
         <iframe
           src={fileUrl}
-          className="w-full h-[70vh]"
+          className="w-full border"
+          style={{ height: isFullscreen ? '90vh' : '70vh' }}
           title={fileName}
           onLoad={() => setLoading(false)}
         />
@@ -63,7 +87,8 @@ const AttachmentViewer = ({ isOpen, onClose, fileName, fileUrl, fileType }: Atta
       return (
         <iframe
           src={fileUrl}
-          className="w-full h-[70vh] border"
+          className="w-full border"
+          style={{ height: isFullscreen ? '90vh' : '70vh' }}
           title={fileName}
           onLoad={() => setLoading(false)}
         />
@@ -83,11 +108,50 @@ const AttachmentViewer = ({ isOpen, onClose, fileName, fileUrl, fileType }: Atta
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+      <DialogContent className={`overflow-hidden ${isFullscreen ? 'max-w-[95vw] max-h-[95vh] w-[95vw] h-[95vh]' : 'max-w-4xl max-h-[90vh]'}`}>
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
             <span className="truncate mr-4">{fileName}</span>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {fileType?.startsWith('image/') && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={zoomOut}
+                    title="Zoom out"
+                    disabled={zoom <= 50}
+                  >
+                    <ZoomOut className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={resetZoom}
+                    title="Reset zoom"
+                    className="text-xs px-2"
+                  >
+                    {zoom}%
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={zoomIn}
+                    title="Zoom in"
+                    disabled={zoom >= 200}
+                  >
+                    <ZoomIn className="h-4 w-4" />
+                  </Button>
+                </>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={toggleFullscreen}
+                title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+              >
+                {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
@@ -106,7 +170,7 @@ const AttachmentViewer = ({ isOpen, onClose, fileName, fileUrl, fileType }: Atta
           </div>
         )}
         
-        <div className={loading ? 'hidden' : ''}>
+        <div className={`${loading ? 'hidden' : ''} ${isFullscreen ? 'overflow-auto' : ''}`}>
           {renderContent()}
         </div>
       </DialogContent>
