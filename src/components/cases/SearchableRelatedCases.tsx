@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -83,7 +84,8 @@ const SearchableRelatedCases = ({ caseId }: SearchableRelatedCasesProps) => {
           case_.title.toLowerCase().includes(searchLower) ||
           case_.description?.toLowerCase().includes(searchLower) ||
           caseNumber.toLowerCase().includes(searchLower) ||
-          case_.status.toLowerCase().includes(searchLower)
+          case_.status.toLowerCase().includes(searchLower) ||
+          case_.id.toLowerCase().includes(searchLower)
         );
       });
       setFilteredCases(filtered);
@@ -152,17 +154,43 @@ const SearchableRelatedCases = ({ caseId }: SearchableRelatedCasesProps) => {
         .limit(100);
 
       if (error) throw error;
-      setAvailableCases(data || []);
+      
+      // Filter out already related cases
+      const relatedCaseIds = relatedCases.map(rc => rc.related_case_id);
+      const filtered = (data || []).filter(case_ => !relatedCaseIds.includes(case_.id));
+      
+      setAvailableCases(filtered);
     } catch (error) {
       console.error('Error fetching available cases:', error);
     }
   };
+
+  // Refetch available cases when related cases change
+  useEffect(() => {
+    if (availableCases.length > 0) {
+      fetchAvailableCases();
+    }
+  }, [relatedCases]);
 
   const addRelatedCase = async () => {
     if (!selectedCaseId || !selectedRelationType || !internalUserId) {
       toast({
         title: "Error",
         description: "Please select both a case and relationship type",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Check if relationship already exists
+    const existingRelation = relatedCases.find(
+      rc => rc.related_case_id === selectedCaseId
+    );
+    
+    if (existingRelation) {
+      toast({
+        title: "Error",
+        description: "This case is already related",
         variant: "destructive"
       });
       return;

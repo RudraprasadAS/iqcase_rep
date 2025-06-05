@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -121,6 +122,16 @@ const MessageCenter = ({ caseId, isInternal = false }: MessageCenterProps) => {
     } catch (error) {
       console.error('Error fetching message attachments:', error);
     }
+  };
+
+  const getMessageAttachments = (messageId: string, messageCreatedAt: string) => {
+    // Get attachments created within 5 minutes of the message
+    const messageTime = new Date(messageCreatedAt).getTime();
+    return messageAttachments.filter(attachment => {
+      const attachmentTime = new Date(attachment.created_at).getTime();
+      const timeDiff = Math.abs(attachmentTime - messageTime);
+      return timeDiff <= 5 * 60 * 1000; // 5 minutes in milliseconds
+    });
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -249,24 +260,50 @@ const MessageCenter = ({ caseId, isInternal = false }: MessageCenterProps) => {
             {messages.length === 0 ? (
               <p className="text-gray-500 text-center py-4">No messages yet</p>
             ) : (
-              messages.map((message) => (
-                <div key={message.id} className="border rounded-lg p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium text-sm">
-                      {message.users?.name || 'Unknown User'}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      {message.is_internal && (
-                        <Badge variant="secondary" className="text-xs">Internal</Badge>
-                      )}
-                      <span className="text-xs text-gray-500">
-                        {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
+              messages.map((message) => {
+                const attachments = getMessageAttachments(message.id, message.created_at);
+                return (
+                  <div key={message.id} className="border rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-medium text-sm">
+                        {message.users?.name || 'Unknown User'}
                       </span>
+                      <div className="flex items-center gap-2">
+                        {message.is_internal && (
+                          <Badge variant="secondary" className="text-xs">Internal</Badge>
+                        )}
+                        <span className="text-xs text-gray-500">
+                          {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
+                        </span>
+                      </div>
                     </div>
+                    <p className="text-sm mb-2">{message.message}</p>
+                    
+                    {/* Display attachments within the message */}
+                    {attachments.length > 0 && (
+                      <div className="mt-3 space-y-2">
+                        <div className="text-xs text-gray-500 font-medium">Attachments:</div>
+                        {attachments.map((attachment) => (
+                          <div key={attachment.id} className="flex items-center justify-between bg-gray-50 p-2 rounded text-sm">
+                            <div className="flex items-center gap-2">
+                              <Paperclip className="h-3 w-3 text-gray-400" />
+                              <span className="truncate">{attachment.file_name}</span>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => downloadAttachment(attachment)}
+                              className="h-6 px-2"
+                            >
+                              <Download className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <p className="text-sm">{message.message}</p>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
 
@@ -279,48 +316,46 @@ const MessageCenter = ({ caseId, isInternal = false }: MessageCenterProps) => {
               disabled={loading || !internalUserId}
             />
             
-            {/* Only show file upload for internal messages */}
-            {isInternal && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <label htmlFor="message-files" className="cursor-pointer">
-                    <Button type="button" variant="outline" size="sm" asChild>
-                      <span>
-                        <Paperclip className="h-4 w-4 mr-2" />
-                        Attach Files
-                      </span>
-                    </Button>
-                  </label>
-                  <Input
-                    id="message-files"
-                    type="file"
-                    multiple
-                    accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.txt"
-                    onChange={handleFileChange}
-                    className="hidden"
-                    disabled={loading}
-                  />
-                </div>
-                
-                {files.length > 0 && (
-                  <div className="space-y-2">
-                    {files.map((file, index) => (
-                      <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
-                        <span className="text-sm">{file.name}</span>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeFile(index)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
+            {/* File upload for both internal and external messages */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <label htmlFor="message-files" className="cursor-pointer">
+                  <Button type="button" variant="outline" size="sm" asChild>
+                    <span>
+                      <Paperclip className="h-4 w-4 mr-2" />
+                      Attach Files
+                    </span>
+                  </Button>
+                </label>
+                <Input
+                  id="message-files"
+                  type="file"
+                  multiple
+                  accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.txt"
+                  onChange={handleFileChange}
+                  className="hidden"
+                  disabled={loading}
+                />
               </div>
-            )}
+              
+              {files.length > 0 && (
+                <div className="space-y-2">
+                  {files.map((file, index) => (
+                    <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
+                      <span className="text-sm">{file.name}</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeFile(index)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
             
             <Button 
               onClick={sendMessage}
@@ -334,8 +369,8 @@ const MessageCenter = ({ caseId, isInternal = false }: MessageCenterProps) => {
         </CardContent>
       </Card>
 
-      {/* Show message attachments only for internal messages */}
-      {isInternal && messageAttachments.length > 0 && (
+      {/* Show message media separately */}
+      {messageAttachments.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="text-sm">
