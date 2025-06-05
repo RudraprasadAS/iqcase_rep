@@ -71,9 +71,14 @@ const SearchableRelatedCases = ({ caseId }: SearchableRelatedCasesProps) => {
   useEffect(() => {
     if (caseId) {
       fetchRelatedCases();
-      fetchAvailableCases();
     }
   }, [caseId]);
+
+  useEffect(() => {
+    if (caseId && internalUserId) {
+      fetchAvailableCases();
+    }
+  }, [caseId, internalUserId, relatedCases]);
 
   useEffect(() => {
     if (searchTerm.trim()) {
@@ -164,13 +169,6 @@ const SearchableRelatedCases = ({ caseId }: SearchableRelatedCasesProps) => {
       console.error('Error fetching available cases:', error);
     }
   };
-
-  // Refetch available cases when related cases change
-  useEffect(() => {
-    if (availableCases.length > 0) {
-      fetchAvailableCases();
-    }
-  }, [relatedCases]);
 
   const addRelatedCase = async () => {
     if (!selectedCaseId || !selectedRelationType || !internalUserId) {
