@@ -331,8 +331,7 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
           {showMentions && mentionUsers.length > 0 && (
             <div 
               className="absolute z-50 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto"
-              // style={{ bottom: '100%', marginBottom: '8px' }}
-              style={{ top: '100%', marginTop: '4px' }}
+                style={{ bottom: '100%', marginBottom: '8px' }}
             >
               {mentionUsers.map((user, index) => (
                 <div

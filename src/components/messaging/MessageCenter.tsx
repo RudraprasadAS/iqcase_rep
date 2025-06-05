@@ -1,3 +1,4 @@
+import InternalNotes from '@/components/Cases/InternalNotes'; // update the path if needed
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -466,6 +467,21 @@ const MessageCenter = ({ caseId, isInternal = false }: MessageCenterProps) => {
             </CardContent>
           </Card>
         )}
+
+          {isInternal && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Lock className="h-4 w-4" />
+                  Internal Notes
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <InternalNotes caseId={caseId} />
+              </CardContent>
+            </Card>
+          )}
+
       </div>
 
       <AttachmentViewer
