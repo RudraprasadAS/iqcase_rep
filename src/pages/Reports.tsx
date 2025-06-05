@@ -1,5 +1,6 @@
 
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { supabase } from '@/integrations/supabase/client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -8,9 +9,10 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useReportExport } from '@/hooks/useReportExport';
-import { FileDown, Download } from 'lucide-react';
+import { FileDown, Download, Plus, Eye, Edit } from 'lucide-react';
 
 const Reports = () => {
+  const navigate = useNavigate();
   const [reports, setReports] = useState([]);
   const [selectedReport, setSelectedReport] = useState(null);
   const [reportData, setReportData] = useState([]);
@@ -152,6 +154,14 @@ const Reports = () => {
     }
   };
 
+  const handleViewReport = (reportId: string) => {
+    navigate(`/reports/builder?id=${reportId}&view=true`);
+  };
+
+  const handleEditReport = (reportId: string) => {
+    navigate(`/reports/builder?id=${reportId}&edit=true`);
+  };
+
   const handleExportCSV = () => {
     if (reportData.length > 0) {
       exportToCSV(reportData, selectedReport?.name || 'report');
@@ -181,27 +191,36 @@ const Reports = () => {
             <h1 className="text-3xl font-bold">Reports</h1>
             <p className="text-muted-foreground">Generate and analyze reports</p>
           </div>
-          {selectedReport && reportData.length > 0 && (
-            <div className="flex space-x-2">
-              <Button 
-                variant="outline" 
-                onClick={handleExportCSV}
-                className="flex items-center gap-2"
-              >
-                <Download className="h-4 w-4" />
-                Export CSV
-              </Button>
-              <Button 
-                variant="outline" 
-                onClick={handleExportPDF}
-                disabled={isExporting}
-                className="flex items-center gap-2"
-              >
-                <FileDown className="h-4 w-4" />
-                {isExporting ? 'Generating PDF...' : 'Export PDF'}
-              </Button>
-            </div>
-          )}
+          <div className="flex space-x-2">
+            <Button 
+              onClick={() => navigate('/reports/builder')}
+              className="flex items-center gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Create New Report
+            </Button>
+            {selectedReport && reportData.length > 0 && (
+              <>
+                <Button 
+                  variant="outline" 
+                  onClick={handleExportCSV}
+                  className="flex items-center gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Export CSV
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={handleExportPDF}
+                  disabled={isExporting}
+                  className="flex items-center gap-2"
+                >
+                  <FileDown className="h-4 w-4" />
+                  {isExporting ? 'Generating PDF...' : 'Export PDF'}
+                </Button>
+              </>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -209,7 +228,7 @@ const Reports = () => {
             <CardHeader>
               <CardTitle>Select Report</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
               <Select onValueChange={handleReportChange}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Choose a report" />
@@ -222,6 +241,29 @@ const Reports = () => {
                   ))}
                 </SelectContent>
               </Select>
+              
+              {selectedReport && (
+                <div className="flex space-x-2 pt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleViewReport(selectedReport.id)}
+                    className="flex items-center gap-2"
+                  >
+                    <Eye className="h-4 w-4" />
+                    View
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleEditReport(selectedReport.id)}
+                    className="flex items-center gap-2"
+                  >
+                    <Edit className="h-4 w-4" />
+                    Edit
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
 

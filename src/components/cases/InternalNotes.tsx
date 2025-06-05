@@ -93,7 +93,9 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
   useEffect(() => {
     if (mentionMode && mentionQuery.length >= 1) {
       const fetchMentionUsers = async () => {
+        console.log('🔍 Searching for users with query:', mentionQuery);
         const users = await searchUsersByMention(mentionQuery);
+        console.log('🔍 Found users:', users);
         setMentionUsers(users);
         setSelectedMentionIndex(0);
       };
@@ -181,22 +183,6 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
     }
   };
 
-  // Search for users when in mention mode and query changes
-  useEffect(() => {
-    if (mentionMode && mentionQuery.length >= 1) {
-      const fetchMentionUsers = async () => {
-        console.log('🔍 Searching for users with query:', mentionQuery);
-        const users = await searchUsersByMention(mentionQuery);
-        console.log('🔍 Found users:', users);
-        setMentionUsers(users);
-        setSelectedMentionIndex(0);
-      };
-      fetchMentionUsers();
-    } else {
-      setMentionUsers([]);
-    }
-  }, [mentionQuery, mentionMode]);
-
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
     const selectionStart = e.target.selectionStart;
@@ -206,7 +192,7 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
     
     console.log('📝 Textarea changed:', { value, selectionStart });
     
-    // Check for @ symbol at current position
+    // Check for @ symbol before current position
     const textBeforeCursor = value.substring(0, selectionStart);
     const lastAtIndex = textBeforeCursor.lastIndexOf('@');
     
@@ -217,7 +203,7 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
       
       console.log('📝 Text after @:', textAfterAt);
       
-      // Check if there's a space after @ (which would end mention mode)
+      // Check if there's a space or newline after @ (which would end mention mode)
       if (textAfterAt.includes(' ') || textAfterAt.includes('\n')) {
         console.log('📝 Ending mention mode - space or newline found');
         setMentionMode(false);
@@ -425,14 +411,14 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
             rows={3}
           />
           
-          {/* Mention dropdown */}
+          {/* Mention dropdown - Fixed positioning */}
           {mentionMode && mentionUsers.length > 0 && (
-            <div className="absolute top-full left-0 right-0 z-50 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+            <div className="absolute bottom-full left-0 right-0 z-50 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto mb-2">
               {mentionUsers.map((user, index) => (
                 <div
                   key={user.id}
                   className={`px-3 py-2 cursor-pointer flex items-center gap-2 ${
-                    index === selectedMentionIndex ? 'bg-accent' : 'hover:bg-muted'
+                    index === selectedMentionIndex ? 'bg-blue-50 border-l-2 border-blue-500' : 'hover:bg-gray-50'
                   }`}
                   onClick={() => selectMention(user)}
                 >
