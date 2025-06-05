@@ -45,10 +45,11 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   // Mention state
-  const [mentionMode, setMentionMode] = useState(false);
+  const [showMentions, setShowMentions] = useState(false);
   const [mentionQuery, setMentionQuery] = useState('');
   const [mentionUsers, setMentionUsers] = useState<MentionUser[]>([]);
   const [selectedMentionIndex, setSelectedMentionIndex] = useState(0);
+  const [mentionStart, setMentionStart] = useState(0);
 
   useEffect(() => {
     if (user) {
@@ -88,21 +89,21 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
     }
   }, [caseId]);
   
-  // Search for users when in mention mode and query changes
+  // Search for users when mention query changes
   useEffect(() => {
-    if (mentionMode) {
-      const fetchMentionUsers = async () => {
-        console.log('🔍 Searching for users with query:', mentionQuery);
-        const users = await searchUsersByMention(mentionQuery || 'a'); // Search with at least 'a' to get results
+    if (mentionQuery.length >= 1) {
+      const fetchUsers = async () => {
+        console.log('🔍 Searching users for:', mentionQuery);
+        const users = await searchUsersByMention(mentionQuery);
         console.log('🔍 Found users:', users);
         setMentionUsers(users);
         setSelectedMentionIndex(0);
       };
-      fetchMentionUsers();
+      fetchUsers();
     } else {
       setMentionUsers([]);
     }
-  }, [mentionQuery, mentionMode]);
+  }, [mentionQuery]);
 
   const fetchNoteWithUser = async (noteId: string) => {
     try {
@@ -184,42 +185,39 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
 
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
-    const selectionStart = e.target.selectionStart;
+    const cursorPos = e.target.selectionStart;
     
     setNewNote(value);
     
-    console.log('📝 Textarea changed:', { value, selectionStart });
+    console.log('📝 Input changed:', { value, cursorPos });
     
-    // Check for @ symbol before current position
-    const textBeforeCursor = value.substring(0, selectionStart);
+    // Find @ symbol before cursor
+    const textBeforeCursor = value.substring(0, cursorPos);
     const lastAtIndex = textBeforeCursor.lastIndexOf('@');
     
-    console.log('📝 Last @ index:', lastAtIndex, 'Text before cursor:', textBeforeCursor);
-    
-    if (lastAtIndex >= 0) {
+    if (lastAtIndex !== -1) {
       const textAfterAt = textBeforeCursor.substring(lastAtIndex + 1);
       
-      console.log('📝 Text after @:', textAfterAt);
-      
-      // Check if there's a space or newline after @ (which would end mention mode)
-      if (textAfterAt.includes(' ') || textAfterAt.includes('\n')) {
-        console.log('📝 Ending mention mode - space or newline found');
-        setMentionMode(false);
-        setMentionQuery('');
-      } else {
-        console.log('📝 Starting mention mode with query:', textAfterAt);
-        setMentionMode(true);
+      // Check if there's a space or newline after @ (which ends mention)
+      if (!textAfterAt.includes(' ') && !textAfterAt.includes('\n')) {
+        console.log('📝 Starting mention mode, query:', textAfterAt);
+        setShowMentions(true);
         setMentionQuery(textAfterAt);
+        setMentionStart(lastAtIndex);
+      } else {
+        console.log('📝 Ending mention mode - space found');
+        setShowMentions(false);
+        setMentionQuery('');
       }
     } else {
       console.log('📝 No @ found, ending mention mode');
-      setMentionMode(false);
+      setShowMentions(false);
       setMentionQuery('');
     }
   };
   
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (mentionMode && mentionUsers.length > 0) {
+    if (showMentions && mentionUsers.length > 0) {
       switch (e.key) {
         case 'ArrowDown':
           e.preventDefault();
@@ -245,7 +243,7 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
           break;
         case 'Escape':
           e.preventDefault();
-          setMentionMode(false);
+          setShowMentions(false);
           setMentionQuery('');
           break;
       }
@@ -259,34 +257,24 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
     
     const textarea = textareaRef.current;
     const text = textarea.value;
-    const cursorPosition = textarea.selectionStart;
-    const beforeCursor = text.substring(0, cursorPosition);
-    const afterCursor = text.substring(cursorPosition);
     
-    // Find the position of the last @ symbol
-    const lastAtPos = beforeCursor.lastIndexOf('@');
+    // Replace from @ to current cursor position with @username
+    const beforeMention = text.substring(0, mentionStart);
+    const afterCursor = text.substring(textarea.selectionStart);
+    const userName = user.name.split(' ')[0];
     
-    if (lastAtPos >= 0) {
-      // Replace the @query with @username
-      const userName = user.name.split(' ')[0];
-      const newText = 
-        text.substring(0, lastAtPos) + 
-        `@${userName} ` + 
-        afterCursor;
-      
-      setNewNote(newText);
-      
-      // Reset mention state
-      setMentionMode(false);
-      setMentionQuery('');
-      
-      // Focus back on textarea and set cursor after the mention
-      setTimeout(() => {
-        textarea.focus();
-        const newCursorPos = lastAtPos + userName.length + 2; // +2 for @ and space
-        textarea.setSelectionRange(newCursorPos, newCursorPos);
-      }, 0);
-    }
+    const newText = beforeMention + `@${userName} ` + afterCursor;
+    
+    setNewNote(newText);
+    setShowMentions(false);
+    setMentionQuery('');
+    
+    // Focus and set cursor after the mention
+    setTimeout(() => {
+      textarea.focus();
+      const newCursorPos = mentionStart + userName.length + 2; // +2 for @ and space
+      textarea.setSelectionRange(newCursorPos, newCursorPos);
+    }, 0);
   };
 
   const addNote = async () => {
@@ -410,9 +398,14 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
           />
           
           {/* Mention dropdown */}
-          {mentionMode && mentionUsers.length > 0 && (
-            <div className="absolute z-50 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto" 
-                 style={{ bottom: '100%', marginBottom: '8px' }}>
+          {showMentions && mentionUsers.length > 0 && (
+            <div 
+              className="absolute z-50 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto"
+              style={{ 
+                bottom: '100%', 
+                marginBottom: '8px'
+              }}
+            >
               {mentionUsers.map((user, index) => (
                 <div
                   key={user.id}
