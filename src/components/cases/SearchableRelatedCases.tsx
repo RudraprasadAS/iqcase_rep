@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -76,7 +75,7 @@ const SearchableRelatedCases = ({ caseId }: SearchableRelatedCasesProps) => {
   }, [caseId]);
 
   useEffect(() => {
-    if (searchTerm) {
+    if (searchTerm.trim()) {
       const filtered = availableCases.filter(case_ => {
         const searchLower = searchTerm.toLowerCase();
         const caseNumber = generateCaseNumber(case_.id, case_.created_at);
@@ -293,7 +292,7 @@ const SearchableRelatedCases = ({ caseId }: SearchableRelatedCasesProps) => {
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-[400px] p-0">
-              <Command>
+              <Command shouldFilter={false}>
                 <CommandInput 
                   placeholder="Search by case number, title, or description..." 
                   value={searchTerm}

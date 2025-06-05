@@ -1,9 +1,8 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -38,7 +37,7 @@ const MessageCenter = ({ caseId, isInternal = false }: MessageCenterProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [messages, setMessages] = useState<Message[]>([]);
-  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [messageAttachments, setMessageAttachments] = useState<Attachment[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [internalUserId, setInternalUserId] = useState<string | null>(null);
@@ -53,9 +52,9 @@ const MessageCenter = ({ caseId, isInternal = false }: MessageCenterProps) => {
   useEffect(() => {
     if (caseId) {
       fetchMessages();
-      fetchAttachments();
+      fetchMessageAttachments();
     }
-  }, [caseId]);
+  }, [caseId, isInternal]);
 
   const fetchInternalUserId = async () => {
     if (!user) return;
@@ -104,7 +103,7 @@ const MessageCenter = ({ caseId, isInternal = false }: MessageCenterProps) => {
     }
   };
 
-  const fetchAttachments = async () => {
+  const fetchMessageAttachments = async () => {
     try {
       const { data, error } = await supabase
         .from('case_attachments')
@@ -114,13 +113,13 @@ const MessageCenter = ({ caseId, isInternal = false }: MessageCenterProps) => {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Attachments fetch error:', error);
+        console.error('Message attachments fetch error:', error);
         throw error;
       }
 
-      setAttachments(data || []);
+      setMessageAttachments(data || []);
     } catch (error) {
-      console.error('Error fetching attachments:', error);
+      console.error('Error fetching message attachments:', error);
     }
   };
 
@@ -208,7 +207,7 @@ const MessageCenter = ({ caseId, isInternal = false }: MessageCenterProps) => {
       // Upload files if any
       if (files.length > 0) {
         await uploadFiles();
-        await fetchAttachments();
+        await fetchMessageAttachments();
       }
 
       setNewMessage('');
@@ -280,45 +279,48 @@ const MessageCenter = ({ caseId, isInternal = false }: MessageCenterProps) => {
               disabled={loading || !internalUserId}
             />
             
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <label htmlFor="message-files" className="cursor-pointer">
-                  <Button type="button" variant="outline" size="sm" asChild>
-                    <span>
-                      <Paperclip className="h-4 w-4 mr-2" />
-                      Attach Files
-                    </span>
-                  </Button>
-                </label>
-                <Input
-                  id="message-files"
-                  type="file"
-                  multiple
-                  accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.txt"
-                  onChange={handleFileChange}
-                  className="hidden"
-                  disabled={loading}
-                />
-              </div>
-              
-              {files.length > 0 && (
-                <div className="space-y-2">
-                  {files.map((file, index) => (
-                    <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
-                      <span className="text-sm">{file.name}</span>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeFile(index)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
+            {/* Only show file upload for internal messages */}
+            {isInternal && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <label htmlFor="message-files" className="cursor-pointer">
+                    <Button type="button" variant="outline" size="sm" asChild>
+                      <span>
+                        <Paperclip className="h-4 w-4 mr-2" />
+                        Attach Files
+                      </span>
+                    </Button>
+                  </label>
+                  <Input
+                    id="message-files"
+                    type="file"
+                    multiple
+                    accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.txt"
+                    onChange={handleFileChange}
+                    className="hidden"
+                    disabled={loading}
+                  />
                 </div>
-              )}
-            </div>
+                
+                {files.length > 0 && (
+                  <div className="space-y-2">
+                    {files.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
+                        <span className="text-sm">{file.name}</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeFile(index)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             
             <Button 
               onClick={sendMessage}
@@ -332,16 +334,17 @@ const MessageCenter = ({ caseId, isInternal = false }: MessageCenterProps) => {
         </CardContent>
       </Card>
 
-      {attachments.length > 0 && (
+      {/* Show message attachments only for internal messages */}
+      {isInternal && messageAttachments.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="text-sm">
-              Message Attachments ({attachments.length})
+              Message Media ({messageAttachments.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {attachments.map((attachment) => (
+              {messageAttachments.map((attachment) => (
                 <div key={attachment.id} className="flex items-center justify-between p-2 border rounded">
                   <div className="flex-1">
                     <p className="text-sm font-medium">{attachment.file_name}</p>
