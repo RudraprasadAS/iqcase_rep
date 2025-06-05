@@ -8,6 +8,7 @@ import { MessageSquare, Send, Paperclip, X, Download, Eye } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
+import AttachmentViewer from '@/components/attachments/AttachmentViewer';
 
 interface Message {
   id: string;
@@ -37,6 +38,17 @@ const CaseMessages = ({ messages, caseId, onMessagesUpdated }: CaseMessagesProps
   const [sendingMessage, setSendingMessage] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [messageAttachments, setMessageAttachments] = useState<Attachment[]>([]);
+  const [viewerState, setViewerState] = useState<{
+    isOpen: boolean;
+    fileName: string;
+    fileUrl: string;
+    fileType?: string;
+  }>({
+    isOpen: false,
+    fileName: '',
+    fileUrl: '',
+    fileType: undefined
+  });
   const { toast } = useToast();
 
   // Fetch attachments for citizen portal - only public ones
@@ -83,6 +95,34 @@ const CaseMessages = ({ messages, caseId, onMessagesUpdated }: CaseMessagesProps
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  const viewAttachment = (attachment: Attachment) => {
+    setViewerState({
+      isOpen: true,
+      fileName: attachment.file_name,
+      fileUrl: attachment.file_url,
+      fileType: attachment.file_type
+    });
+  };
+
+  const closeViewer = () => {
+    setViewerState({
+      isOpen: false,
+      fileName: '',
+      fileUrl: '',
+      fileType: undefined
+    });
+  };
+
+  const downloadAttachment = (attachment: Attachment) => {
+    const link = document.createElement('a');
+    link.href = attachment.file_url;
+    link.download = attachment.file_name;
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -205,160 +245,156 @@ const CaseMessages = ({ messages, caseId, onMessagesUpdated }: CaseMessagesProps
     }
   };
 
-  const viewAttachment = (attachment: Attachment) => {
-    window.open(attachment.file_url, '_blank');
-  };
-
-  const downloadAttachment = (attachment: Attachment) => {
-    const link = document.createElement('a');
-    link.href = attachment.file_url;
-    link.download = attachment.file_name;
-    link.target = '_blank';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
   const publicMessages = messages.filter(message => !message.is_internal);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center">
-          <MessageSquare className="h-5 w-5 mr-2" />
-          Case Messages
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-4 max-h-96 overflow-y-auto">
-          {publicMessages.map((message) => {
-            const attachments = getMessageAttachments(message.id, message.created_at);
-            return (
-              <div key={message.id} className="flex space-x-3">
-                <Avatar className="h-8 w-8">
-                  <AvatarFallback>
-                    {(message.users?.name || message.sender_id).slice(0, 2).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm">
-                    <span className="font-medium">
-                      {message.users?.name || message.users?.email || message.sender_id}
-                    </span>
-                    <span className="text-muted-foreground ml-2">
-                      {formatDateTime(message.created_at)}
-                    </span>
-                  </div>
-                  <div className="mt-1 text-sm bg-muted rounded-lg p-3">
-                    {message.message}
-                  </div>
-                  
-                  {/* Display attachments with view and download buttons */}
-                  {attachments.length > 0 && (
-                    <div className="mt-3 space-y-2">
-                      <div className="text-xs text-gray-500 font-medium">Attachments:</div>
-                      {attachments.map((attachment) => (
-                        <div key={attachment.id} className="flex items-center justify-between bg-gray-50 p-2 rounded text-sm">
-                          <div className="flex items-center gap-2 min-w-0 flex-1">
-                            <Paperclip className="h-3 w-3 text-gray-400 flex-shrink-0" />
-                            <span className="truncate" title={attachment.file_name}>{attachment.file_name}</span>
-                          </div>
-                          <div className="flex items-center gap-1 flex-shrink-0 ml-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => viewAttachment(attachment)}
-                              className="h-6 px-2"
-                              title="View file"
-                            >
-                              <Eye className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => downloadAttachment(attachment)}
-                              className="h-6 px-2"
-                              title="Download file"
-                            >
-                              <Download className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <MessageSquare className="h-5 w-5 mr-2" />
+            Case Messages
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-4 max-h-96 overflow-y-auto">
+            {publicMessages.map((message) => {
+              const attachments = getMessageAttachments(message.id, message.created_at);
+              return (
+                <div key={message.id} className="flex space-x-3">
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback>
+                      {(message.users?.name || message.sender_id).slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm">
+                      <span className="font-medium">
+                        {message.users?.name || message.users?.email || message.sender_id}
+                      </span>
+                      <span className="text-muted-foreground ml-2">
+                        {formatDateTime(message.created_at)}
+                      </span>
                     </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-          {publicMessages.length === 0 && (
-            <div className="text-center text-muted-foreground py-4">
-              No messages yet
-            </div>
-          )}
-        </div>
-        <div className="border-t pt-4 space-y-2">
-          <Textarea
-            placeholder="Type your message..."
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            className="mb-2"
-            rows={3}
-          />
-          
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <label htmlFor="message-files" className="cursor-pointer">
-                <Button type="button" variant="outline" size="sm" asChild>
-                  <span>
-                    <Paperclip className="h-4 w-4 mr-2" />
-                    Attach Files
-                  </span>
-                </Button>
-              </label>
-              <Input
-                id="message-files"
-                type="file"
-                multiple
-                accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.txt"
-                onChange={handleFileChange}
-                className="hidden"
-                disabled={sendingMessage}
-              />
-            </div>
-            
-            {files.length > 0 && (
-              <div className="space-y-2">
-                {files.map((file, index) => (
-                  <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded min-w-0">
-                    <span className="text-sm truncate flex-1" title={file.name}>{file.name}</span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeFile(index)}
-                      className="flex-shrink-0 ml-2"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
+                    <div className="mt-1 text-sm bg-muted rounded-lg p-3">
+                      {message.message}
+                    </div>
+                    
+                    {/* Display attachments with view and download buttons */}
+                    {attachments.length > 0 && (
+                      <div className="mt-3 space-y-2">
+                        <div className="text-xs text-gray-500 font-medium">Attachments:</div>
+                        {attachments.map((attachment) => (
+                          <div key={attachment.id} className="flex items-center justify-between bg-gray-50 p-2 rounded text-sm">
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              <Paperclip className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                              <span className="truncate" title={attachment.file_name}>{attachment.file_name}</span>
+                            </div>
+                            <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => viewAttachment(attachment)}
+                                className="h-6 px-2"
+                                title="View file"
+                              >
+                                <Eye className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => downloadAttachment(attachment)}
+                                className="h-6 px-2"
+                                title="Download file"
+                              >
+                                <Download className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                ))}
+                </div>
+              );
+            })}
+            {publicMessages.length === 0 && (
+              <div className="text-center text-muted-foreground py-4">
+                No messages yet
               </div>
             )}
           </div>
-          
-          <Button 
-            onClick={handleSendMessage} 
-            size="sm"
-            disabled={sendingMessage || !newMessage.trim()}
-            className="w-full"
-          >
-            <Send className="h-4 w-4 mr-2" />
-            {sendingMessage ? 'Sending...' : 'Send Message'}
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+          <div className="border-t pt-4 space-y-2">
+            <Textarea
+              placeholder="Type your message..."
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              className="mb-2"
+              rows={3}
+            />
+            
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <label htmlFor="message-files" className="cursor-pointer">
+                  <Button type="button" variant="outline" size="sm" asChild>
+                    <span>
+                      <Paperclip className="h-4 w-4 mr-2" />
+                      Attach Files
+                    </span>
+                  </Button>
+                </label>
+                <Input
+                  id="message-files"
+                  type="file"
+                  multiple
+                  accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.txt"
+                  onChange={handleFileChange}
+                  className="hidden"
+                  disabled={sendingMessage}
+                />
+              </div>
+              
+              {files.length > 0 && (
+                <div className="space-y-2">
+                  {files.map((file, index) => (
+                    <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded min-w-0">
+                      <span className="text-sm truncate flex-1" title={file.name}>{file.name}</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeFile(index)}
+                        className="flex-shrink-0 ml-2"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            <Button 
+              onClick={handleSendMessage} 
+              size="sm"
+              disabled={sendingMessage || !newMessage.trim()}
+              className="w-full"
+            >
+              <Send className="h-4 w-4 mr-2" />
+              {sendingMessage ? 'Sending...' : 'Send Message'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <AttachmentViewer
+        isOpen={viewerState.isOpen}
+        onClose={closeViewer}
+        fileName={viewerState.fileName}
+        fileUrl={viewerState.fileUrl}
+        fileType={viewerState.fileType}
+      />
+    </>
   );
 };
 

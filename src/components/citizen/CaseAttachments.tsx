@@ -1,4 +1,3 @@
-
 import { useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,6 +5,7 @@ import { FileText, FileImage, Download, Paperclip, Eye } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import AttachmentViewer from '@/components/attachments/AttachmentViewer';
 
 interface Attachment {
   id: string;
@@ -26,9 +26,34 @@ const CaseAttachments = ({ attachments, caseId, onAttachmentsUpdated }: CaseAtta
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [viewerState, setViewerState] = useState<{
+    isOpen: boolean;
+    fileName: string;
+    fileUrl: string;
+    fileType?: string;
+  }>({
+    isOpen: false,
+    fileName: '',
+    fileUrl: '',
+    fileType: undefined
+  });
 
-  const viewAttachment = (fileUrl: string, fileName: string) => {
-    window.open(fileUrl, '_blank');
+  const viewAttachment = (attachment: Attachment) => {
+    setViewerState({
+      isOpen: true,
+      fileName: attachment.file_name,
+      fileUrl: attachment.file_url,
+      fileType: attachment.file_type
+    });
+  };
+
+  const closeViewer = () => {
+    setViewerState({
+      isOpen: false,
+      fileName: '',
+      fileUrl: '',
+      fileType: undefined
+    });
   };
 
   const downloadAttachment = (fileUrl: string, fileName: string) => {
@@ -181,14 +206,14 @@ const CaseAttachments = ({ attachments, caseId, onAttachmentsUpdated }: CaseAtta
         <CardContent className="space-y-2">
           {attachments.map((attachment) => (
             <div key={attachment.id} className="flex items-center justify-between p-3 border rounded-lg">
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-3 min-w-0 flex-1">
                 {attachment.file_type?.startsWith('image/') ? (
-                  <FileImage className="h-5 w-5 text-blue-500" />
+                  <FileImage className="h-5 w-5 text-blue-500 flex-shrink-0" />
                 ) : (
-                  <FileText className="h-5 w-5 text-gray-500" />
+                  <FileText className="h-5 w-5 text-gray-500 flex-shrink-0" />
                 )}
-                <div>
-                  <p className="text-sm font-medium">{attachment.file_name}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium truncate">{attachment.file_name}</p>
                   <p className="text-xs text-muted-foreground">
                     {attachment.file_type}
                   </p>
@@ -197,30 +222,31 @@ const CaseAttachments = ({ attachments, caseId, onAttachmentsUpdated }: CaseAtta
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 flex-shrink-0 ml-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => viewAttachment(attachment.file_url, attachment.file_name)}
+                  onClick={() => viewAttachment(attachment)}
                   title="View file"
+                  className="h-8 px-2"
                 >
-                  <Eye className="h-4 w-4 mr-1" />
-                  View
+                  <Eye className="h-4 w-4" />
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => downloadAttachment(attachment.file_url, attachment.file_name)}
                   title="Download file"
+                  className="h-8 px-2"
                 >
-                  <Download className="h-4 w-4 mr-1" />
-                  Download
+                  <Download className="h-4 w-4" />
                 </Button>
               </div>
             </div>
           ))}
         </CardContent>
       </Card>
+      
       <div className="flex gap-2 mb-2">
         <Button
           onClick={handleFileUpload}
@@ -239,6 +265,14 @@ const CaseAttachments = ({ attachments, caseId, onAttachmentsUpdated }: CaseAtta
           onChange={handleFileChange}
         />
       </div>
+
+      <AttachmentViewer
+        isOpen={viewerState.isOpen}
+        onClose={closeViewer}
+        fileName={viewerState.fileName}
+        fileUrl={viewerState.fileUrl}
+        fileType={viewerState.fileType}
+      />
     </>
   );
 };

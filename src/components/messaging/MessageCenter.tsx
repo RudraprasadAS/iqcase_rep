@@ -9,6 +9,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { Send, MessageCircle, Paperclip, X, Download, Eye } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import AttachmentViewer from '@/components/attachments/AttachmentViewer';
 
 interface Message {
   id: string;
@@ -42,6 +43,17 @@ const MessageCenter = ({ caseId, isInternal = false }: MessageCenterProps) => {
   const [loading, setLoading] = useState(false);
   const [internalUserId, setInternalUserId] = useState<string | null>(null);
   const [files, setFiles] = useState<File[]>([]);
+  const [viewerState, setViewerState] = useState<{
+    isOpen: boolean;
+    fileName: string;
+    fileUrl: string;
+    fileType?: string;
+  }>({
+    isOpen: false,
+    fileName: '',
+    fileUrl: '',
+    fileType: undefined
+  });
 
   useEffect(() => {
     if (user) {
@@ -131,6 +143,34 @@ const MessageCenter = ({ caseId, isInternal = false }: MessageCenterProps) => {
       const timeDiff = Math.abs(attachmentTime - messageTime);
       return timeDiff <= 5 * 60 * 1000; // 5 minutes in milliseconds
     });
+  };
+
+  const viewAttachment = (attachment: Attachment) => {
+    setViewerState({
+      isOpen: true,
+      fileName: attachment.file_name,
+      fileUrl: attachment.file_url,
+      fileType: attachment.file_type
+    });
+  };
+
+  const closeViewer = () => {
+    setViewerState({
+      isOpen: false,
+      fileName: '',
+      fileUrl: '',
+      fileType: undefined
+    });
+  };
+
+  const downloadAttachment = (attachment: Attachment) => {
+    const link = document.createElement('a');
+    link.href = attachment.file_url;
+    link.download = attachment.file_name;
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -241,201 +281,197 @@ const MessageCenter = ({ caseId, isInternal = false }: MessageCenterProps) => {
     }
   };
 
-  const viewAttachment = (attachment: Attachment) => {
-    window.open(attachment.file_url, '_blank');
-  };
-
-  const downloadAttachment = (attachment: Attachment) => {
-    const link = document.createElement('a');
-    link.href = attachment.file_url;
-    link.download = attachment.file_name;
-    link.target = '_blank';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MessageCircle className="h-5 w-5" />
-            {isInternal ? 'Internal Messages' : 'Case Messages'}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="max-h-96 overflow-y-auto space-y-3">
-            {messages.length === 0 ? (
-              <p className="text-gray-500 text-center py-4">No messages yet</p>
-            ) : (
-              messages.map((message) => {
-                const attachments = getMessageAttachments(message.id, message.created_at);
-                return (
-                  <div key={message.id} className="border rounded-lg p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-medium text-sm">
-                        {message.users?.name || 'Unknown User'}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        {message.is_internal && (
-                          <Badge variant="secondary" className="text-xs">Internal</Badge>
-                        )}
-                        <span className="text-xs text-gray-500">
-                          {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
-                        </span>
-                      </div>
-                    </div>
-                    <p className="text-sm mb-2">{message.message}</p>
-                    
-                    {/* Display attachments with view and download buttons */}
-                    {attachments.length > 0 && (
-                      <div className="mt-3 space-y-2">
-                        <div className="text-xs text-gray-500 font-medium">Attachments:</div>
-                        {attachments.map((attachment) => (
-                          <div key={attachment.id} className="flex items-center justify-between bg-gray-50 p-2 rounded text-sm">
-                            <div className="flex items-center gap-2 min-w-0 flex-1">
-                              <Paperclip className="h-3 w-3 text-gray-400 flex-shrink-0" />
-                              <span className="truncate" title={attachment.file_name}>{attachment.file_name}</span>
-                            </div>
-                            <div className="flex items-center gap-1 flex-shrink-0 ml-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => viewAttachment(attachment)}
-                                className="h-6 px-2"
-                                title="View file"
-                              >
-                                <Eye className="h-3 w-3" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => downloadAttachment(attachment)}
-                                className="h-6 px-2"
-                                title="Download file"
-                              >
-                                <Download className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Textarea
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              placeholder={`Type your ${isInternal ? 'internal ' : ''}message...`}
-              rows={3}
-              disabled={loading || !internalUserId}
-            />
-            
-            {/* File upload for both internal and external messages */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <label htmlFor="message-files" className="cursor-pointer">
-                  <Button type="button" variant="outline" size="sm" asChild>
-                    <span>
-                      <Paperclip className="h-4 w-4 mr-2" />
-                      Attach Files
-                    </span>
-                  </Button>
-                </label>
-                <Input
-                  id="message-files"
-                  type="file"
-                  multiple
-                  accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.txt"
-                  onChange={handleFileChange}
-                  className="hidden"
-                  disabled={loading}
-                />
-              </div>
-              
-              {files.length > 0 && (
-                <div className="space-y-2">
-                  {files.map((file, index) => (
-                    <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded min-w-0">
-                      <span className="text-sm truncate flex-1" title={file.name}>{file.name}</span>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeFile(index)}
-                        className="flex-shrink-0 ml-2"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-            
-            <Button 
-              onClick={sendMessage}
-              disabled={!newMessage.trim() || loading || !internalUserId}
-              className="w-full"
-            >
-              <Send className="h-4 w-4 mr-2" />
-              Send Message
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Show message media separately with view and download buttons */}
-      {messageAttachments.length > 0 && (
+    <>
+      <div className="space-y-4">
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">
-              Message Media ({messageAttachments.length})
+            <CardTitle className="flex items-center gap-2">
+              <MessageCircle className="h-5 w-5" />
+              {isInternal ? 'Internal Messages' : 'Case Messages'}
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            <div className="max-h-96 overflow-y-auto space-y-3">
+              {messages.length === 0 ? (
+                <p className="text-gray-500 text-center py-4">No messages yet</p>
+              ) : (
+                messages.map((message) => {
+                  const attachments = getMessageAttachments(message.id, message.created_at);
+                  return (
+                    <div key={message.id} className="border rounded-lg p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-medium text-sm">
+                          {message.users?.name || 'Unknown User'}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          {message.is_internal && (
+                            <Badge variant="secondary" className="text-xs">Internal</Badge>
+                          )}
+                          <span className="text-xs text-gray-500">
+                            {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
+                          </span>
+                        </div>
+                      </div>
+                      <p className="text-sm mb-2">{message.message}</p>
+                      
+                      {/* Display attachments with view and download buttons */}
+                      {attachments.length > 0 && (
+                        <div className="mt-3 space-y-2">
+                          <div className="text-xs text-gray-500 font-medium">Attachments:</div>
+                          {attachments.map((attachment) => (
+                            <div key={attachment.id} className="flex items-center justify-between bg-gray-50 p-2 rounded text-sm">
+                              <div className="flex items-center gap-2 min-w-0 flex-1">
+                                <Paperclip className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                                <span className="truncate" title={attachment.file_name}>{attachment.file_name}</span>
+                              </div>
+                              <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => viewAttachment(attachment)}
+                                  className="h-6 px-2"
+                                  title="View file"
+                                >
+                                  <Eye className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => downloadAttachment(attachment)}
+                                  className="h-6 px-2"
+                                  title="Download file"
+                                >
+                                  <Download className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
             <div className="space-y-2">
-              {messageAttachments.map((attachment) => (
-                <div key={attachment.id} className="flex items-center justify-between p-2 border rounded">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate" title={attachment.file_name}>{attachment.file_name}</p>
-                    <p className="text-xs text-gray-500">
-                      {formatDistanceToNow(new Date(attachment.created_at), { addSuffix: true })}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1 flex-shrink-0 ml-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => viewAttachment(attachment)}
-                      className="h-8 px-2"
-                      title="View file"
-                    >
-                      <Eye className="h-4 w-4" />
+              <Textarea
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                placeholder={`Type your ${isInternal ? 'internal ' : ''}message...`}
+                rows={3}
+                disabled={loading || !internalUserId}
+              />
+              
+              {/* File upload for both internal and external messages */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <label htmlFor="message-files" className="cursor-pointer">
+                    <Button type="button" variant="outline" size="sm" asChild>
+                      <span>
+                        <Paperclip className="h-4 w-4 mr-2" />
+                        Attach Files
+                      </span>
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => downloadAttachment(attachment)}
-                      className="h-8 px-2"
-                      title="Download file"
-                    >
-                      <Download className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  </label>
+                  <Input
+                    id="message-files"
+                    type="file"
+                    multiple
+                    accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.txt"
+                    onChange={handleFileChange}
+                    className="hidden"
+                    disabled={loading}
+                  />
                 </div>
-              ))}
+                
+                {files.length > 0 && (
+                  <div className="space-y-2">
+                    {files.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded min-w-0">
+                        <span className="text-sm truncate flex-1" title={file.name}>{file.name}</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeFile(index)}
+                          className="flex-shrink-0 ml-2"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              
+              <Button 
+                onClick={sendMessage}
+                disabled={!newMessage.trim() || loading || !internalUserId}
+                className="w-full"
+              >
+                <Send className="h-4 w-4 mr-2" />
+                Send Message
+              </Button>
             </div>
           </CardContent>
         </Card>
-      )}
-    </div>
+
+        {/* Show message media separately with view and download buttons */}
+        {messageAttachments.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">
+                Message Media ({messageAttachments.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {messageAttachments.map((attachment) => (
+                  <div key={attachment.id} className="flex items-center justify-between p-2 border rounded">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate" title={attachment.file_name}>{attachment.file_name}</p>
+                      <p className="text-xs text-gray-500">
+                        {formatDistanceToNow(new Date(attachment.created_at), { addSuffix: true })}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => viewAttachment(attachment)}
+                        className="h-8 px-2"
+                        title="View file"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => downloadAttachment(attachment)}
+                        className="h-8 px-2"
+                        title="Download file"
+                      >
+                        <Download className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      <AttachmentViewer
+        isOpen={viewerState.isOpen}
+        onClose={closeViewer}
+        fileName={viewerState.fileName}
+        fileUrl={viewerState.fileUrl}
+        fileType={viewerState.fileType}
+      />
+    </>
   );
 };
 
