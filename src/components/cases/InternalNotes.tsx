@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -43,8 +42,7 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
   const { toast } = useToast();
   const { user } = useAuth();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  
-  // Mention state
+
   const [showMentions, setShowMentions] = useState(false);
   const [mentionQuery, setMentionQuery] = useState('');
   const [mentionUsers, setMentionUsers] = useState<MentionUser[]>([]);
@@ -52,19 +50,14 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
   const [mentionStart, setMentionStart] = useState(0);
 
   useEffect(() => {
-    if (user) {
-      fetchInternalUserId();
-    }
+    if (user) fetchInternalUserId();
   }, [user]);
 
   useEffect(() => {
-    if (internalUserId) {
-      fetchNotes();
-    }
+    if (internalUserId) fetchNotes();
   }, [caseId, internalUserId]);
-  
+
   useEffect(() => {
-    // Set up real-time subscription for new notes
     if (caseId) {
       const channel = supabase
         .channel(`case_notes_${caseId}`)
@@ -76,20 +69,15 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
             table: 'case_notes',
             filter: `case_id=eq.${caseId}`,
           },
-          (payload) => {
-            // When a new note is added, fetch the user details and add to state
-            fetchNoteWithUser(payload.new.id);
-          }
+          (payload) => fetchNoteWithUser(payload.new.id)
         )
         .subscribe();
 
-      return () => {
-        supabase.removeChannel(channel);
-      };
+      return () => supabase.removeChannel(channel);
     }
   }, [caseId]);
-  
-  // Search for users when mention query changes
+
+  // 🔍 Mention user lookup on query change
   useEffect(() => {
     if (mentionQuery.length >= 1) {
       const fetchUsers = async () => {
@@ -111,21 +99,12 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
         .from('case_notes')
         .select(`
           *,
-          users!case_notes_author_id_fkey (
-            name,
-            email
-          )
+          users!case_notes_author_id_fkey (name, email)
         `)
         .eq('id', noteId)
         .single();
 
-      if (error) {
-        console.error('Error fetching note details:', error);
-        return;
-      }
-
-      // Check if this note is already in our list to avoid duplicates
-      if (!notes.some(note => note.id === data.id)) {
+      if (!error && !notes.some(note => note.id === data.id)) {
         setNotes(prev => [data, ...prev]);
       }
     } catch (error) {
@@ -135,20 +114,13 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
 
   const fetchInternalUserId = async () => {
     if (!user) return;
-
     try {
-      const { data: userData, error: userError } = await supabase
+      const { data: userData, error } = await supabase
         .from('users')
         .select('id')
         .eq('auth_user_id', user.id)
         .single();
-
-      if (userError) {
-        console.error('User lookup error:', userError);
-        return;
-      }
-
-      setInternalUserId(userData.id);
+      if (!error) setInternalUserId(userData.id);
     } catch (error) {
       console.error('Error fetching internal user ID:', error);
     }
@@ -160,22 +132,13 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
         .from('case_notes')
         .select(`
           *,
-          users!case_notes_author_id_fkey (
-            name,
-            email
-          )
+          users!case_notes_author_id_fkey (name, email)
         `)
         .eq('case_id', caseId)
         .eq('is_internal', true)
         .order('created_at', { ascending: true });
 
-      if (error) {
-        console.error('Notes fetch error:', error);
-        throw error;
-      }
-
-      console.log('Notes fetched:', data);
-      setNotes(data || []);
+      if (!error) setNotes(data || []);
     } catch (error) {
       console.error('Error fetching internal notes:', error);
     } finally {
@@ -186,26 +149,23 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
     const cursorPos = e.target.selectionStart;
-    
+
     setNewNote(value);
-    
+
     console.log('📝 Input changed:', { value, cursorPos });
-    
-    // Find @ symbol before cursor
+
     const textBeforeCursor = value.substring(0, cursorPos);
     const lastAtIndex = textBeforeCursor.lastIndexOf('@');
-    
+
     if (lastAtIndex !== -1) {
       const textAfterAt = textBeforeCursor.substring(lastAtIndex + 1);
-      
-      // Check if there's a space or newline after @ (which ends mention)
       if (!textAfterAt.includes(' ') && !textAfterAt.includes('\n')) {
-        console.log('📝 Starting mention mode, query:', textAfterAt);
+        console.log('🔍 Detected @mention trigger:', textAfterAt);
         setShowMentions(true);
         setMentionQuery(textAfterAt);
         setMentionStart(lastAtIndex);
       } else {
-        console.log('📝 Ending mention mode - space found');
+        console.log('📝 Ending mention mode - space or newline');
         setShowMentions(false);
         setMentionQuery('');
       }
@@ -215,21 +175,17 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
       setMentionQuery('');
     }
   };
-  
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (showMentions && mentionUsers.length > 0) {
       switch (e.key) {
         case 'ArrowDown':
           e.preventDefault();
-          setSelectedMentionIndex(prev => 
-            prev < mentionUsers.length - 1 ? prev + 1 : 0
-          );
+          setSelectedMentionIndex(prev => (prev < mentionUsers.length - 1 ? prev + 1 : 0));
           break;
         case 'ArrowUp':
           e.preventDefault();
-          setSelectedMentionIndex(prev => 
-            prev > 0 ? prev - 1 : mentionUsers.length - 1
-          );
+          setSelectedMentionIndex(prev => (prev > 0 ? prev - 1 : mentionUsers.length - 1));
           break;
         case 'Tab':
         case 'Enter':
@@ -249,47 +205,40 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
       }
     }
   };
-  
+
   const selectMention = (user: MentionUser) => {
     if (!textareaRef.current) return;
-    
+
     console.log('👤 Selecting mention for user:', user);
-    
+
     const textarea = textareaRef.current;
     const text = textarea.value;
-    
-    // Replace from @ to current cursor position with @username
+
     const beforeMention = text.substring(0, mentionStart);
     const afterCursor = text.substring(textarea.selectionStart);
     const userName = user.name.split(' ')[0];
-    
+
     const newText = beforeMention + `@${userName} ` + afterCursor;
-    
+
     setNewNote(newText);
     setShowMentions(false);
     setMentionQuery('');
-    
-    // Focus and set cursor after the mention
+
     setTimeout(() => {
       textarea.focus();
-      const newCursorPos = mentionStart + userName.length + 2; // +2 for @ and space
+      const newCursorPos = mentionStart + userName.length + 2;
       textarea.setSelectionRange(newCursorPos, newCursorPos);
     }, 0);
   };
 
   const addNote = async () => {
     if (!newNote.trim() || !internalUserId) {
-      toast({
-        title: "Error",
-        description: "Please enter a note",
-        variant: "destructive"
-      });
+      toast({ title: "Error", description: "Please enter a note", variant: "destructive" });
       return;
     }
 
     setSendingNote(true);
     try {
-      // Process @mentions in the note text
       const processedNote = await processMentionsAndNotify(
         newNote.trim(),
         caseId,
@@ -297,7 +246,7 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
         'internal_note',
         internalUserId
       );
-      
+
       const { error } = await supabase
         .from('case_notes')
         .insert({
@@ -307,32 +256,14 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
           is_internal: true
         });
 
-      if (error) {
-        console.error('Note insert error:', error);
-        throw error;
-      }
+      if (error) throw error;
 
-      // Log activity using our centralized logger
       await logInternalNoteAdded(caseId, newNote.trim(), internalUserId);
-
       setNewNote('');
-      
-      // Call the callback to refresh activities in the parent component
-      if (onActivityUpdate) {
-        onActivityUpdate();
-      }
-      
-      toast({
-        title: "Success",
-        description: "Internal note added successfully"
-      });
+      if (onActivityUpdate) onActivityUpdate();
+      toast({ title: "Success", description: "Internal note added successfully" });
     } catch (error) {
-      console.error('Error adding note:', error);
-      toast({
-        title: "Error",
-        description: "Failed to add internal note",
-        variant: "destructive"
-      });
+      toast({ title: "Error", description: "Failed to add internal note", variant: "destructive" });
     } finally {
       setSendingNote(false);
     }
@@ -348,9 +279,7 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
     });
   };
 
-  if (loading) {
-    return <div>Loading internal notes...</div>;
-  }
+  if (loading) return <div>Loading internal notes...</div>;
 
   return (
     <div className="space-y-4">
@@ -396,20 +325,13 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
             className="mb-2 border-orange-200 focus:border-orange-400"
             rows={3}
           />
-          
+
           {/* Mention dropdown */}
           {showMentions && mentionUsers.length > 0 && (
             <div 
               className="absolute z-50 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto"
-              //style={{ 
-              //  bottom: '100%', 
-              //  marginBottom: '8px'
-              //}}
-                style={{ 
-                  top: '100%', 
-                  marginTop: '4px'
-                }}
-
+              // style={{ bottom: '100%', marginBottom: '8px' }}
+              style={{ top: '100%', marginTop: '4px' }}
             >
               {mentionUsers.map((user, index) => (
                 <div
