@@ -1,4 +1,4 @@
-import InternalNotes from '@/components/Cases/InternalNotes'; // update the path if needed
+import InternalNotes from '@/components/cases/InternalNotes'; // update the path if needed
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
