@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Edit, MessageSquare, Clock, FileText, AlertTriangle, Sparkles, Send, Download, Paperclip, RefreshCw, FileDown } from 'lucide-react';
+import { ArrowLeft, Edit, MessageSquare, Clock, FileText, AlertTriangle, Sparkles, Send, Download, Paperclip, RefreshCw, FileDown, Eye } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import SLABadge from '@/components/cases/SLABadge';
 import StatusBadge from '@/components/cases/StatusBadge';
@@ -27,6 +27,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { logMessageAdded } from '@/utils/activityLogger';
 import { useCaseExport } from '@/hooks/useCaseExport';
 import MessageCenter from '@/components/messaging/MessageCenter';
+import AttachmentViewer from '@/components/attachments/AttachmentViewer';
 
 interface CaseData {
   id: string;
@@ -94,6 +95,17 @@ const CaseDetail = () => {
   const [generatingAI, setGeneratingAI] = useState(false);
   const [internalUserId, setInternalUserId] = useState<string | null>(null);
   const [refreshingActivities, setRefreshingActivities] = useState(false);
+  const [viewerState, setViewerState] = useState<{
+    isOpen: boolean;
+    fileName: string;
+    fileUrl: string;
+    fileType?: string;
+  }>({
+    isOpen: false,
+    fileName: '',
+    fileUrl: '',
+    fileType: undefined
+  });
 
   useEffect(() => {
     if (user) {
@@ -352,6 +364,24 @@ const CaseDetail = () => {
     } finally {
       setSendingMessage(false);
     }
+  };
+
+  const viewAttachment = (attachment: Attachment) => {
+    setViewerState({
+      isOpen: true,
+      fileName: attachment.file_name,
+      fileUrl: attachment.file_url,
+      fileType: attachment.file_type
+    });
+  };
+
+  const closeViewer = () => {
+    setViewerState({
+      isOpen: false,
+      fileName: '',
+      fileUrl: '',
+      fileType: undefined
+    });
   };
 
   const downloadAttachment = (fileUrl: string, fileName: string) => {
@@ -751,23 +781,35 @@ ${conversationContext}
               <CardContent className="space-y-2">
                 {attachments.map((attachment) => (
                   <div key={attachment.id} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <Paperclip className="h-4 w-4 text-gray-400" />
-                      <div>
-                        <p className="text-sm font-medium">{attachment.file_name}</p>
+                    <div className="flex items-center space-x-3 min-w-0 flex-1">
+                      <Paperclip className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium truncate">{attachment.file_name}</p>
                         <p className="text-xs text-muted-foreground">
                           Uploaded {formatDistanceToNow(new Date(attachment.created_at), { addSuffix: true })}
                         </p>
                       </div>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => downloadAttachment(attachment.file_url, attachment.file_name)}
-                    >
-                      <Download className="h-4 w-4 mr-1" />
-                      Download
-                    </Button>
+                    <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => viewAttachment(attachment)}
+                        title="View file"
+                        className="h-8 px-2"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => downloadAttachment(attachment.file_url, attachment.file_name)}
+                        title="Download file"
+                        className="h-8 px-2"
+                      >
+                        <Download className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
                 {attachments.length === 0 && (
@@ -803,6 +845,14 @@ ${conversationContext}
         isOpen={isEditDialogOpen}
         onClose={() => setIsEditDialogOpen(false)}
         onCaseUpdate={handleCaseUpdate}
+      />
+
+      <AttachmentViewer
+        isOpen={viewerState.isOpen}
+        onClose={closeViewer}
+        fileName={viewerState.fileName}
+        fileUrl={viewerState.fileUrl}
+        fileType={viewerState.fileType}
       />
     </>
   );
