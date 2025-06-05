@@ -1,4 +1,3 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -99,33 +98,4 @@
   body {
     @apply bg-background text-foreground;
   }
-}
-
-/* PDF-specific styles */
-@media print {
-  .pdf-template {
-    @apply shadow-none;
-    page-break-inside: avoid;
-  }
-  
-  .pdf-template * {
-    color-adjust: exact !important;
-    -webkit-print-color-adjust: exact !important;
-  }
-}
-
-.pdf-template {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  line-height: 1.6;
-  color: #1f2937;
-}
-
-.pdf-template h1, .pdf-template h2, .pdf-template h3, .pdf-template h4 {
-  font-weight: 600;
-  line-height: 1.3;
-}
-
-.pdf-template .card {
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-  border-radius: 8px;
 }

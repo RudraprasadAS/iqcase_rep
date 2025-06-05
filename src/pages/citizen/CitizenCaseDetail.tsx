@@ -12,9 +12,8 @@ import StatusBadge from '@/components/cases/StatusBadge';
 import PriorityBadge from '@/components/cases/PriorityBadge';
 import CaseFeedback from '@/components/cases/CaseFeedback';
 import CaseUpdates from '@/components/cases/CaseUpdates';
-import PDFTemplate from '@/components/pdf/PDFTemplate';
 import { formatDistanceToNow } from 'date-fns';
-import { usePDFGenerator } from '@/hooks/usePDFGenerator';
+import { useCaseExport } from '@/hooks/useCaseExport';
 
 interface CaseData {
   id: string;
@@ -57,17 +56,13 @@ const CitizenCaseDetail = () => {
   const { id: caseId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { generatePDF, isGenerating, pdfRef } = usePDFGenerator();
+  const { exportCaseToPDF, isExporting } = useCaseExport();
   const [caseData, setCaseData] = useState<CaseData | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
-  const [activities, setActivities] = useState<any[]>([]);
-  const [feedback, setFeedback] = useState<any[]>([]);
-  const [caseNotes, setCaseNotes] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [sendingMessage, setSendingMessage] = useState(false);
-  const [showPDFPreview, setShowPDFPreview] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
@@ -356,57 +351,10 @@ const CitizenCaseDetail = () => {
     }
   };
 
-  const fetchAdditionalPDFData = async () => {
-    try {
-      const [activitiesResult, feedbackResult, caseNotesResult] = await Promise.all([
-        supabase
-          .from('case_activities')
-          .select(`
-            *,
-            users!case_activities_performed_by_fkey(name)
-          `)
-          .eq('case_id', caseId)
-          .order('created_at', { ascending: false }),
-        
-        supabase
-          .from('case_feedback')
-          .select('*')
-          .eq('case_id', caseId)
-          .order('submitted_at', { ascending: false }),
-        
-        supabase
-          .from('case_messages')
-          .select(`
-            id,
-            message as note,
-            created_at,
-            is_internal,
-            users!case_messages_sender_id_fkey(name)
-          `)
-          .eq('case_id', caseId)
-          .order('created_at', { ascending: false })
-      ]);
-
-      setActivities(activitiesResult.data || []);
-      setFeedback(feedbackResult.data || []);
-      setCaseNotes(activitiesResult.data || []); // Using activities as notes for now
-    } catch (error) {
-      console.error('Error fetching additional PDF data:', error);
+  const handleExportPDF = () => {
+    if (caseId) {
+      exportCaseToPDF(caseId);
     }
-  };
-
-  const handleExportPDF = async () => {
-    if (!caseData) return;
-    
-    await fetchAdditionalPDFData();
-    setShowPDFPreview(true);
-    
-    // Generate PDF after a short delay to ensure the preview is rendered
-    setTimeout(() => {
-      const caseNumber = generateCaseNumber(caseData.id, caseData.created_at);
-      generatePDF(`Case_Report_${caseNumber}`);
-      setShowPDFPreview(false);
-    }, 1000);
   };
 
   if (loading) {
@@ -433,18 +381,6 @@ const CitizenCaseDetail = () => {
         <title>Case {generateCaseNumber(caseData.id, caseData.created_at)} - Citizen Portal</title>
       </Helmet>
 
-      {showPDFPreview && (
-        <div ref={pdfRef} className="fixed top-0 left-0 w-full h-full bg-white z-50 overflow-auto" style={{ transform: 'translateX(-9999px)' }}>
-          <PDFTemplate
-            caseData={caseData}
-            activities={activities}
-            feedback={feedback}
-            caseNotes={caseNotes}
-            isInternal={false}
-          />
-        </div>
-      )}
-
       <div className="container mx-auto py-6 space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
@@ -466,11 +402,11 @@ const CitizenCaseDetail = () => {
           <Button 
             variant="outline" 
             onClick={handleExportPDF}
-            disabled={isGenerating}
+            disabled={isExporting}
             className="flex items-center gap-2"
           >
             <FileDown className="h-4 w-4" />
-            {isGenerating ? 'Generating PDF...' : 'Download Case Report (PDF)'}
+            {isExporting ? 'Generating PDF...' : 'Download Case Report (PDF)'}
           </Button>
         </div>
 
