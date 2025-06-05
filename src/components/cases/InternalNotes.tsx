@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -5,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Lock, Send } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -181,6 +181,22 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
     }
   };
 
+  // Search for users when in mention mode and query changes
+  useEffect(() => {
+    if (mentionMode && mentionQuery.length >= 1) {
+      const fetchMentionUsers = async () => {
+        console.log('🔍 Searching for users with query:', mentionQuery);
+        const users = await searchUsersByMention(mentionQuery);
+        console.log('🔍 Found users:', users);
+        setMentionUsers(users);
+        setSelectedMentionIndex(0);
+      };
+      fetchMentionUsers();
+    } else {
+      setMentionUsers([]);
+    }
+  }, [mentionQuery, mentionMode]);
+
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
     const selectionStart = e.target.selectionStart;
@@ -188,22 +204,31 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
     setNewNote(value);
     setCursorPosition(selectionStart);
     
+    console.log('📝 Textarea changed:', { value, selectionStart });
+    
     // Check for @ symbol at current position
     const textBeforeCursor = value.substring(0, selectionStart);
     const lastAtIndex = textBeforeCursor.lastIndexOf('@');
     
+    console.log('📝 Last @ index:', lastAtIndex, 'Text before cursor:', textBeforeCursor);
+    
     if (lastAtIndex >= 0) {
       const textAfterAt = textBeforeCursor.substring(lastAtIndex + 1);
       
+      console.log('📝 Text after @:', textAfterAt);
+      
       // Check if there's a space after @ (which would end mention mode)
-      if (textAfterAt.includes(' ')) {
+      if (textAfterAt.includes(' ') || textAfterAt.includes('\n')) {
+        console.log('📝 Ending mention mode - space or newline found');
         setMentionMode(false);
         setMentionQuery('');
       } else {
+        console.log('📝 Starting mention mode with query:', textAfterAt);
         setMentionMode(true);
         setMentionQuery(textAfterAt);
       }
     } else {
+      console.log('📝 No @ found, ending mention mode');
       setMentionMode(false);
       setMentionQuery('');
     }
@@ -229,6 +254,9 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
           if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             selectMention(mentionUsers[selectedMentionIndex]);
+          } else if (e.key === 'Tab') {
+            e.preventDefault();
+            selectMention(mentionUsers[selectedMentionIndex]);
           }
           break;
         case 'Escape':
@@ -243,6 +271,8 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
   const selectMention = (user: MentionUser) => {
     if (!textareaRef.current) return;
     
+    console.log('👤 Selecting mention for user:', user);
+    
     const textarea = textareaRef.current;
     const text = textarea.value;
     const beforeCursor = text.substring(0, cursorPosition);
@@ -253,9 +283,10 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
     
     if (lastAtPos >= 0) {
       // Replace the @query with @username
+      const userName = user.name.split(' ')[0];
       const newText = 
         text.substring(0, lastAtPos) + 
-        `@${user.name.split(' ')[0]} ` + 
+        `@${userName} ` + 
         afterCursor;
       
       setNewNote(newText);
@@ -267,7 +298,7 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
       // Focus back on textarea and set cursor after the mention
       setTimeout(() => {
         textarea.focus();
-        const newCursorPos = lastAtPos + user.name.split(' ')[0].length + 2; // +2 for @ and space
+        const newCursorPos = lastAtPos + userName.length + 2; // +2 for @ and space
         textarea.setSelectionRange(newCursorPos, newCursorPos);
         setCursorPosition(newCursorPos);
       }, 0);

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -116,11 +117,24 @@ const CitizenDashboard = () => {
       }
 
       console.log('Cases data fetched:', casesData?.length || 0, 'cases');
+      console.log('Cases data details:', casesData);
 
       const totalCases = casesData?.length || 0;
       const openCases = casesData?.filter(c => c.status === 'open').length || 0;
       const inProgressCases = casesData?.filter(c => c.status === 'in_progress').length || 0;
-      const closedCases = casesData?.filter(c => c.status === 'closed').length || 0;
+      // Include both 'resolved' and 'closed' statuses for closed cases count
+      const closedCases = casesData?.filter(c => c.status === 'resolved' || c.status === 'closed').length || 0;
+
+      console.log('Cases breakdown:', {
+        totalCases,
+        openCases,
+        inProgressCases,
+        closedCases,
+        statusBreakdown: casesData?.reduce((acc, c) => {
+          acc[c.status] = (acc[c.status] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>)
+      });
 
       // Fetch unread messages count
       const { count: unreadMessagesCount, error: messagesError } = await supabase
