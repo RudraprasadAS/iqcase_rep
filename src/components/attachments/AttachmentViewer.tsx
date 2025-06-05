@@ -95,6 +95,29 @@ const AttachmentViewer = ({ isOpen, onClose, fileName, fileUrl, fileType }: Atta
       );
     }
 
+    // Handle DOCX and other Office documents
+    if (fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || 
+        fileType === 'application/msword' ||
+        fileType === 'application/vnd.ms-excel' ||
+        fileType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+        fileType === 'application/vnd.ms-powerpoint' ||
+        fileType === 'application/vnd.openxmlformats-officedocument.presentationml.presentation') {
+      
+      // Use Google Docs Viewer for Office documents
+      const googleViewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(fileUrl)}&embedded=true`;
+      
+      return (
+        <iframe
+          src={googleViewerUrl}
+          className="w-full border"
+          style={{ height: isFullscreen ? '90vh' : '70vh' }}
+          title={fileName}
+          onLoad={() => setLoading(false)}
+          onError={() => setLoading(false)}
+        />
+      );
+    }
+
     return (
       <div className="flex flex-col items-center justify-center h-64 space-y-4">
         <p className="text-gray-500">Preview not available for this file type</p>
