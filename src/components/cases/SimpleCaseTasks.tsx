@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { format } from 'date-fns';
+import { logTaskCreated, logTaskUpdated, logTaskDeleted } from '@/utils/activityLogger';
 
 interface Task {
   id: string;
@@ -33,9 +33,10 @@ interface User {
 
 interface SimpleCaseTasksProps {
   caseId: string;
+  onActivityUpdate?: () => void;
 }
 
-const SimpleCaseTasks = ({ caseId }: SimpleCaseTasksProps) => {
+const SimpleCaseTasks = ({ caseId, onActivityUpdate }: SimpleCaseTasksProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -119,7 +120,10 @@ const SimpleCaseTasks = ({ caseId }: SimpleCaseTasksProps) => {
   };
 
   const toggleTaskStatus = async (taskId: string, currentStatus: string) => {
+    if (!internalUserId) return;
+    
     const newStatus = currentStatus === 'completed' ? 'open' : 'completed';
+    const task = tasks.find(t => t.id === taskId);
     
     try {
       const { error } = await supabase
@@ -129,7 +133,18 @@ const SimpleCaseTasks = ({ caseId }: SimpleCaseTasksProps) => {
 
       if (error) throw error;
       
+      // Log the task status change activity
+      console.log('🚀 About to log task status change');
+      await logTaskUpdated(caseId, task?.task_name || 'Unknown Task', { status: newStatus }, internalUserId);
+      console.log('🚀 Task status change logged successfully');
+      
       await fetchTasks();
+      
+      // Call the callback to refresh activities in the parent component
+      if (onActivityUpdate) {
+        onActivityUpdate();
+      }
+      
       toast({
         title: "Success",
         description: `Task marked as ${newStatus}`
@@ -169,11 +184,22 @@ const SimpleCaseTasks = ({ caseId }: SimpleCaseTasksProps) => {
 
       if (error) throw error;
       
+      // Log the task creation activity
+      console.log('🚀 About to log task creation');
+      await logTaskCreated(caseId, newTaskName.trim(), selectedAssignee || null, internalUserId);
+      console.log('🚀 Task creation logged successfully');
+      
       setNewTaskName('');
       setSelectedAssignee('');
       setSelectedDueDate(undefined);
       setShowTaskForm(false);
       await fetchTasks();
+      
+      // Call the callback to refresh activities in the parent component
+      if (onActivityUpdate) {
+        onActivityUpdate();
+      }
+      
       toast({
         title: "Success",
         description: "Task created successfully"
@@ -189,6 +215,10 @@ const SimpleCaseTasks = ({ caseId }: SimpleCaseTasksProps) => {
   };
 
   const deleteTask = async (taskId: string) => {
+    if (!internalUserId) return;
+    
+    const task = tasks.find(t => t.id === taskId);
+    
     try {
       const { error } = await supabase
         .from('case_tasks')
@@ -197,7 +227,18 @@ const SimpleCaseTasks = ({ caseId }: SimpleCaseTasksProps) => {
 
       if (error) throw error;
       
+      // Log the task deletion activity
+      console.log('🚀 About to log task deletion');
+      await logTaskDeleted(caseId, task?.task_name || 'Unknown Task', internalUserId);
+      console.log('🚀 Task deletion logged successfully');
+      
       await fetchTasks();
+      
+      // Call the callback to refresh activities in the parent component
+      if (onActivityUpdate) {
+        onActivityUpdate();
+      }
+      
       toast({
         title: "Success",
         description: "Task deleted successfully"

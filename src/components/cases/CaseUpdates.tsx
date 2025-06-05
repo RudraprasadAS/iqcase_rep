@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -50,18 +49,13 @@ const CaseUpdates = ({ caseId, isInternal = true }: CaseUpdatesProps) => {
         throw error;
       }
 
-      // Filter activities for Updates tab - exclude internal messages and notes
+      // Filter activities for Updates tab - show only major case updates
       const allowedActivityTypes = [
         'case_created',
         'case_assigned',
         'case_unassigned', 
         'status_changed',
-        'priority_changed',
-        'attachment_added',
-        'watcher_added',
-        'watcher_removed',
-        'related_case_added',
-        'related_case_removed'
+        'priority_changed'
       ];
       
       // For external portal, also exclude internal-only activities

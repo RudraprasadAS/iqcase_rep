@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { logRelatedCaseAdded, logRelatedCaseRemoved } from '@/utils/activityLogger';
 
 interface RelatedCase {
   id: string;
@@ -36,9 +36,10 @@ interface AvailableCase {
 
 interface SearchableRelatedCasesProps {
   caseId: string;
+  onActivityUpdate?: () => void;
 }
 
-const SearchableRelatedCases = ({ caseId }: SearchableRelatedCasesProps) => {
+const SearchableRelatedCases = ({ caseId, onActivityUpdate }: SearchableRelatedCasesProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -210,11 +211,21 @@ const SearchableRelatedCases = ({ caseId }: SearchableRelatedCasesProps) => {
         throw error;
       }
 
+      // Log the related case addition activity
+      console.log('🚀 About to log related case addition');
+      await logRelatedCaseAdded(caseId, selectedCaseId, selectedRelationType, internalUserId);
+      console.log('🚀 Related case addition logged successfully');
+
       setSelectedCaseId('');
       setSelectedRelationType('');
       setSearchTerm('');
       setIsSearchOpen(false);
       await fetchRelatedCases();
+      
+      // Call the callback to refresh activities in the parent component
+      if (onActivityUpdate) {
+        onActivityUpdate();
+      }
       
       toast({
         title: "Success",
@@ -233,6 +244,10 @@ const SearchableRelatedCases = ({ caseId }: SearchableRelatedCasesProps) => {
   };
 
   const removeRelatedCase = async (relationshipId: string) => {
+    if (!internalUserId) return;
+    
+    const relatedCase = relatedCases.find(rc => rc.id === relationshipId);
+    
     try {
       const { error } = await supabase
         .from('related_cases')
@@ -241,7 +256,18 @@ const SearchableRelatedCases = ({ caseId }: SearchableRelatedCasesProps) => {
 
       if (error) throw error;
       
+      // Log the related case removal activity
+      console.log('🚀 About to log related case removal');
+      await logRelatedCaseRemoved(caseId, relatedCase?.related_case_id || '', internalUserId);
+      console.log('🚀 Related case removal logged successfully');
+      
       await fetchRelatedCases();
+      
+      // Call the callback to refresh activities in the parent component
+      if (onActivityUpdate) {
+        onActivityUpdate();
+      }
+      
       toast({
         title: "Success",
         description: "Related case removed successfully"
