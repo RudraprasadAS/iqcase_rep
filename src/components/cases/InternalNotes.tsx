@@ -48,7 +48,6 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
   const [mentionMode, setMentionMode] = useState(false);
   const [mentionQuery, setMentionQuery] = useState('');
   const [mentionUsers, setMentionUsers] = useState<MentionUser[]>([]);
-  const [cursorPosition, setCursorPosition] = useState(0);
   const [selectedMentionIndex, setSelectedMentionIndex] = useState(0);
 
   useEffect(() => {
@@ -91,10 +90,10 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
   
   // Search for users when in mention mode and query changes
   useEffect(() => {
-    if (mentionMode && mentionQuery.length >= 1) {
+    if (mentionMode) {
       const fetchMentionUsers = async () => {
         console.log('🔍 Searching for users with query:', mentionQuery);
-        const users = await searchUsersByMention(mentionQuery);
+        const users = await searchUsersByMention(mentionQuery || 'a'); // Search with at least 'a' to get results
         console.log('🔍 Found users:', users);
         setMentionUsers(users);
         setSelectedMentionIndex(0);
@@ -188,7 +187,6 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
     const selectionStart = e.target.selectionStart;
     
     setNewNote(value);
-    setCursorPosition(selectionStart);
     
     console.log('📝 Textarea changed:', { value, selectionStart });
     
@@ -261,6 +259,7 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
     
     const textarea = textareaRef.current;
     const text = textarea.value;
+    const cursorPosition = textarea.selectionStart;
     const beforeCursor = text.substring(0, cursorPosition);
     const afterCursor = text.substring(cursorPosition);
     
@@ -286,7 +285,6 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
         textarea.focus();
         const newCursorPos = lastAtPos + userName.length + 2; // +2 for @ and space
         textarea.setSelectionRange(newCursorPos, newCursorPos);
-        setCursorPosition(newCursorPos);
       }, 0);
     }
   };
@@ -411,9 +409,10 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
             rows={3}
           />
           
-          {/* Mention dropdown - Fixed positioning */}
+          {/* Mention dropdown */}
           {mentionMode && mentionUsers.length > 0 && (
-            <div className="absolute bottom-full left-0 right-0 z-50 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto mb-2">
+            <div className="absolute z-50 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto" 
+                 style={{ bottom: '100%', marginBottom: '8px' }}>
               {mentionUsers.map((user, index) => (
                 <div
                   key={user.id}
