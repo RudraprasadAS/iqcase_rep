@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
@@ -17,7 +16,7 @@ import PriorityBadge from '@/components/cases/PriorityBadge';
 import CaseEditDialog from '@/components/cases/CaseEditDialog';
 import CaseAIAssistant from '@/components/cases/CaseAIAssistant';
 import { useAuth } from '@/hooks/useAuth';
-import RelatedCases from '@/components/cases/RelatedCases';
+import SearchableRelatedCases from '@/components/cases/SearchableRelatedCases';
 import CaseWatchers from '@/components/cases/CaseWatchers';
 import SimpleCaseTasks from '@/components/cases/SimpleCaseTasks';
 import CaseNotes from '@/components/cases/CaseNotes';
@@ -27,6 +26,7 @@ import CaseFeedback from '@/components/cases/CaseFeedback';
 import { formatDistanceToNow } from 'date-fns';
 import { logMessageAdded } from '@/utils/activityLogger';
 import { useCaseExport } from '@/hooks/useCaseExport';
+import MessageCenter from '@/components/messaging/MessageCenter';
 
 interface CaseData {
   id: string;
@@ -667,7 +667,7 @@ ${conversationContext}
               </CardContent>
             </Card>
 
-            <RelatedCases caseId={caseData.id} />
+            <SearchableRelatedCases caseId={caseData.id} />
 
             <SimpleCaseTasks caseId={caseData.id} />
 
@@ -691,73 +691,10 @@ ${conversationContext}
                     <TabsTrigger value="updates">Updates</TabsTrigger>
                   </TabsList>
                   <TabsContent value="messages" className="space-y-4">
-                    <div className="space-y-4 max-h-96 overflow-y-auto">
-                      {messages.map((message) => (
-                        <div key={message.id} className="flex space-x-3">
-                          <Avatar className="h-8 w-8">
-                            <AvatarFallback>
-                              {(message.users?.name || message.sender_id).slice(0, 2).toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1">
-                            <div className="text-sm">
-                              <span className="font-medium">
-                                {message.users?.name || message.users?.email || message.sender_id}
-                              </span>
-                              <span className="text-muted-foreground ml-2">
-                                {formatDateTime(message.created_at)}
-                              </span>
-                              {message.is_internal && (
-                                <Badge variant="secondary" className="ml-2 text-xs">
-                                  Internal
-                                </Badge>
-                              )}
-                            </div>
-                            <div className="mt-1 text-sm bg-muted rounded-lg p-3">
-                              {message.message}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                      {messages.length === 0 && (
-                        <div className="text-center text-muted-foreground py-4">
-                          No messages yet
-                        </div>
-                      )}
-                    </div>
-                    <div className="border-t pt-4 space-y-2">
-                      <div className="flex gap-2 mb-2">
-                        <Button
-                          onClick={generateAIResponse}
-                          disabled={generatingAI || !caseData}
-                          variant="outline"
-                          size="sm"
-                          className="flex items-center gap-2"
-                        >
-                          <Sparkles className="h-4 w-4" />
-                          {generatingAI ? 'Generating...' : 'AI Draft'}
-                        </Button>
-                      </div>
-                      <Textarea
-                        placeholder="Write a message..."
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        className="mb-2"
-                        rows={3}
-                      />
-                      <Button 
-                        onClick={handleSendMessage} 
-                        size="sm"
-                        disabled={sendingMessage || !newMessage.trim()}
-                        className="w-full"
-                      >
-                        <Send className="h-4 w-4 mr-2" />
-                        {sendingMessage ? 'Sending...' : 'Send Message'}
-                      </Button>
-                    </div>
+                    <MessageCenter caseId={caseData.id} isInternal={false} />
                   </TabsContent>
                   <TabsContent value="notes" className="space-y-4">
-                    <InternalNotes caseId={caseData.id} onActivityUpdate={fetchActivities} />
+                    <MessageCenter caseId={caseData.id} isInternal={true} />
                   </TabsContent>
                   <TabsContent value="activities" className="space-y-4">
                     <div className="space-y-3 max-h-96 overflow-y-auto">
