@@ -285,6 +285,60 @@ const MessageCenter = ({ caseId, isInternal = false }: MessageCenterProps) => {
     }
   };
 
+// Add inside your component above return()
+const [mentionUsers, setMentionUsers] = useState<{ id: string; name: string }[]>([]);
+const [showMentions, setShowMentions] = useState(false);
+const [mentionQuery, setMentionQuery] = useState('');
+const [mentionIndex, setMentionIndex] = useState(0);
+
+useEffect(() => {
+  const fetchUsers = async () => {
+    const { data, error } = await supabase.from('users').select('id, name');
+    if (!error && data) setMentionUsers(data);
+  };
+  if (isInternal) fetchUsers();
+}, [isInternal]);
+
+useEffect(() => {
+  if (!mentionQuery.trim()) {
+    setShowMentions(false);
+    return;
+  }
+  setShowMentions(true);
+}, [mentionQuery]);
+
+const handleTextareaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  if (!showMentions) return;
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    setMentionIndex((prev) => (prev + 1) % mentionUsers.length);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    setMentionIndex((prev) => (prev - 1 + mentionUsers.length) % mentionUsers.length);
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    const selected = mentionUsers[mentionIndex];
+    const mentionTag = `@${selected.name}`;
+    setNewMessage((prev) => prev.replace(/@[^\s]*$/, mentionTag + ' '));
+    setMentionQuery('');
+    setShowMentions(false);
+  }
+};
+
+const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const value = e.target.value;
+  setNewMessage(value);
+
+  const match = value.match(/@([^\s]*)$/);
+  if (match) {
+    setMentionQuery(match[1]);
+  } else {
+    setMentionQuery('');
+    setShowMentions(false);
+  }
+};
+
+
   return (
     <>
       <div className="space-y-4">
@@ -362,12 +416,42 @@ const MessageCenter = ({ caseId, isInternal = false }: MessageCenterProps) => {
             <div className="space-y-2">
               <Textarea
                 value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
+                onChange={handleTextareaChange}
+                onKeyDown={handleTextareaKeyDown}
+
                 placeholder={`Type your ${isInternal ? 'internal ' : ''}message...`}
                 rows={3}
                 disabled={loading || !internalUserId}
               />
+              {showMentions && mentionUsers.length > 0 && (
               
+              <div className="border rounded shadow bg-white mt-1 max-h-48 overflow-y-auto">
+                {mentionUsers
+                  .filter((u) =>
+                    u.name.toLowerCase().includes(mentionQuery.toLowerCase())
+                  )
+                  .map((user, index) => (
+                    <div
+                      key={user.id}
+                      className={`px-3 py-2 text-sm cursor-pointer hover:bg-gray-100 ${
+                        index === mentionIndex ? 'bg-gray-100 font-semibold' : ''
+                      }`}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        const mentionTag = `@${user.name}`;
+                        setNewMessage((prev) =>
+                          prev.replace(/@[^\s]*$/, mentionTag + ' ')
+                        );
+                        setMentionQuery('');
+                        setShowMentions(false);
+                      }}
+                    >
+                      {user.name}
+                    </div>
+                  ))}
+              </div>
+            )}
+
               {/* File upload for both internal and external messages */}
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
