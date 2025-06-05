@@ -32,6 +32,7 @@ import CitizenCaseDetail from './pages/citizen/CitizenCaseDetail';
 import NewCitizenCase from './pages/citizen/NewCase';
 import CitizenKnowledgeBase from './pages/citizen/CitizenKnowledgeBase';
 import Notifications from './pages/Notifications';
+import Insights from './pages/Insights';
 import Roles from './pages/admin/Roles';
 
 const queryClient = new QueryClient();
@@ -66,6 +67,7 @@ function App() {
                   <Route path="/cases/new" element={<NewCase />} />
                   <Route path="/knowledge" element={<KnowledgeBase />} />
                   <Route path="/notifications" element={<Notifications />} />
+                  <Route path="/insights" element={<Insights />} />
                   
                   {/* Reports */}
                   <Route path="/reports" element={<Reports />} />

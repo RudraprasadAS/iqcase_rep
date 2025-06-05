@@ -9,7 +9,8 @@ import {
   BookOpen,
   Bell,
   Shield,
-  ChevronDown
+  ChevronDown,
+  TrendingUp
 } from 'lucide-react';
 import {
   Sidebar,
@@ -36,6 +37,7 @@ const navigation = [
   { name: 'Cases', href: '/cases', icon: FileText },
   { name: 'Knowledge Base', href: '/knowledge', icon: BookOpen },
   { name: 'Notifications', href: '/notifications', icon: Bell },
+  { name: 'Insights', href: '/insights', icon: TrendingUp },
 ];
 
 const reportNavigation = [
