@@ -1,8 +1,9 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Clock, User, CheckCircle, AlertCircle, FileText, MessageSquare } from 'lucide-react';
+import { Clock, User, CheckCircle, AlertCircle, FileText } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 interface Activity {
@@ -49,7 +50,7 @@ const CaseUpdates = ({ caseId, isInternal = true }: CaseUpdatesProps) => {
         throw error;
       }
 
-      // Filter activities based on user type
+      // Filter activities - exclude message activities as they should be in messages tab
       const allowedActivityTypes = [
         'case_created',
         'case_assigned',
@@ -58,11 +59,6 @@ const CaseUpdates = ({ caseId, isInternal = true }: CaseUpdatesProps) => {
         'priority_changed',
         'attachment_added'
       ];
-
-      // Add message_added only for internal users
-      if (isInternal) {
-        allowedActivityTypes.push('message_added');
-      }
       
       let filteredActivities = (data || []).filter(activity => {
         return allowedActivityTypes.includes(activity.activity_type);
@@ -88,8 +84,6 @@ const CaseUpdates = ({ caseId, isInternal = true }: CaseUpdatesProps) => {
         return <CheckCircle className="h-4 w-4 text-purple-500" />;
       case 'priority_changed':
         return <AlertCircle className="h-4 w-4 text-orange-500" />;
-      case 'message_added':
-        return <MessageSquare className="h-4 w-4 text-cyan-500" />;
       case 'attachment_added':
         return <FileText className="h-4 w-4 text-gray-500" />;
       default:
@@ -109,8 +103,6 @@ const CaseUpdates = ({ caseId, isInternal = true }: CaseUpdatesProps) => {
         return 'Status Update';
       case 'priority_changed':
         return 'Priority Update';
-      case 'message_added':
-        return 'Message';
       case 'attachment_added':
         return 'Attachment';
       default:
@@ -130,8 +122,6 @@ const CaseUpdates = ({ caseId, isInternal = true }: CaseUpdatesProps) => {
         return 'bg-purple-100 text-purple-700';
       case 'priority_changed':
         return 'bg-orange-100 text-orange-700';
-      case 'message_added':
-        return 'bg-cyan-100 text-cyan-700';
       case 'attachment_added':
         return 'bg-gray-100 text-gray-700';
       default:
