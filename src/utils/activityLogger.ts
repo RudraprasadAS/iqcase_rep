@@ -560,3 +560,83 @@ export const logCaseNoteDeleted = async (caseId: string, note: string, performed
     console.error('📝 Exception in logCaseNoteDeleted:', error);
   }
 };
+
+export const logRelatedCaseAdded = async (caseId: string, relatedCaseId: string, relationshipType: string, performedBy?: string) => {
+  try {
+    console.log('🔗 Logging related case added activity:', { caseId, relatedCaseId, relationshipType, performedBy });
+    
+    // Get current user if not provided
+    const userId = performedBy || await getCurrentInternalUserId();
+    if (!userId) {
+      console.error('🔗 No user ID available for logging related case addition');
+      return;
+    }
+    
+    // Get the related case title for better description
+    const { data: relatedCase } = await supabase
+      .from('cases')
+      .select('title')
+      .eq('id', relatedCaseId)
+      .single();
+    
+    const relatedCaseTitle = relatedCase?.title || `Case ${relatedCaseId.slice(0, 8)}`;
+    
+    const { error } = await supabase
+      .from('case_activities')
+      .insert({
+        case_id: caseId,
+        activity_type: 'related_case_added',
+        description: `Related case "${relatedCaseTitle}" added with relationship: ${relationshipType}`,
+        performed_by: userId
+      });
+
+    if (error) {
+      console.error('🔗 Error logging related case added activity:', error);
+      throw error;
+    }
+
+    console.log('🔗 Related case added activity logged successfully');
+  } catch (error) {
+    console.error('🔗 Exception in logRelatedCaseAdded:', error);
+  }
+};
+
+export const logRelatedCaseRemoved = async (caseId: string, relatedCaseId: string, performedBy?: string) => {
+  try {
+    console.log('🔗 Logging related case removed activity:', { caseId, relatedCaseId, performedBy });
+    
+    // Get current user if not provided
+    const userId = performedBy || await getCurrentInternalUserId();
+    if (!userId) {
+      console.error('🔗 No user ID available for logging related case removal');
+      return;
+    }
+    
+    // Get the related case title for better description
+    const { data: relatedCase } = await supabase
+      .from('cases')
+      .select('title')
+      .eq('id', relatedCaseId)
+      .single();
+    
+    const relatedCaseTitle = relatedCase?.title || `Case ${relatedCaseId.slice(0, 8)}`;
+    
+    const { error } = await supabase
+      .from('case_activities')
+      .insert({
+        case_id: caseId,
+        activity_type: 'related_case_removed',
+        description: `Related case "${relatedCaseTitle}" removed`,
+        performed_by: userId
+      });
+
+    if (error) {
+      console.error('🔗 Error logging related case removed activity:', error);
+      throw error;
+    }
+
+    console.log('🔗 Related case removed activity logged successfully');
+  } catch (error) {
+    console.error('🔗 Exception in logRelatedCaseRemoved:', error);
+  }
+};

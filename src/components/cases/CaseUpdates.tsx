@@ -50,21 +50,33 @@ const CaseUpdates = ({ caseId, isInternal = true }: CaseUpdatesProps) => {
         throw error;
       }
 
-      // Filter activities - exclude message activities as they should be in messages tab
+      // Filter activities for Updates tab - exclude internal messages and notes
       const allowedActivityTypes = [
         'case_created',
         'case_assigned',
         'case_unassigned', 
         'status_changed',
         'priority_changed',
-        'attachment_added'
+        'attachment_added',
+        'watcher_added',
+        'watcher_removed',
+        'related_case_added',
+        'related_case_removed'
       ];
       
+      // For external portal, also exclude internal-only activities
       let filteredActivities = (data || []).filter(activity => {
+        if (!isInternal) {
+          // External users should not see internal activities
+          const internalOnlyTypes = ['internal_note_added', 'case_note_added'];
+          if (internalOnlyTypes.includes(activity.activity_type)) {
+            return false;
+          }
+        }
         return allowedActivityTypes.includes(activity.activity_type);
       });
 
-      console.log('Activities loaded:', filteredActivities.length);
+      console.log('Updates loaded:', filteredActivities.length);
       setActivities(filteredActivities);
     } catch (error) {
       console.error('Error fetching activities:', error);

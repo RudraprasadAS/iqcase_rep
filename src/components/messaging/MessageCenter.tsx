@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Send, MessageCircle, Paperclip, X, Download, Eye } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import AttachmentViewer from '@/components/attachments/AttachmentViewer';
+import { logMessageAdded } from '@/utils/activityLogger';
 
 interface Message {
   id: string;
@@ -253,6 +254,9 @@ const MessageCenter = ({ caseId, isInternal = false }: MessageCenterProps) => {
         console.error('Message send error:', error);
         throw error;
       }
+
+      // Log the message activity
+      await logMessageAdded(caseId, newMessage.trim(), isInternal, internalUserId);
 
       // Upload files if any
       if (files.length > 0) {

@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -45,12 +44,11 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
   const { user } = useAuth();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   
-  // Mention state - RESTORED
+  // Mention state
   const [mentionMode, setMentionMode] = useState(false);
   const [mentionQuery, setMentionQuery] = useState('');
   const [mentionUsers, setMentionUsers] = useState<MentionUser[]>([]);
   const [cursorPosition, setCursorPosition] = useState(0);
-  const [showMentionPopover, setShowMentionPopover] = useState(false);
   const [selectedMentionIndex, setSelectedMentionIndex] = useState(0);
 
   useEffect(() => {
@@ -91,13 +89,13 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
     }
   }, [caseId]);
   
-  // Search for users when in mention mode and query changes - RESTORED
+  // Search for users when in mention mode and query changes
   useEffect(() => {
-    if (mentionMode && mentionQuery) {
+    if (mentionMode && mentionQuery.length >= 1) {
       const fetchMentionUsers = async () => {
         const users = await searchUsersByMention(mentionQuery);
         setMentionUsers(users);
-        setSelectedMentionIndex(0); // Reset selection
+        setSelectedMentionIndex(0);
       };
       fetchMentionUsers();
     } else {
@@ -183,51 +181,36 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
     }
   };
 
-  // RESTORED mention functionality
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
-    setNewNote(value);
-    
-    // Get cursor position
     const selectionStart = e.target.selectionStart;
+    
+    setNewNote(value);
     setCursorPosition(selectionStart);
     
-    // Check if we should activate mention mode
-    if (value[selectionStart - 1] === '@') {
-      setMentionMode(true);
-      setMentionQuery('');
-      setShowMentionPopover(true);
-      setSelectedMentionIndex(0);
-      return;
-    }
+    // Check for @ symbol at current position
+    const textBeforeCursor = value.substring(0, selectionStart);
+    const lastAtIndex = textBeforeCursor.lastIndexOf('@');
     
-    // If in mention mode, update query or exit if needed
-    if (mentionMode) {
-      // Find the text from the @ to the cursor
-      const beforeCursor = value.substring(0, selectionStart);
-      const lastAtPos = beforeCursor.lastIndexOf('@');
+    if (lastAtIndex >= 0) {
+      const textAfterAt = textBeforeCursor.substring(lastAtIndex + 1);
       
-      if (lastAtPos >= 0) {
-        const query = beforeCursor.substring(lastAtPos + 1);
-        setMentionQuery(query);
-        
-        // Exit mention mode if space is typed or we move away from @
-        if (query.includes(' ') || selectionStart <= lastAtPos) {
-          setMentionMode(false);
-          setShowMentionPopover(false);
-        } else {
-          setShowMentionPopover(true);
-        }
-      } else {
+      // Check if there's a space after @ (which would end mention mode)
+      if (textAfterAt.includes(' ')) {
         setMentionMode(false);
-        setShowMentionPopover(false);
+        setMentionQuery('');
+      } else {
+        setMentionMode(true);
+        setMentionQuery(textAfterAt);
       }
+    } else {
+      setMentionMode(false);
+      setMentionQuery('');
     }
   };
   
-  // RESTORED keyboard navigation for mentions
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (mentionMode && showMentionPopover && mentionUsers.length > 0) {
+    if (mentionMode && mentionUsers.length > 0) {
       switch (e.key) {
         case 'ArrowDown':
           e.preventDefault();
@@ -243,23 +226,23 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
           break;
         case 'Tab':
         case 'Enter':
-          e.preventDefault();
-          selectMention(mentionUsers[selectedMentionIndex]);
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            selectMention(mentionUsers[selectedMentionIndex]);
+          }
           break;
         case 'Escape':
           e.preventDefault();
           setMentionMode(false);
-          setShowMentionPopover(false);
+          setMentionQuery('');
           break;
       }
     }
   };
   
-  // RESTORED mention selection
   const selectMention = (user: MentionUser) => {
     if (!textareaRef.current) return;
     
-    // Get current text and cursor position
     const textarea = textareaRef.current;
     const text = textarea.value;
     const beforeCursor = text.substring(0, cursorPosition);
@@ -280,7 +263,6 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
       // Reset mention state
       setMentionMode(false);
       setMentionQuery('');
-      setShowMentionPopover(false);
       
       // Focus back on textarea and set cursor after the mention
       setTimeout(() => {
@@ -304,7 +286,7 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
 
     setSendingNote(true);
     try {
-      // Process @mentions in the note text - RESTORED
+      // Process @mentions in the note text
       const processedNote = await processMentionsAndNotify(
         newNote.trim(),
         caseId,
@@ -402,60 +384,40 @@ const InternalNotes = ({ caseId, onActivityUpdate }: InternalNotesProps) => {
       </div>
       <div className="border-t pt-4 space-y-2">
         <div className="relative">
-          <Popover open={showMentionPopover} onOpenChange={setShowMentionPopover}>
-            <PopoverTrigger asChild>
-              <div className="relative">
-                <Textarea
-                  ref={textareaRef}
-                  placeholder="Add an internal note (staff only)... use @ to mention colleagues"
-                  value={newNote}
-                  onChange={handleTextareaChange}
-                  onKeyDown={handleKeyDown}
-                  className="mb-2 border-orange-200 focus:border-orange-400"
-                  rows={3}
-                />
-              </div>
-            </PopoverTrigger>
-            {mentionMode && (
-              <PopoverContent 
-                className="w-64 p-0" 
-                align="start"
-                onOpenAutoFocus={e => e.preventDefault()}
-              >
-                {mentionUsers.length > 0 ? (
-                  <div className="py-1 max-h-48 overflow-y-auto">
-                    {mentionUsers.map((user, index) => (
-                      <div
-                        key={user.id}
-                        className={`px-2 py-1.5 cursor-pointer flex items-center gap-2 ${
-                          index === selectedMentionIndex ? 'bg-accent' : 'hover:bg-muted'
-                        }`}
-                        onClick={() => selectMention(user)}
-                      >
-                        <Avatar className="h-6 w-6">
-                          <AvatarFallback className="text-xs">
-                            {user.name.slice(0, 2).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <div className="text-sm font-medium">{user.name}</div>
-                          <div className="text-xs text-muted-foreground">{user.email}</div>
-                        </div>
-                      </div>
-                    ))}
+          <Textarea
+            ref={textareaRef}
+            placeholder="Add an internal note (staff only)... use @ to mention colleagues"
+            value={newNote}
+            onChange={handleTextareaChange}
+            onKeyDown={handleKeyDown}
+            className="mb-2 border-orange-200 focus:border-orange-400"
+            rows={3}
+          />
+          
+          {/* Mention dropdown */}
+          {mentionMode && mentionUsers.length > 0 && (
+            <div className="absolute top-full left-0 right-0 z-50 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+              {mentionUsers.map((user, index) => (
+                <div
+                  key={user.id}
+                  className={`px-3 py-2 cursor-pointer flex items-center gap-2 ${
+                    index === selectedMentionIndex ? 'bg-accent' : 'hover:bg-muted'
+                  }`}
+                  onClick={() => selectMention(user)}
+                >
+                  <Avatar className="h-6 w-6">
+                    <AvatarFallback className="text-xs">
+                      {user.name.slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <div className="text-sm font-medium">{user.name}</div>
+                    <div className="text-xs text-muted-foreground">{user.email}</div>
                   </div>
-                ) : mentionQuery ? (
-                  <div className="p-2 text-sm text-muted-foreground">
-                    No users found matching "{mentionQuery}"
-                  </div>
-                ) : (
-                  <div className="p-2 text-sm text-muted-foreground">
-                    Type a name to search
-                  </div>
-                )}
-              </PopoverContent>
-            )}
-          </Popover>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
         <Button 
           onClick={addNote} 
