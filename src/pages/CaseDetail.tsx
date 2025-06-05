@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
@@ -21,6 +22,8 @@ import CaseWatchers from '@/components/cases/CaseWatchers';
 import SimpleCaseTasks from '@/components/cases/SimpleCaseTasks';
 import CaseNotes from '@/components/cases/CaseNotes';
 import CaseUpdates from '@/components/cases/CaseUpdates';
+import InternalNotes from '@/components/cases/InternalNotes';
+import CaseFeedback from '@/components/cases/CaseFeedback';
 import { formatDistanceToNow } from 'date-fns';
 import { logMessageAdded } from '@/utils/activityLogger';
 import { useCaseExport } from '@/hooks/useCaseExport';
