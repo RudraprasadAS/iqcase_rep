@@ -2,7 +2,7 @@
 import { useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { FileText, FileImage, Download, Paperclip } from 'lucide-react';
+import { FileText, FileImage, Download, Paperclip, Eye } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -26,6 +26,10 @@ const CaseAttachments = ({ attachments, caseId, onAttachmentsUpdated }: CaseAtta
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+
+  const viewAttachment = (fileUrl: string, fileName: string) => {
+    window.open(fileUrl, '_blank');
+  };
 
   const downloadAttachment = (fileUrl: string, fileName: string) => {
     const link = document.createElement('a');
@@ -193,14 +197,26 @@ const CaseAttachments = ({ attachments, caseId, onAttachmentsUpdated }: CaseAtta
                   </p>
                 </div>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => downloadAttachment(attachment.file_url, attachment.file_name)}
-              >
-                <Download className="h-4 w-4 mr-1" />
-                Download
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => viewAttachment(attachment.file_url, attachment.file_name)}
+                  title="View file"
+                >
+                  <Eye className="h-4 w-4 mr-1" />
+                  View
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => downloadAttachment(attachment.file_url, attachment.file_name)}
+                  title="Download file"
+                >
+                  <Download className="h-4 w-4 mr-1" />
+                  Download
+                </Button>
+              </div>
             </div>
           ))}
         </CardContent>

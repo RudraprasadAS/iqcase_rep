@@ -1,11 +1,10 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { MessageSquare, Send, Paperclip, X, Download } from 'lucide-react';
+import { MessageSquare, Send, Paperclip, X, Download, Eye } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
@@ -206,8 +205,18 @@ const CaseMessages = ({ messages, caseId, onMessagesUpdated }: CaseMessagesProps
     }
   };
 
-  const downloadAttachment = (attachment: Attachment) => {
+  const viewAttachment = (attachment: Attachment) => {
     window.open(attachment.file_url, '_blank');
+  };
+
+  const downloadAttachment = (attachment: Attachment) => {
+    const link = document.createElement('a');
+    link.href = attachment.file_url;
+    link.download = attachment.file_name;
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const publicMessages = messages.filter(message => !message.is_internal);
@@ -244,24 +253,36 @@ const CaseMessages = ({ messages, caseId, onMessagesUpdated }: CaseMessagesProps
                     {message.message}
                   </div>
                   
-                  {/* Display attachments with proper layout */}
+                  {/* Display attachments with view and download buttons */}
                   {attachments.length > 0 && (
                     <div className="mt-3 space-y-2">
                       <div className="text-xs text-gray-500 font-medium">Attachments:</div>
                       {attachments.map((attachment) => (
-                        <div key={attachment.id} className="flex items-center justify-between bg-gray-50 p-2 rounded text-sm min-w-0">
+                        <div key={attachment.id} className="flex items-center justify-between bg-gray-50 p-2 rounded text-sm">
                           <div className="flex items-center gap-2 min-w-0 flex-1">
                             <Paperclip className="h-3 w-3 text-gray-400 flex-shrink-0" />
                             <span className="truncate" title={attachment.file_name}>{attachment.file_name}</span>
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => downloadAttachment(attachment)}
-                            className="h-6 px-2 flex-shrink-0 ml-2"
-                          >
-                            <Download className="h-3 w-3" />
-                          </Button>
+                          <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => viewAttachment(attachment)}
+                              className="h-6 px-2"
+                              title="View file"
+                            >
+                              <Eye className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => downloadAttachment(attachment)}
+                              className="h-6 px-2"
+                              title="Download file"
+                            >
+                              <Download className="h-3 w-3" />
+                            </Button>
+                          </div>
                         </div>
                       ))}
                     </div>

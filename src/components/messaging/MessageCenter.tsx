@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { Send, MessageCircle, Paperclip, X, Download } from 'lucide-react';
+import { Send, MessageCircle, Paperclip, X, Download, Eye } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 interface Message {
@@ -241,8 +241,18 @@ const MessageCenter = ({ caseId, isInternal = false }: MessageCenterProps) => {
     }
   };
 
-  const downloadAttachment = (attachment: Attachment) => {
+  const viewAttachment = (attachment: Attachment) => {
     window.open(attachment.file_url, '_blank');
+  };
+
+  const downloadAttachment = (attachment: Attachment) => {
+    const link = document.createElement('a');
+    link.href = attachment.file_url;
+    link.download = attachment.file_name;
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
@@ -278,24 +288,36 @@ const MessageCenter = ({ caseId, isInternal = false }: MessageCenterProps) => {
                     </div>
                     <p className="text-sm mb-2">{message.message}</p>
                     
-                    {/* Display attachments within the message with proper layout */}
+                    {/* Display attachments with view and download buttons */}
                     {attachments.length > 0 && (
                       <div className="mt-3 space-y-2">
                         <div className="text-xs text-gray-500 font-medium">Attachments:</div>
                         {attachments.map((attachment) => (
-                          <div key={attachment.id} className="flex items-center justify-between bg-gray-50 p-2 rounded text-sm min-w-0">
+                          <div key={attachment.id} className="flex items-center justify-between bg-gray-50 p-2 rounded text-sm">
                             <div className="flex items-center gap-2 min-w-0 flex-1">
                               <Paperclip className="h-3 w-3 text-gray-400 flex-shrink-0" />
                               <span className="truncate" title={attachment.file_name}>{attachment.file_name}</span>
                             </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => downloadAttachment(attachment)}
-                              className="h-6 px-2 flex-shrink-0 ml-2"
-                            >
-                              <Download className="h-3 w-3" />
-                            </Button>
+                            <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => viewAttachment(attachment)}
+                                className="h-6 px-2"
+                                title="View file"
+                              >
+                                <Eye className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => downloadAttachment(attachment)}
+                                className="h-6 px-2"
+                                title="Download file"
+                              >
+                                <Download className="h-3 w-3" />
+                              </Button>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -369,7 +391,7 @@ const MessageCenter = ({ caseId, isInternal = false }: MessageCenterProps) => {
         </CardContent>
       </Card>
 
-      {/* Show message media separately with improved layout */}
+      {/* Show message media separately with view and download buttons */}
       {messageAttachments.length > 0 && (
         <Card>
           <CardHeader>
@@ -380,21 +402,33 @@ const MessageCenter = ({ caseId, isInternal = false }: MessageCenterProps) => {
           <CardContent>
             <div className="space-y-2">
               {messageAttachments.map((attachment) => (
-                <div key={attachment.id} className="flex items-center justify-between p-2 border rounded min-w-0">
+                <div key={attachment.id} className="flex items-center justify-between p-2 border rounded">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate" title={attachment.file_name}>{attachment.file_name}</p>
                     <p className="text-xs text-gray-500">
                       {formatDistanceToNow(new Date(attachment.created_at), { addSuffix: true })}
                     </p>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => downloadAttachment(attachment)}
-                    className="flex-shrink-0 ml-2"
-                  >
-                    <Download className="h-4 w-4" />
-                  </Button>
+                  <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => viewAttachment(attachment)}
+                      className="h-8 px-2"
+                      title="View file"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => downloadAttachment(attachment)}
+                      className="h-8 px-2"
+                      title="Download file"
+                    >
+                      <Download className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
