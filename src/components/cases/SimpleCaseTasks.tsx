@@ -4,10 +4,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { CheckSquare, Square, Plus, Trash2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { CheckSquare, Square, Plus, Trash2, Calendar as CalendarIcon, User } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { format } from 'date-fns';
 
 interface Task {
   id: string;
@@ -15,7 +19,16 @@ interface Task {
   status: string;
   created_at: string;
   created_by: string;
+  assigned_to?: string;
+  due_date?: string;
   users?: { name: string };
+  assigned_user?: { name: string };
+}
+
+interface User {
+  id: string;
+  name: string;
+  email: string;
 }
 
 interface SimpleCaseTasksProps {
@@ -26,9 +39,13 @@ const SimpleCaseTasks = ({ caseId }: SimpleCaseTasksProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [newTaskName, setNewTaskName] = useState('');
+  const [selectedAssignee, setSelectedAssignee] = useState<string>('');
+  const [selectedDueDate, setSelectedDueDate] = useState<Date | undefined>();
   const [loading, setLoading] = useState(true);
   const [internalUserId, setInternalUserId] = useState<string | null>(null);
+  const [showTaskForm, setShowTaskForm] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -39,6 +56,7 @@ const SimpleCaseTasks = ({ caseId }: SimpleCaseTasksProps) => {
   useEffect(() => {
     if (caseId) {
       fetchTasks();
+      fetchUsers();
     }
   }, [caseId]);
 
@@ -63,13 +81,30 @@ const SimpleCaseTasks = ({ caseId }: SimpleCaseTasksProps) => {
     }
   };
 
+  const fetchUsers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, name, email')
+        .eq('user_type', 'internal')
+        .eq('is_active', true)
+        .order('name');
+
+      if (error) throw error;
+      setUsers(data || []);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    }
+  };
+
   const fetchTasks = async () => {
     try {
       const { data, error } = await supabase
         .from('case_tasks')
         .select(`
           *,
-          users!case_tasks_created_by_fkey(name)
+          users!case_tasks_created_by_fkey(name),
+          assigned_user:users!case_tasks_assigned_to_fkey(name)
         `)
         .eq('case_id', caseId)
         .order('created_at', { ascending: false });
@@ -113,18 +148,31 @@ const SimpleCaseTasks = ({ caseId }: SimpleCaseTasksProps) => {
     if (!newTaskName.trim() || !internalUserId) return;
 
     try {
+      const taskData: any = {
+        case_id: caseId,
+        task_name: newTaskName.trim(),
+        created_by: internalUserId,
+        status: 'open'
+      };
+
+      if (selectedAssignee) {
+        taskData.assigned_to = selectedAssignee;
+      }
+
+      if (selectedDueDate) {
+        taskData.due_date = selectedDueDate.toISOString();
+      }
+
       const { error } = await supabase
         .from('case_tasks')
-        .insert({
-          case_id: caseId,
-          task_name: newTaskName.trim(),
-          created_by: internalUserId,
-          status: 'open'
-        });
+        .insert(taskData);
 
       if (error) throw error;
       
       setNewTaskName('');
+      setSelectedAssignee('');
+      setSelectedDueDate(undefined);
+      setShowTaskForm(false);
       await fetchTasks();
       toast({
         title: "Success",
@@ -164,6 +212,14 @@ const SimpleCaseTasks = ({ caseId }: SimpleCaseTasksProps) => {
     }
   };
 
+  const formatDueDate = (dateString: string) => {
+    return format(new Date(dateString), 'MMM d, yyyy');
+  };
+
+  const isOverdue = (dateString: string) => {
+    return new Date(dateString) < new Date() && new Date(dateString).toDateString() !== new Date().toDateString();
+  };
+
   if (loading) {
     return (
       <Card>
@@ -180,20 +236,69 @@ const SimpleCaseTasks = ({ caseId }: SimpleCaseTasksProps) => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Tasks ({tasks.length})</CardTitle>
+        <CardTitle className="flex items-center justify-between">
+          Tasks ({tasks.length})
+          <Button 
+            onClick={() => setShowTaskForm(!showTaskForm)} 
+            size="sm"
+            variant={showTaskForm ? "outline" : "default"}
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            {showTaskForm ? "Cancel" : "Add Task"}
+          </Button>
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex gap-2">
-          <Input
-            placeholder="Add a new task..."
-            value={newTaskName}
-            onChange={(e) => setNewTaskName(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && createTask()}
-          />
-          <Button onClick={createTask} size="sm" disabled={!newTaskName.trim()}>
-            <Plus className="h-4 w-4" />
-          </Button>
-        </div>
+        {showTaskForm && (
+          <div className="space-y-3 p-4 border rounded-lg bg-gray-50">
+            <Input
+              placeholder="Task description..."
+              value={newTaskName}
+              onChange={(e) => setNewTaskName(e.target.value)}
+            />
+            
+            <div className="grid grid-cols-2 gap-2">
+              <Select value={selectedAssignee} onValueChange={setSelectedAssignee}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Assign to..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {users.map((user) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="justify-start text-left">
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {selectedDueDate ? format(selectedDueDate, "MMM d, yyyy") : "Due date..."}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={selectedDueDate}
+                    onSelect={setSelectedDueDate}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <Button 
+              onClick={createTask} 
+              size="sm" 
+              disabled={!newTaskName.trim()}
+              className="w-full"
+            >
+              Create Task
+            </Button>
+          </div>
+        )}
 
         <div className="space-y-2">
           {tasks.map((task) => (
@@ -215,9 +320,27 @@ const SimpleCaseTasks = ({ caseId }: SimpleCaseTasksProps) => {
                   <p className={`text-sm ${task.status === 'completed' ? 'line-through text-gray-500' : ''}`}>
                     {task.task_name}
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    Created by {task.users?.name || 'Unknown'}
-                  </p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <p className="text-xs text-muted-foreground">
+                      by {task.users?.name || 'Unknown'}
+                    </p>
+                    {task.assigned_user && (
+                      <div className="flex items-center gap-1">
+                        <User className="h-3 w-3" />
+                        <span className="text-xs text-muted-foreground">
+                          {task.assigned_user.name}
+                        </span>
+                      </div>
+                    )}
+                    {task.due_date && (
+                      <div className="flex items-center gap-1">
+                        <CalendarIcon className="h-3 w-3" />
+                        <span className={`text-xs ${isOverdue(task.due_date) ? 'text-red-500' : 'text-muted-foreground'}`}>
+                          {formatDueDate(task.due_date)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <Badge variant={task.status === 'completed' ? 'default' : 'secondary'}>
                   {task.status}
