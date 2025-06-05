@@ -2,6 +2,20 @@
 import { supabase } from '@/integrations/supabase/client';
 import { notifyExternalUserOfCaseUpdate } from './externalNotificationUtils';
 
+// Helper function to get current user's internal ID
+const getCurrentInternalUserId = async () => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data: userData } = await supabase
+    .from('users')
+    .select('id')
+    .eq('auth_user_id', user.id)
+    .single();
+
+  return userData?.id || null;
+};
+
 export const logCaseCreated = async (caseId: string, caseTitle: string, performedBy: string) => {
   try {
     console.log('📋 Logging case created activity:', { caseId, caseTitle, performedBy });
@@ -26,9 +40,16 @@ export const logCaseCreated = async (caseId: string, caseTitle: string, performe
   }
 };
 
-export const logCaseUpdated = async (caseId: string, changes: Record<string, { old: any, new: any }>, performedBy: string) => {
+export const logCaseUpdated = async (caseId: string, changes: Record<string, { old: any, new: any }>, performedBy?: string) => {
   try {
     console.log('📋 Logging case updated activity:', { caseId, changes, performedBy });
+    
+    // Get current user if not provided
+    const userId = performedBy || await getCurrentInternalUserId();
+    if (!userId) {
+      console.error('📋 No user ID available for logging case update');
+      return;
+    }
     
     // Create descriptions for each change
     const descriptions = Object.entries(changes).map(([field, change]) => {
@@ -50,7 +71,7 @@ export const logCaseUpdated = async (caseId: string, changes: Record<string, { o
         case_id: caseId,
         activity_type: 'case_updated',
         description: descriptions.join(', '),
-        performed_by: performedBy
+        performed_by: userId
       });
 
     if (error) {
@@ -64,9 +85,16 @@ export const logCaseUpdated = async (caseId: string, changes: Record<string, { o
   }
 };
 
-export const logCaseAssigned = async (caseId: string, assigneeName: string, performedBy: string) => {
+export const logCaseAssigned = async (caseId: string, assigneeName: string, performedBy?: string) => {
   try {
     console.log('📋 Logging case assigned activity:', { caseId, assigneeName, performedBy });
+    
+    // Get current user if not provided
+    const userId = performedBy || await getCurrentInternalUserId();
+    if (!userId) {
+      console.error('📋 No user ID available for logging case assignment');
+      return;
+    }
     
     const { error } = await supabase
       .from('case_activities')
@@ -74,7 +102,7 @@ export const logCaseAssigned = async (caseId: string, assigneeName: string, perf
         case_id: caseId,
         activity_type: 'case_assigned',
         description: `Case assigned to ${assigneeName}`,
-        performed_by: performedBy
+        performed_by: userId
       });
 
     if (error) {
@@ -100,9 +128,16 @@ export const logCaseAssigned = async (caseId: string, assigneeName: string, perf
   }
 };
 
-export const logCaseUnassigned = async (caseId: string, performedBy: string) => {
+export const logCaseUnassigned = async (caseId: string, performedBy?: string) => {
   try {
     console.log('📋 Logging case unassigned activity:', { caseId, performedBy });
+    
+    // Get current user if not provided
+    const userId = performedBy || await getCurrentInternalUserId();
+    if (!userId) {
+      console.error('📋 No user ID available for logging case unassignment');
+      return;
+    }
     
     const { error } = await supabase
       .from('case_activities')
@@ -110,7 +145,7 @@ export const logCaseUnassigned = async (caseId: string, performedBy: string) => 
         case_id: caseId,
         activity_type: 'case_unassigned',
         description: 'Case unassigned',
-        performed_by: performedBy
+        performed_by: userId
       });
 
     if (error) {
@@ -124,9 +159,16 @@ export const logCaseUnassigned = async (caseId: string, performedBy: string) => 
   }
 };
 
-export const logStatusChanged = async (caseId: string, oldStatus: string, newStatus: string, performedBy: string) => {
+export const logStatusChanged = async (caseId: string, oldStatus: string, newStatus: string, performedBy?: string) => {
   try {
     console.log('📋 Logging status changed activity:', { caseId, oldStatus, newStatus, performedBy });
+    
+    // Get current user if not provided
+    const userId = performedBy || await getCurrentInternalUserId();
+    if (!userId) {
+      console.error('📋 No user ID available for logging status change');
+      return;
+    }
     
     const { error } = await supabase
       .from('case_activities')
@@ -134,7 +176,7 @@ export const logStatusChanged = async (caseId: string, oldStatus: string, newSta
         case_id: caseId,
         activity_type: 'status_changed',
         description: `Status changed from "${oldStatus}" to "${newStatus}"`,
-        performed_by: performedBy
+        performed_by: userId
       });
 
     if (error) {
@@ -161,9 +203,16 @@ export const logStatusChanged = async (caseId: string, oldStatus: string, newSta
   }
 };
 
-export const logPriorityChanged = async (caseId: string, oldPriority: string, newPriority: string, performedBy: string) => {
+export const logPriorityChanged = async (caseId: string, oldPriority: string, newPriority: string, performedBy?: string) => {
   try {
     console.log('📋 Logging priority changed activity:', { caseId, oldPriority, newPriority, performedBy });
+    
+    // Get current user if not provided
+    const userId = performedBy || await getCurrentInternalUserId();
+    if (!userId) {
+      console.error('📋 No user ID available for logging priority change');
+      return;
+    }
     
     const { error } = await supabase
       .from('case_activities')
@@ -171,7 +220,7 @@ export const logPriorityChanged = async (caseId: string, oldPriority: string, ne
         case_id: caseId,
         activity_type: 'priority_changed',
         description: `Priority changed from "${oldPriority}" to "${newPriority}"`,
-        performed_by: performedBy
+        performed_by: userId
       });
 
     if (error) {
@@ -185,9 +234,16 @@ export const logPriorityChanged = async (caseId: string, oldPriority: string, ne
   }
 };
 
-export const logMessageAdded = async (caseId: string, message: string, isInternal: boolean, performedBy: string) => {
+export const logMessageAdded = async (caseId: string, message: string, isInternal: boolean, performedBy?: string) => {
   try {
     console.log('📋 Logging message added activity:', { caseId, message: message.substring(0, 50) + '...', isInternal, performedBy });
+    
+    // Get current user if not provided
+    const userId = performedBy || await getCurrentInternalUserId();
+    if (!userId) {
+      console.error('📋 No user ID available for logging message');
+      return;
+    }
     
     const { error } = await supabase
       .from('case_activities')
@@ -195,7 +251,7 @@ export const logMessageAdded = async (caseId: string, message: string, isInterna
         case_id: caseId,
         activity_type: 'message_added',
         description: `${isInternal ? 'Internal message' : 'Message'} added: ${message.substring(0, 100)}${message.length > 100 ? '...' : ''}`,
-        performed_by: performedBy
+        performed_by: userId
       });
 
     if (error) {

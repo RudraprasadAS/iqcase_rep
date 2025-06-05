@@ -240,7 +240,7 @@ const CaseDetail = () => {
       }
 
       console.log('📋 ALL Activities fetched:', data?.length || 0, 'items', data);
-      // Don't filter anything - show ALL activities in the Activities tab
+      // Show ALL activities in the Activities tab - no filtering
       setActivities(data || []);
     } catch (error) {
       console.error('Error fetching activities:', error);
@@ -303,17 +303,116 @@ const CaseDetail = () => {
         console.log('Case data subscription status:', status);
       });
 
+    // Subscribe to messages changes to capture message activities
+    const messagesChannel = supabase
+      .channel(`case_messages_realtime_${caseId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'case_messages',
+          filter: `case_id=eq.${caseId}`
+        },
+        (payload) => {
+          console.log('💬 Real-time message change detected:', payload);
+          // Refresh activities when messages change
+          setTimeout(() => {
+            console.log('💬 🔄 Triggering activity refresh due to message update');
+            fetchActivities();
+            fetchMessages();
+          }, 100);
+        }
+      )
+      .subscribe((status) => {
+        console.log('Messages subscription status:', status);
+      });
+
+    // Subscribe to case notes changes
+    const notesChannel = supabase
+      .channel(`case_notes_realtime_${caseId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'case_notes',
+          filter: `case_id=eq.${caseId}`
+        },
+        (payload) => {
+          console.log('📝 Real-time note change detected:', payload);
+          setTimeout(() => {
+            console.log('📝 🔄 Triggering activity refresh due to note update');
+            fetchActivities();
+          }, 100);
+        }
+      )
+      .subscribe((status) => {
+        console.log('Notes subscription status:', status);
+      });
+
+    // Subscribe to case tasks changes
+    const tasksChannel = supabase
+      .channel(`case_tasks_realtime_${caseId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'case_tasks',
+          filter: `case_id=eq.${caseId}`
+        },
+        (payload) => {
+          console.log('✅ Real-time task change detected:', payload);
+          setTimeout(() => {
+            console.log('✅ 🔄 Triggering activity refresh due to task update');
+            fetchActivities();
+          }, 100);
+        }
+      )
+      .subscribe((status) => {
+        console.log('Tasks subscription status:', status);
+      });
+
+    // Subscribe to case attachments changes
+    const attachmentsChannel = supabase
+      .channel(`case_attachments_realtime_${caseId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'case_attachments',
+          filter: `case_id=eq.${caseId}`
+        },
+        (payload) => {
+          console.log('📎 Real-time attachment change detected:', payload);
+          setTimeout(() => {
+            console.log('📎 🔄 Triggering activity refresh due to attachment update');
+            fetchActivities();
+            fetchAttachments();
+          }, 100);
+        }
+      )
+      .subscribe((status) => {
+        console.log('Attachments subscription status:', status);
+      });
+
     // Also set up a periodic refresh as backup
     const intervalId = setInterval(() => {
-      console.log('📋 🔄 Periodic activity and case refresh');
+      console.log('📋 🔄 Periodic comprehensive refresh');
       fetchActivities();
       fetchCaseData();
-    }, 5000); // Refresh every 5 seconds
+    }, 10000); // Refresh every 10 seconds
 
     return () => {
-      console.log('📋 Cleaning up enhanced activities and case subscriptions and interval');
+      console.log('📋 Cleaning up all subscriptions and interval');
       supabase.removeChannel(activitiesChannel);
       supabase.removeChannel(caseChannel);
+      supabase.removeChannel(messagesChannel);
+      supabase.removeChannel(notesChannel);
+      supabase.removeChannel(tasksChannel);
+      supabase.removeChannel(attachmentsChannel);
       clearInterval(intervalId);
     };
   }, [caseId]);
@@ -450,8 +549,9 @@ ${conversationContext}
     
     // Force refresh activities to see any new activity logs
     setTimeout(() => {
-      console.log('🔄 Forcing activity refresh after case update');
+      console.log('🔄 Forcing comprehensive refresh after case update');
       fetchActivities();
+      fetchCaseData();
     }, 500); // Small delay to ensure activity logging is complete
     
     setIsEditDialogOpen(false);
@@ -462,12 +562,15 @@ ${conversationContext}
   };
 
   const handleManualRefresh = () => {
+    console.log('🔄 Manual comprehensive refresh triggered');
     fetchCaseData();
     fetchActivities();
+    fetchMessages();
+    fetchAttachments();
     
     toast({
       title: "Refreshing",
-      description: "Case data and activities updated"
+      description: "All case data and activities updated"
     });
   };
 
