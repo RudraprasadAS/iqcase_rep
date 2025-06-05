@@ -1,12 +1,14 @@
+
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { MessageSquare, Send, Paperclip, X } from 'lucide-react';
+import { MessageSquare, Send, Paperclip, X, Download } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { formatDistanceToNow } from 'date-fns';
 
 interface Message {
   id: string;
@@ -15,6 +17,14 @@ interface Message {
   created_at: string;
   is_internal: boolean;
   users?: { name: string; email: string };
+}
+
+interface Attachment {
+  id: string;
+  file_name: string;
+  file_url: string;
+  file_type?: string;
+  created_at: string;
 }
 
 interface CaseMessagesProps {
@@ -27,7 +37,44 @@ const CaseMessages = ({ messages, caseId, onMessagesUpdated }: CaseMessagesProps
   const [newMessage, setNewMessage] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
+  const [messageAttachments, setMessageAttachments] = useState<Attachment[]>([]);
   const { toast } = useToast();
+
+  // Fetch attachments for citizen portal - only public ones
+  const fetchAttachments = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('case_attachments')
+        .select('*')
+        .eq('case_id', caseId)
+        .eq('is_private', false) // Only public attachments for citizens
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching attachments:', error);
+        return;
+      }
+
+      setMessageAttachments(data || []);
+    } catch (error) {
+      console.error('Error fetching attachments:', error);
+    }
+  };
+
+  // Fetch attachments when component mounts
+  useState(() => {
+    fetchAttachments();
+  });
+
+  const getMessageAttachments = (messageId: string, messageCreatedAt: string) => {
+    // Get attachments created within 5 minutes of the message
+    const messageTime = new Date(messageCreatedAt).getTime();
+    return messageAttachments.filter(attachment => {
+      const attachmentTime = new Date(attachment.created_at).getTime();
+      const timeDiff = Math.abs(attachmentTime - messageTime);
+      return timeDiff <= 5 * 60 * 1000; // 5 minutes in milliseconds
+    });
+  };
 
   const formatDateTime = (dateString: string) => {
     return new Date(dateString).toLocaleString('en-US', {
@@ -76,7 +123,7 @@ const CaseMessages = ({ messages, caseId, onMessagesUpdated }: CaseMessagesProps
             file_url: publicUrl,
             file_type: file.type,
             uploaded_by: null, // Will be set by the backend
-            is_private: false
+            is_private: false // Public attachments for citizen portal
           });
 
         if (attachmentError) throw attachmentError;
@@ -138,6 +185,7 @@ const CaseMessages = ({ messages, caseId, onMessagesUpdated }: CaseMessagesProps
       // Upload files if any
       if (files.length > 0) {
         await uploadFiles();
+        await fetchAttachments(); // Refresh attachments
       }
 
       setNewMessage('');
@@ -158,6 +206,10 @@ const CaseMessages = ({ messages, caseId, onMessagesUpdated }: CaseMessagesProps
     }
   };
 
+  const downloadAttachment = (attachment: Attachment) => {
+    window.open(attachment.file_url, '_blank');
+  };
+
   const publicMessages = messages.filter(message => !message.is_internal);
 
   return (
@@ -170,28 +222,54 @@ const CaseMessages = ({ messages, caseId, onMessagesUpdated }: CaseMessagesProps
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-4 max-h-96 overflow-y-auto">
-          {publicMessages.map((message) => (
-            <div key={message.id} className="flex space-x-3">
-              <Avatar className="h-8 w-8">
-                <AvatarFallback>
-                  {(message.users?.name || message.sender_id).slice(0, 2).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1">
-                <div className="text-sm">
-                  <span className="font-medium">
-                    {message.users?.name || message.users?.email || message.sender_id}
-                  </span>
-                  <span className="text-muted-foreground ml-2">
-                    {formatDateTime(message.created_at)}
-                  </span>
-                </div>
-                <div className="mt-1 text-sm bg-muted rounded-lg p-3">
-                  {message.message}
+          {publicMessages.map((message) => {
+            const attachments = getMessageAttachments(message.id, message.created_at);
+            return (
+              <div key={message.id} className="flex space-x-3">
+                <Avatar className="h-8 w-8">
+                  <AvatarFallback>
+                    {(message.users?.name || message.sender_id).slice(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm">
+                    <span className="font-medium">
+                      {message.users?.name || message.users?.email || message.sender_id}
+                    </span>
+                    <span className="text-muted-foreground ml-2">
+                      {formatDateTime(message.created_at)}
+                    </span>
+                  </div>
+                  <div className="mt-1 text-sm bg-muted rounded-lg p-3">
+                    {message.message}
+                  </div>
+                  
+                  {/* Display attachments with proper layout */}
+                  {attachments.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      <div className="text-xs text-gray-500 font-medium">Attachments:</div>
+                      {attachments.map((attachment) => (
+                        <div key={attachment.id} className="flex items-center justify-between bg-gray-50 p-2 rounded text-sm min-w-0">
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <Paperclip className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                            <span className="truncate" title={attachment.file_name}>{attachment.file_name}</span>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => downloadAttachment(attachment)}
+                            className="h-6 px-2 flex-shrink-0 ml-2"
+                          >
+                            <Download className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
           {publicMessages.length === 0 && (
             <div className="text-center text-muted-foreground py-4">
               No messages yet
@@ -231,13 +309,14 @@ const CaseMessages = ({ messages, caseId, onMessagesUpdated }: CaseMessagesProps
             {files.length > 0 && (
               <div className="space-y-2">
                 {files.map((file, index) => (
-                  <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
-                    <span className="text-sm">{file.name}</span>
+                  <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded min-w-0">
+                    <span className="text-sm truncate flex-1" title={file.name}>{file.name}</span>
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
                       onClick={() => removeFile(index)}
+                      className="flex-shrink-0 ml-2"
                     >
                       <X className="h-4 w-4" />
                     </Button>

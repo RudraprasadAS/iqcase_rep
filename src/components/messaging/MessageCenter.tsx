@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -279,21 +278,21 @@ const MessageCenter = ({ caseId, isInternal = false }: MessageCenterProps) => {
                     </div>
                     <p className="text-sm mb-2">{message.message}</p>
                     
-                    {/* Display attachments within the message */}
+                    {/* Display attachments within the message with proper layout */}
                     {attachments.length > 0 && (
                       <div className="mt-3 space-y-2">
                         <div className="text-xs text-gray-500 font-medium">Attachments:</div>
                         {attachments.map((attachment) => (
-                          <div key={attachment.id} className="flex items-center justify-between bg-gray-50 p-2 rounded text-sm">
-                            <div className="flex items-center gap-2">
-                              <Paperclip className="h-3 w-3 text-gray-400" />
-                              <span className="truncate">{attachment.file_name}</span>
+                          <div key={attachment.id} className="flex items-center justify-between bg-gray-50 p-2 rounded text-sm min-w-0">
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              <Paperclip className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                              <span className="truncate" title={attachment.file_name}>{attachment.file_name}</span>
                             </div>
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => downloadAttachment(attachment)}
-                              className="h-6 px-2"
+                              className="h-6 px-2 flex-shrink-0 ml-2"
                             >
                               <Download className="h-3 w-3" />
                             </Button>
@@ -341,13 +340,14 @@ const MessageCenter = ({ caseId, isInternal = false }: MessageCenterProps) => {
               {files.length > 0 && (
                 <div className="space-y-2">
                   {files.map((file, index) => (
-                    <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
-                      <span className="text-sm">{file.name}</span>
+                    <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded min-w-0">
+                      <span className="text-sm truncate flex-1" title={file.name}>{file.name}</span>
                       <Button
                         type="button"
                         variant="ghost"
                         size="sm"
                         onClick={() => removeFile(index)}
+                        className="flex-shrink-0 ml-2"
                       >
                         <X className="h-4 w-4" />
                       </Button>
@@ -369,7 +369,7 @@ const MessageCenter = ({ caseId, isInternal = false }: MessageCenterProps) => {
         </CardContent>
       </Card>
 
-      {/* Show message media separately */}
+      {/* Show message media separately with improved layout */}
       {messageAttachments.length > 0 && (
         <Card>
           <CardHeader>
@@ -380,9 +380,9 @@ const MessageCenter = ({ caseId, isInternal = false }: MessageCenterProps) => {
           <CardContent>
             <div className="space-y-2">
               {messageAttachments.map((attachment) => (
-                <div key={attachment.id} className="flex items-center justify-between p-2 border rounded">
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">{attachment.file_name}</p>
+                <div key={attachment.id} className="flex items-center justify-between p-2 border rounded min-w-0">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate" title={attachment.file_name}>{attachment.file_name}</p>
                     <p className="text-xs text-gray-500">
                       {formatDistanceToNow(new Date(attachment.created_at), { addSuffix: true })}
                     </p>
@@ -391,6 +391,7 @@ const MessageCenter = ({ caseId, isInternal = false }: MessageCenterProps) => {
                     variant="outline"
                     size="sm"
                     onClick={() => downloadAttachment(attachment)}
+                    className="flex-shrink-0 ml-2"
                   >
                     <Download className="h-4 w-4" />
                   </Button>
