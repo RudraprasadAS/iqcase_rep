@@ -49,28 +49,23 @@ const CaseUpdates = ({ caseId, isInternal = true }: CaseUpdatesProps) => {
         throw error;
       }
 
-      // Filter activities to show only relevant ones for both internal and external
-      // Keep the same filtering logic for both views to maintain consistency
+      // Filter activities based on user type
       const allowedActivityTypes = [
         'case_created',
         'case_assigned',
         'case_unassigned', 
         'status_changed',
         'priority_changed',
-        'message_added',
         'attachment_added'
       ];
+
+      // Add message_added only for internal users
+      if (isInternal) {
+        allowedActivityTypes.push('message_added');
+      }
       
       let filteredActivities = (data || []).filter(activity => {
-        // Include allowed activity types
-        if (allowedActivityTypes.includes(activity.activity_type)) {
-          // Exclude internal messages for external users only
-          if (!isInternal && activity.activity_type === 'message_added' && activity.description.includes('Internal message')) {
-            return false;
-          }
-          return true;
-        }
-        return false;
+        return allowedActivityTypes.includes(activity.activity_type);
       });
 
       console.log('Activities loaded:', filteredActivities.length);

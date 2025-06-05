@@ -11,8 +11,7 @@ import {
   BookOpen,
   Bell,
   ChevronDown,
-  Shield,
-  TrendingUp
+  Shield
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -26,7 +25,6 @@ const Sidebar = () => {
     { name: 'Cases', href: '/cases', icon: FileText },
     { name: 'Knowledge Base', href: '/knowledge', icon: BookOpen },
     { name: 'Notifications', href: '/notifications', icon: Bell },
-    { name: 'Insights', href: '/insights', icon: TrendingUp },
   ];
 
   const reportNavigation = [

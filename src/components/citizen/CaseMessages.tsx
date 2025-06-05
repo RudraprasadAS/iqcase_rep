@@ -1,10 +1,10 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { MessageSquare, Send } from 'lucide-react';
+import { MessageSquare, Send, Paperclip, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -26,6 +26,7 @@ interface CaseMessagesProps {
 const CaseMessages = ({ messages, caseId, onMessagesUpdated }: CaseMessagesProps) => {
   const [newMessage, setNewMessage] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [files, setFiles] = useState<File[]>([]);
   const { toast } = useToast();
 
   const formatDateTime = (dateString: string) => {
@@ -36,6 +37,58 @@ const CaseMessages = ({ messages, caseId, onMessagesUpdated }: CaseMessagesProps
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const selectedFiles = Array.from(e.target.files);
+      setFiles(prev => [...prev, ...selectedFiles]);
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const uploadFiles = async () => {
+    if (files.length === 0) return;
+
+    for (const file of files) {
+      try {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${caseId}/messages/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+        
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('case-attachments')
+          .upload(fileName, file);
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('case-attachments')
+          .getPublicUrl(fileName);
+
+        const { error: attachmentError } = await supabase
+          .from('case_attachments')
+          .insert({
+            case_id: caseId,
+            file_name: file.name,
+            file_url: publicUrl,
+            file_type: file.type,
+            uploaded_by: null, // Will be set by the backend
+            is_private: false
+          });
+
+        if (attachmentError) throw attachmentError;
+      } catch (error) {
+        console.error('Error uploading file:', file.name, error);
+        toast({
+          title: 'Warning',
+          description: `Failed to upload ${file.name}`,
+          variant: 'destructive'
+        });
+      }
+    }
   };
 
   const handleSendMessage = async () => {
@@ -82,7 +135,13 @@ const CaseMessages = ({ messages, caseId, onMessagesUpdated }: CaseMessagesProps
         throw error;
       }
 
+      // Upload files if any
+      if (files.length > 0) {
+        await uploadFiles();
+      }
+
       setNewMessage('');
+      setFiles([]);
       onMessagesUpdated();
       toast({
         title: "Message sent successfully"
@@ -147,6 +206,47 @@ const CaseMessages = ({ messages, caseId, onMessagesUpdated }: CaseMessagesProps
             className="mb-2"
             rows={3}
           />
+          
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <label htmlFor="message-files" className="cursor-pointer">
+                <Button type="button" variant="outline" size="sm" asChild>
+                  <span>
+                    <Paperclip className="h-4 w-4 mr-2" />
+                    Attach Files
+                  </span>
+                </Button>
+              </label>
+              <Input
+                id="message-files"
+                type="file"
+                multiple
+                accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.txt"
+                onChange={handleFileChange}
+                className="hidden"
+                disabled={sendingMessage}
+              />
+            </div>
+            
+            {files.length > 0 && (
+              <div className="space-y-2">
+                {files.map((file, index) => (
+                  <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
+                    <span className="text-sm">{file.name}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeFile(index)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          
           <Button 
             onClick={handleSendMessage} 
             size="sm"

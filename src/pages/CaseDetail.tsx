@@ -18,9 +18,7 @@ import CaseAIAssistant from '@/components/cases/CaseAIAssistant';
 import { useAuth } from '@/hooks/useAuth';
 import RelatedCases from '@/components/cases/RelatedCases';
 import CaseWatchers from '@/components/cases/CaseWatchers';
-import CaseTasks from '@/components/cases/CaseTasks';
-import CaseFeedback from '@/components/cases/CaseFeedback';
-import InternalNotes from '@/components/cases/InternalNotes';
+import SimpleCaseTasks from '@/components/cases/SimpleCaseTasks';
 import CaseNotes from '@/components/cases/CaseNotes';
 import CaseUpdates from '@/components/cases/CaseUpdates';
 import { formatDistanceToNow } from 'date-fns';
@@ -668,7 +666,7 @@ ${conversationContext}
 
             <RelatedCases caseId={caseData.id} />
 
-            <CaseTasks caseId={caseData.id} />
+            <SimpleCaseTasks caseId={caseData.id} />
 
             <CaseNotes caseId={caseData.id} />
           </div>
