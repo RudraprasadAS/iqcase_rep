@@ -260,7 +260,6 @@ const NewCase = () => {
         priority: formData.priority,
         status: 'open',
         submitted_by: internalUserId,
-        sla_due_at: sla_due_at,
         visibility: 'internal',
         tags: tags.length > 0 ? tags : null
       };
@@ -277,6 +276,8 @@ const { data: newCase, error } = await supabase.rpc('create_case_with_sla', {
   _visibility: 'internal',
   _tags: tags.length > 0 ? tags : null
 });
+
+console.log('SLA due at:', newCase.sla_due_at);
 
 
       if (error) {
