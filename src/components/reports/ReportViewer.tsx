@@ -82,14 +82,14 @@ const ReportViewer = ({ reportId, onClose }: ReportViewerProps) => {
         : [];
 
       // Build query based on report configuration
-      let query = supabase.from(reportData.module as any);
+      let queryBuilder = supabase.from(reportData.module as any);
       
       // Apply selected fields
       if (selectedFields && selectedFields.length > 0) {
         const fields = selectedFields.join(', ');
-        query = query.select(fields);
+        queryBuilder = queryBuilder.select(fields);
       } else {
-        query = query.select('*');
+        queryBuilder = queryBuilder.select('*');
       }
 
       // Apply filters
@@ -97,26 +97,26 @@ const ReportViewer = ({ reportId, onClose }: ReportViewerProps) => {
         filters.forEach((filter: any) => {
           switch (filter.operator) {
             case 'eq':
-              query = query.eq(filter.field, filter.value);
+              queryBuilder = queryBuilder.eq(filter.field, filter.value);
               break;
             case 'neq':
-              query = query.neq(filter.field, filter.value);
+              queryBuilder = queryBuilder.neq(filter.field, filter.value);
               break;
             case 'gt':
-              query = query.gt(filter.field, filter.value);
+              queryBuilder = queryBuilder.gt(filter.field, filter.value);
               break;
             case 'lt':
-              query = query.lt(filter.field, filter.value);
+              queryBuilder = queryBuilder.lt(filter.field, filter.value);
               break;
             case 'like':
-              query = query.ilike(filter.field, `%${filter.value}%`);
+              queryBuilder = queryBuilder.ilike(filter.field, `%${filter.value}%`);
               break;
           }
         });
       }
 
       // Execute query
-      const { data, error, count } = await query;
+      const { data, error, count } = await queryBuilder;
       
       if (error) throw error;
       
