@@ -250,32 +250,6 @@ const NewCase = () => {
     setLoading(true);
     
     try {
-     const createdAt = new Date();
-let sla_due_at = null;
-
-if (formData.category_id && formData.priority) {
-  const { data: slaMatrix, error: slaError } = await supabase
-    .from('category_sla_matrix')
-    .select('*')
-    .eq('category_id', formData.category_id)
-    .eq('is_active', true)
-    .maybeSingle();
-
-  if (!slaError && slaMatrix) {
-    const hours = {
-      low: slaMatrix.sla_low,
-      medium: slaMatrix.sla_medium,
-      high: slaMatrix.sla_high,
-      urgent: slaMatrix.sla_urgent
-    }[formData.priority.toLowerCase()] ?? slaMatrix.sla_medium;
-    console.log('[NewCase] SLA hours for priority:', formData.priority, 'is', hours);
-
-
-    sla_due_at = new Date(createdAt.getTime() + hours * 60 * 60 * 1000).toISOString();
-  } else {
-    console.warn('SLA matrix not found or failed to load, defaulting sla_due_at to null');
-  }
-}
 
 
       const caseData = {
@@ -293,11 +267,17 @@ if (formData.category_id && formData.priority) {
 
       console.log('Submitting case with data:', caseData);
 
-      const { data: newCase, error } = await supabase
-        .from('cases')
-        .insert(caseData)
-        .select()
-        .single();
+const { data: newCase, error } = await supabase.rpc('create_case_with_sla', {
+  _title: formData.title.trim(),
+  _description: formData.description.trim(),
+  _category_id: formData.category_id || null,
+  _priority: formData.priority,
+  _location: locationData.formatted_address || null,
+  _submitted_by: internalUserId,
+  _visibility: 'internal',
+  _tags: tags.length > 0 ? tags : null
+});
+
 
       if (error) {
         console.error('Case creation error:', error);
