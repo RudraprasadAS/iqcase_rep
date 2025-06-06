@@ -1,64 +1,48 @@
-export const callDeepSeek = async ({
+export const callOpenRouter = async ({
   message,
   caseContext,
-  attachments = [],
 }: {
   message: string;
-  caseContext: any;
-  attachments?: string[];
-}) => {
-  const contextPrompt = `
-You are a helpful AI assistant supporting caseworkers.
-
-Use the following case details and attachments to answer or take action.
-
-Case Title: ${caseContext?.title || 'N/A'}
-Description: ${caseContext?.description || 'N/A'}
-Priority: ${caseContext?.priority || 'N/A'}
+  caseContext?: any;
+}): Promise<{ response: string }> => {
+  const prompt = `
+You are a helpful assistant supporting caseworkers. The current case context is:
+Title: ${caseContext?.title || 'N/A'}
 Status: ${caseContext?.status || 'N/A'}
+Priority: ${caseContext?.priority || 'N/A'}
 Category: ${caseContext?.category || 'N/A'}
-Assigned To: ${caseContext?.assigned_to || 'Unassigned'}
+Assigned To: ${caseContext?.assigned_to || 'N/A'}
+Description: ${caseContext?.description || 'N/A'}
 
-Attachments: ${attachments.length > 0 ? attachments.join(', ') : 'None'}
+User instruction: ${message}
+Respond clearly and perform any needed structured action if possible.
+  `.trim();
 
-User Message: "${message}"
-
-Instructions:
-- If the message is informational (e.g., "Who is assigned?", "What is the case about?"), respond directly.
-- If it’s an action (e.g., "Close the case", "Assign to John Doe"), suggest the action clearly.
-- Be concise and accurate.
-  `;
-
-  const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
-      'Authorization': 'Bearer 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',
+      Authorization: 'Bearer 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',
       'Content-Type': 'application/json',
+      'HTTP-Referer': 'https://your-site.com', // optional
+      'X-Title': 'AI Case Assistant', // optional
     },
     body: JSON.stringify({
-      model: 'deepseek-chat',
+      model: 'openai/gpt-4o',
       messages: [
-        { role: 'system', content: 'You are a helpful assistant trained to support caseworkers in decision-making and case actions.' },
-        { role: 'user', content: contextPrompt },
-      ],
-    }),
+        { role: 'system', content: 'You are an AI assistant for case management tasks.' },
+        { role: 'user', content: prompt }
+      ]
+    })
   });
 
-  const json = await response.json();
+  if (!res.ok) {
+    const error = await res.text();
+    console.error('❌ OpenRouter Error:', error);
+    throw new Error('OpenRouter API call failed');
+  }
 
-  const content = json?.choices?.[0]?.message?.content || 'Sorry, I couldn’t generate a response.';
-
-try {
-  const parsed = JSON.parse(content);
+  const json = await res.json();
   return {
-    response: parsed.response || content,
-    action: parsed.action || null,
+    response: json.choices?.[0]?.message?.content || 'No response from model.'
   };
-} catch {
-  return {
-    response: content,
-    action: null,
-  };
-}
-
 };

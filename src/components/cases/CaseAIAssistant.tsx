@@ -7,7 +7,7 @@ import { Send, Bot, User, MessageSquare, X, AlertTriangle, CheckCircle } from 'l
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { callDeepSeek } from '@/lib/deepseek-api';
+import { callOpenRouter } from '@/lib/openrouter-api';
 
 interface Message {
   id: string;
@@ -80,7 +80,7 @@ const handleSendMessage = async () => {
     }
 
     // Step 2: Call AI
-    const { response, action } = await callDeepSeek({
+    const { response, action } = await callOpenRouter({
       message: currentMessage,
       caseContext,
       attachments: []
@@ -250,49 +250,55 @@ const handleSendMessage = async () => {
 
 
 return (
-  <Card className="my-4">
-    <CardHeader>
-      <CardTitle>
-        <Bot className="inline-block w-5 h-5 mr-2" />
-        AI Case Assistant
-      </CardTitle>
-    </CardHeader>
-    <CardContent>
-      <div className="space-y-4 max-h-[300px] overflow-y-auto">
-        {messages.map((msg) => (
-          <div key={msg.id} className={`flex items-start space-x-2 ${msg.isBot ? 'text-blue-700' : 'text-gray-800'}`}>
-            <Avatar className="w-6 h-6">
-              <AvatarFallback>
-                {msg.isBot ? <Bot className="w-4 h-4" /> : <User className="w-4 h-4" />}
-              </AvatarFallback>
-            </Avatar>
-            <div className="bg-muted rounded-md p-2 text-sm whitespace-pre-wrap">
-              {msg.content}
-              {msg.action === 'success' && (
-                <CheckCircle className="inline-block w-4 h-4 ml-2 text-green-600" />
-              )}
-              {msg.action === 'error' && (
-                <AlertTriangle className="inline-block w-4 h-4 ml-2 text-red-600" />
-              )}
+  <div className="fixed bottom-4 right-4 w-[380px] max-h-[500px] shadow-lg z-50">
+    <Card>
+      <CardHeader>
+        <CardTitle>
+          <Bot className="inline-block w-5 h-5 mr-2" />
+          AI Case Assistant
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col space-y-4">
+        <div className="flex flex-col gap-3 overflow-y-auto max-h-[280px] pr-2">
+          {messages.map((msg) => (
+            <div
+              key={msg.id}
+              className={`flex items-start space-x-2 ${msg.isBot ? 'text-blue-800' : 'text-gray-900'}`}
+            >
+              <Avatar className="w-6 h-6">
+                <AvatarFallback>
+                  {msg.isBot ? <Bot className="w-4 h-4" /> : <User className="w-4 h-4" />}
+                </AvatarFallback>
+              </Avatar>
+              <div className="bg-muted rounded-md px-3 py-2 text-sm whitespace-pre-wrap flex-1">
+                {msg.content}
+                {msg.action === 'success' && (
+                  <CheckCircle className="inline-block w-4 h-4 ml-2 text-green-600" />
+                )}
+                {msg.action === 'error' && (
+                  <AlertTriangle className="inline-block w-4 h-4 ml-2 text-red-600" />
+                )}
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
 
-      <div className="mt-4 flex space-x-2">
-        <Textarea
-          value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
-          placeholder="Ask me to do something..."
-          className="flex-grow"
-        />
-        <Button onClick={handleSendMessage} disabled={loading}>
-          <Send className="w-4 h-4" />
-        </Button>
-      </div>
-    </CardContent>
-  </Card>
+        <div className="flex items-center space-x-2">
+          <Textarea
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            placeholder="Ask me something..."
+            className="resize-none flex-grow min-h-[40px] max-h-[100px]"
+          />
+          <Button onClick={handleSendMessage} disabled={loading}>
+            <Send className="w-4 h-4" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  </div>
 );
+
 
 };
 
