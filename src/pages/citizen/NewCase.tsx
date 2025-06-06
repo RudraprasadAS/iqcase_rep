@@ -49,8 +49,7 @@ const NewCase = () => {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    category_id: '',
-    priority: 'medium'
+    category_id: ''
   });
 
   useEffect(() => {
@@ -395,9 +394,6 @@ const NewCase = () => {
     console.log('[NewCase] User:', user?.id);
     console.log('[NewCase] Internal User ID:', internalUserId);
     console.log('[NewCase] Form data:', formData);
-    console.log('[NewCase] Files to upload:', files.length);
-    console.log('[NewCase] Location data:', locationData);
-    console.log('[NewCase] Tags:', tags);
     
     if (!user || !internalUserId) {
       console.error('[NewCase] Missing authentication data:', { user: !!user, internalUserId: !!internalUserId });
@@ -425,25 +421,19 @@ const NewCase = () => {
     setLoading(true);
     
     try {
-      // Calculate SLA due date
-      const slaHours = 72;
-      const slaDueAt = new Date();
-      slaDueAt.setHours(slaDueAt.getHours() + slaHours);
-
       const caseData = {
         title: formData.title.trim(),
         description: formData.description.trim(),
         category_id: formData.category_id || null,
         location: locationData.formatted_address || null,
-        priority: formData.priority,
+        priority: 'medium', // Default priority for citizen submissions
         status: 'open',
         submitted_by: internalUserId,
-        sla_due_at: slaDueAt.toISOString(),
+        sla_due_at: null, // Will be set when internal team assigns priority
         visibility: 'public',
         tags: tags.length > 0 ? tags : null
       };
 
-      console.log('[NewCase] ========== CREATING CASE ==========');
       console.log('[NewCase] Case data:', caseData);
 
       const { data: newCase, error: caseError } = await supabase
@@ -464,13 +454,10 @@ const NewCase = () => {
         console.log('[NewCase] Starting file uploads...');
         const uploadSuccess = await uploadFiles(newCase.id);
         console.log('[NewCase] File uploads completed, success:', uploadSuccess);
-      } else {
-        console.log('[NewCase] No files to upload, skipping file upload step');
       }
 
       // Log activity
       try {
-        console.log('[NewCase] ========== LOGGING ACTIVITY ==========');
         const activityData = {
           case_id: newCase.id,
           activity_type: 'case_created',
@@ -478,37 +465,22 @@ const NewCase = () => {
           performed_by: internalUserId
         };
         
-        console.log('[NewCase] Activity data:', activityData);
-        
-        const { data: activityResult, error: activityError } = await supabase
+        await supabase
           .from('case_activities')
           .insert(activityData);
-          
-        if (activityError) {
-          console.error('[NewCase] Activity logging error:', activityError);
-        } else {
-          console.log('[NewCase] Activity logged successfully:', activityResult);
-        }
       } catch (activityError) {
         console.error('[NewCase] Activity logging failed:', activityError);
-        // Continue even if activity logging fails
       }
-
-      console.log('[NewCase] ========== SUBMISSION COMPLETE ==========');
-      console.log('[NewCase] Case ID:', newCase.id);
-      console.log('[NewCase] Navigating to case detail page...');
 
       toast({
         title: 'Success',
         description: 'Your case has been submitted successfully',
       });
 
-      // Navigate to the case detail page
       navigate(`/citizen/cases/${newCase.id}`);
 
     } catch (error: any) {
-      console.error('[NewCase] ========== SUBMISSION FAILED ==========');
-      console.error('[NewCase] Error submitting case:', error);
+      console.error('[NewCase] Submission failed:', error);
       toast({
         title: 'Submission Failed',
         description: error.message || 'Failed to submit case. Please try again.',
@@ -609,7 +581,7 @@ const NewCase = () => {
               <div className="space-y-2">
                 <Label htmlFor="priority">Priority</Label>
                 <Select
-                  value={formData.priority}
+                  value="medium"
                   onValueChange={(value) => handleInputChange('priority', value)}
                   disabled={loading || uploadingFiles}
                 >

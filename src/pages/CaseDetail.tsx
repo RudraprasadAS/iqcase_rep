@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
@@ -28,6 +27,7 @@ import { logMessageAdded } from '@/utils/activityLogger';
 import { useCaseExport } from '@/hooks/useCaseExport';
 import MessageCenter from '@/components/messaging/MessageCenter';
 import AttachmentViewer from '@/components/attachments/AttachmentViewer';
+import CasePrioritySelector from '@/components/cases/CasePrioritySelector';
 
 interface CaseData {
   id: string;
@@ -936,12 +936,17 @@ ${conversationContext}
       </div>
 
       <CaseAIAssistant 
+        caseId={caseData.id}
         caseContext={{
           title: caseData.title,
           status: caseData.status,
           priority: caseData.priority,
-          description: caseData.description
+          description: caseData.description,
+          category: caseData.category_id,
+          assigned_to: caseData.assigned_to,
+          submitted_by: caseData.submitted_by
         }}
+        onCaseUpdate={fetchCaseData}
       />
 
       <CaseEditDialog

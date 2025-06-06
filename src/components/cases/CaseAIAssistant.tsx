@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Send, Bot, User, MessageSquare, X } from 'lucide-react';
+import { Send, Bot, User, MessageSquare, X, AlertTriangle, CheckCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -14,22 +14,34 @@ interface Message {
   content: string;
   isBot: boolean;
   timestamp: Date;
+  action?: 'success' | 'error';
 }
 
 interface CaseAIAssistantProps {
+  caseId: string;
   caseContext?: {
     title: string;
     status: string;
     priority: string;
     description?: string;
+    category?: string;
+    assigned_to?: string;
+    submitted_by?: string;
   };
+  onCaseUpdate?: () => void;
 }
 
-const CaseAIAssistant = ({ caseContext }: CaseAIAssistantProps) => {
+const CaseAIAssistant = ({ caseId, caseContext, onCaseUpdate }: CaseAIAssistantProps) => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      content: 'Hi! I\'m here to help with this case. Ask me about troubleshooting steps, similar cases, or any case management questions.',
+      content: `Hi! I'm your Case Assistant. I can help you with this case: "${caseContext?.title || 'Current Case'}". Ask me questions or give me commands like:
+      
+      • "What is this case about?"
+      • "Mark as urgent"
+      • "Assign to [user]"
+      • "Close this case"
+      • "What attachments are there?"`,
       isBot: true,
       timestamp: new Date()
     }
@@ -50,73 +62,203 @@ const CaseAIAssistant = ({ caseContext }: CaseAIAssistantProps) => {
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const currentMessage = newMessage;
     setNewMessage('');
     setLoading(true);
 
     try {
-      // Prepare context for the AI
-      const contextString = caseContext ? 
-        `Current case: ${caseContext.title} (Status: ${caseContext.status}, Priority: ${caseContext.priority})${caseContext.description ? `, Description: ${caseContext.description}` : ''}` 
-        : 'General case management question';
-
-      // Call the AI assistant function
-      const { data, error } = await supabase.functions.invoke('knowledge-assistant', {
-        body: {
-          message: newMessage,
-          context: contextString
-        }
-      });
-
-      if (error) throw error;
-
+      // Check if this is a command
+      const response = await processMessage(currentMessage);
+      
       const botMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: data.response || 'I apologize, but I encountered an issue processing your request. Please try again.',
+        content: response.content,
         isBot: true,
-        timestamp: new Date()
+        timestamp: new Date(),
+        action: response.action
       };
 
       setMessages(prev => [...prev, botMessage]);
     } catch (error) {
-      console.error('Error calling AI assistant:', error);
+      console.error('Error processing message:', error);
       
-      // Fallback response
-      const fallbackResponse = getFallbackResponse(newMessage);
-      const botMessage: Message = {
+      const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: fallbackResponse,
+        content: 'I encountered an error processing your request. Please try again.',
         isBot: true,
-        timestamp: new Date()
+        timestamp: new Date(),
+        action: 'error'
       };
 
-      setMessages(prev => [...prev, botMessage]);
-      
-      toast({
-        title: "AI Assistant Unavailable",
-        description: "Using fallback responses. Please check OpenAI API configuration.",
-        variant: "destructive"
-      });
+      setMessages(prev => [...prev, errorMessage]);
     } finally {
       setLoading(false);
     }
   };
 
-  const getFallbackResponse = (message: string): string => {
+  const processMessage = async (message: string): Promise<{ content: string; action?: 'success' | 'error' }> => {
     const lowerMessage = message.toLowerCase();
     
-    if (lowerMessage.includes('login') || lowerMessage.includes('authentication')) {
-      return 'For login issues, verify credentials, check account status, and review authentication logs. Check the knowledge base for detailed troubleshooting steps.';
+    // Handle information queries
+    if (lowerMessage.includes('what is this case about') || lowerMessage.includes('case about')) {
+      return {
+        content: `This case is titled "${caseContext?.title}" with status "${caseContext?.status}" and priority "${caseContext?.priority}". ${caseContext?.description ? `Description: ${caseContext.description}` : ''}`
+      };
     }
     
-    if (lowerMessage.includes('priority') || lowerMessage.includes('sla')) {
-      return 'Set priority based on business impact: High for outages, Medium for functionality issues, Low for minor bugs. SLA times depend on priority level.';
+    if (lowerMessage.includes('attachments') || lowerMessage.includes('files')) {
+      try {
+        const { data: attachments } = await supabase
+          .from('case_attachments')
+          .select('file_name, created_at')
+          .eq('case_id', caseId);
+        
+        if (attachments && attachments.length > 0) {
+          const fileList = attachments.map(att => `• ${att.file_name}`).join('\n');
+          return {
+            content: `This case has ${attachments.length} attachment(s):\n${fileList}`
+          };
+        } else {
+          return {
+            content: 'This case has no attachments.'
+          };
+        }
+      } catch (error) {
+        return {
+          content: 'I couldn\'t retrieve attachment information.',
+          action: 'error'
+        };
+      }
     }
     
-    if (lowerMessage.includes('escalate') || lowerMessage.includes('escalation')) {
-      return 'Escalate to team lead if: case exceeds SLA, customer requests escalation, or technical expertise needed. Document escalation reason clearly.';
+    if (lowerMessage.includes('who is handling') || lowerMessage.includes('assigned to')) {
+      if (caseContext?.assigned_to) {
+        try {
+          const { data: user } = await supabase
+            .from('users')
+            .select('name, email')
+            .eq('id', caseContext.assigned_to)
+            .single();
+          
+          return {
+            content: `This case is assigned to ${user?.name || 'Unknown user'} (${user?.email || 'No email'})`
+          };
+        } catch (error) {
+          return {
+            content: 'This case is assigned but I couldn\'t retrieve the user details.',
+            action: 'error'
+          };
+        }
+      } else {
+        return {
+          content: 'This case is not currently assigned to anyone.'
+        };
+      }
     }
     
-    return 'I\'m currently experiencing connectivity issues. Please search the knowledge base or consult with a team lead for immediate assistance.';
+    // Handle commands
+    if (lowerMessage.includes('mark as urgent') || lowerMessage.includes('set priority urgent')) {
+      try {
+        const { error } = await supabase
+          .from('cases')
+          .update({ priority: 'urgent' })
+          .eq('id', caseId);
+        
+        if (error) throw error;
+        
+        // Calculate new SLA due date
+        if (caseContext?.category) {
+          const { data: slaData } = await supabase
+            .from('category_sla_matrix')
+            .select('sla_urgent')
+            .eq('category_id', caseContext.category)
+            .eq('is_active', true)
+            .single();
+          
+          if (slaData?.sla_urgent) {
+            const newDueDate = new Date();
+            newDueDate.setHours(newDueDate.getHours() + slaData.sla_urgent);
+            
+            await supabase
+              .from('cases')
+              .update({ sla_due_at: newDueDate.toISOString() })
+              .eq('id', caseId);
+          }
+        }
+        
+        // Log activity
+        await supabase
+          .from('case_activities')
+          .insert({
+            case_id: caseId,
+            activity_type: 'priority_changed',
+            description: 'Priority changed to urgent via AI Assistant',
+            performed_by: caseContext?.submitted_by
+          });
+        
+        if (onCaseUpdate) onCaseUpdate();
+        
+        return {
+          content: 'Successfully updated case priority to urgent and recalculated SLA due date.',
+          action: 'success'
+        };
+      } catch (error) {
+        return {
+          content: 'Failed to update case priority. Please try again or contact support.',
+          action: 'error'
+        };
+      }
+    }
+    
+    if (lowerMessage.includes('close this case') || lowerMessage.includes('close case')) {
+      try {
+        const { error } = await supabase
+          .from('cases')
+          .update({ status: 'closed' })
+          .eq('id', caseId);
+        
+        if (error) throw error;
+        
+        // Log activity
+        await supabase
+          .from('case_activities')
+          .insert({
+            case_id: caseId,
+            activity_type: 'status_changed',
+            description: 'Case closed via AI Assistant',
+            performed_by: caseContext?.submitted_by
+          });
+        
+        if (onCaseUpdate) onCaseUpdate();
+        
+        return {
+          content: 'Successfully closed this case.',
+          action: 'success'
+        };
+      } catch (error) {
+        return {
+          content: 'Failed to close the case. Please try again or contact support.',
+          action: 'error'
+        };
+      }
+    }
+    
+    // Default response for unclear messages
+    return {
+      content: `I understand you're asking about: "${message}". I can help with:
+      
+      Information:
+      • Case details and status
+      • Attachments and files
+      • Who is handling the case
+      
+      Actions:
+      • Mark as urgent
+      • Close this case
+      • Update case status
+      
+      Try asking something like "What attachments are there?" or "Mark as urgent"`
+    };
   };
 
   const formatTime = (date: Date) => {
@@ -126,17 +268,23 @@ const CaseAIAssistant = ({ caseContext }: CaseAIAssistantProps) => {
     });
   };
 
+  const getMessageIcon = (message: Message) => {
+    if (message.action === 'success') return <CheckCircle className="h-3 w-3 text-green-500" />;
+    if (message.action === 'error') return <AlertTriangle className="h-3 w-3 text-red-500" />;
+    return null;
+  };
+
   return (
     <div className="fixed bottom-4 right-4 z-50">
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CollapsibleTrigger asChild>
           <Button 
             size="lg" 
-            className="rounded-full shadow-lg"
+            className="rounded-full shadow-lg bg-blue-600 hover:bg-blue-700"
             onClick={() => setIsOpen(!isOpen)}
           >
             <MessageSquare className="h-5 w-5 mr-2" />
-            AI Help
+            AI Assistant
           </Button>
         </CollapsibleTrigger>
         <CollapsibleContent className="absolute bottom-16 right-0 w-96">
@@ -145,7 +293,7 @@ const CaseAIAssistant = ({ caseContext }: CaseAIAssistantProps) => {
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <Bot className="h-5 w-5" />
-                  AI Assistant
+                  Case AI Assistant
                 </CardTitle>
                 <Button 
                   variant="ghost" 
@@ -166,8 +314,19 @@ const CaseAIAssistant = ({ caseContext }: CaseAIAssistantProps) => {
                       </AvatarFallback>
                     </Avatar>
                     <div className={`flex-1 max-w-[80%] ${message.isBot ? '' : 'text-right'}`}>
-                      <div className={`text-xs p-2 rounded-lg ${message.isBot ? 'bg-muted' : 'bg-primary text-primary-foreground'}`}>
-                        {message.content}
+                      <div className={`text-xs p-2 rounded-lg whitespace-pre-line ${
+                        message.isBot 
+                          ? message.action === 'success'
+                            ? 'bg-green-50 border border-green-200'
+                            : message.action === 'error'
+                            ? 'bg-red-50 border border-red-200'
+                            : 'bg-muted'
+                          : 'bg-primary text-primary-foreground'
+                      }`}>
+                        <div className="flex items-start gap-1">
+                          {message.content}
+                          {getMessageIcon(message)}
+                        </div>
                       </div>
                       <div className="text-xs text-muted-foreground mt-1">
                         {formatTime(message.timestamp)}
@@ -195,7 +354,7 @@ const CaseAIAssistant = ({ caseContext }: CaseAIAssistantProps) => {
 
               <div className="space-y-2">
                 <Textarea
-                  placeholder="Ask about this case..."
+                  placeholder="Ask about this case or give me a command..."
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
                   rows={2}
@@ -214,7 +373,7 @@ const CaseAIAssistant = ({ caseContext }: CaseAIAssistantProps) => {
                   className="w-full"
                 >
                   <Send className="h-3 w-3 mr-2" />
-                  {loading ? 'Sending...' : 'Send'}
+                  {loading ? 'Processing...' : 'Send'}
                 </Button>
               </div>
             </CardContent>
