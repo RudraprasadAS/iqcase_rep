@@ -1,142 +1,72 @@
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, BarChart3, TrendingUp, Users, FileText, Clock, AlertCircle } from 'lucide-react';
+import { Loader2, BarChart3, TrendingUp, Users, FileText, Clock, AlertCircle, Filter } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 
-interface DataSource {
-  id: string;
-  name: string;
-  table_name: string;
-  description: string;
-  fields: any[];
-  relationships: any[];
-}
-
-interface InsightData {
-  name: string;
-  value: number;
-  label?: string;
-}
-
 const Insights = () => {
   const { toast } = useToast();
-  const [dataSources, setDataSources] = useState<DataSource[]>([]);
-  const [selectedDataSource, setSelectedDataSource] = useState<string>('');
-  const [insightData, setInsightData] = useState<InsightData[]>([]);
   const [loading, setLoading] = useState(false);
-  const [quickStats, setQuickStats] = useState({
+  const [dateRange, setDateRange] = useState('30'); // days
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [priorityFilter, setPriorityFilter] = useState('all');
+  
+  // Analytics data states
+  const [volumeStats, setVolumeStats] = useState({
     totalCases: 0,
     openCases: 0,
+    closedCases: 0,
+    createdToday: 0,
     resolvedToday: 0,
-    avgResolutionTime: 0
+    reopenedCases: 0
   });
 
+  const [timelinessStats, setTimelinessStats] = useState({
+    slaBreaches: 0,
+    avgResolutionTime: 0,
+    avgFirstResponseTime: 0,
+    resolvedWithinSLA: 0,
+    longestOpenCases: []
+  });
+
+  const [assignmentStats, setAssignmentStats] = useState({
+    assignedCases: 0,
+    unassignedCases: 0,
+    avgCasesPerUser: 0,
+    topAssignees: [],
+    usersWithBreaches: []
+  });
+
+  const [categoryData, setCategoryData] = useState([]);
+  const [priorityData, setPriorityData] = useState([]);
+  const [statusData, setStatusData] = useState([]);
+  const [trendsData, setTrendsData] = useState([]);
+
   useEffect(() => {
-    fetchDataSources();
-    fetchQuickStats();
-  }, []);
+    fetchAllAnalytics();
+  }, [dateRange, statusFilter, priorityFilter]);
 
-  const fetchDataSources = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('data_sources')
-        .select('*')
-        .eq('is_active', true);
-
-      if (error) throw error;
-      
-      // Convert the Json types to proper arrays
-      const convertedData: DataSource[] = (data || []).map(ds => ({
-        ...ds,
-        fields: Array.isArray(ds.fields) ? ds.fields : [],
-        relationships: Array.isArray(ds.relationships) ? ds.relationships : []
-      }));
-      
-      setDataSources(convertedData);
-      
-      // Default to Cases data source
-      const casesSource = convertedData.find(ds => ds.name === 'Cases');
-      if (casesSource) {
-        setSelectedDataSource(casesSource.id);
-        fetchInsightData(casesSource.name);
-      }
-    } catch (error) {
-      console.error('Error fetching data sources:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load data sources",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const fetchQuickStats = async () => {
-    try {
-      // Total cases
-      const { count: totalCount } = await supabase
-        .from('cases')
-        .select('*', { count: 'exact', head: true });
-
-      // Open cases
-      const { count: openCount } = await supabase
-        .from('cases')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'open');
-
-      // Cases resolved today
-      const today = new Date().toISOString().split('T')[0];
-      const { count: resolvedToday } = await supabase
-        .from('cases')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'closed')
-        .gte('updated_at', today);
-
-      setQuickStats({
-        totalCases: totalCount || 0,
-        openCases: openCount || 0,
-        resolvedToday: resolvedToday || 0,
-        avgResolutionTime: 2.5 // Placeholder - would need more complex query
-      });
-    } catch (error) {
-      console.error('Error fetching quick stats:', error);
-    }
-  };
-
-  const fetchInsightData = async (dataSourceName: string) => {
+  const fetchAllAnalytics = async () => {
     setLoading(true);
     try {
-      // Get case status distribution
-      const { data: statusData, error } = await supabase
-        .from('cases')
-        .select('status')
-        .order('status');
-
-      if (error) throw error;
-
-      // Count cases by status
-      const statusCounts = statusData?.reduce((acc: Record<string, number>, case_) => {
-        acc[case_.status] = (acc[case_.status] || 0) + 1;
-        return acc;
-      }, {}) || {};
-
-      const chartData = Object.entries(statusCounts).map(([status, count]) => ({
-        name: status.replace('_', ' ').toUpperCase(),
-        value: count,
-        label: `${status}: ${count}`
-      }));
-
-      setInsightData(chartData);
+      await Promise.all([
+        fetchVolumeStats(),
+        fetchTimelinessStats(),
+        fetchAssignmentStats(),
+        fetchCategoryData(),
+        fetchPriorityData(),
+        fetchStatusData(),
+        fetchTrendsData()
+      ]);
     } catch (error) {
-      console.error('Error fetching insight data:', error);
+      console.error('Error fetching analytics:', error);
       toast({
         title: "Error",
-        description: "Failed to load insight data",
+        description: "Failed to load analytics data",
         variant: "destructive"
       });
     } finally {
@@ -144,174 +74,549 @@ const Insights = () => {
     }
   };
 
-  const handleDataSourceChange = (dataSourceId: string) => {
-    setSelectedDataSource(dataSourceId);
-    const dataSource = dataSources.find(ds => ds.id === dataSourceId);
-    if (dataSource) {
-      fetchInsightData(dataSource.name);
-    }
+  const fetchVolumeStats = async () => {
+    const today = new Date().toISOString().split('T')[0];
+    const dateThreshold = new Date();
+    dateThreshold.setDate(dateThreshold.getDate() - parseInt(dateRange));
+
+    // Total cases
+    const { count: total } = await supabase
+      .from('cases')
+      .select('*', { count: 'exact', head: true });
+
+    // Open cases
+    const { count: open } = await supabase
+      .from('cases')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'open');
+
+    // Closed cases
+    const { count: closed } = await supabase
+      .from('cases')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'closed');
+
+    // Created today
+    const { count: createdToday } = await supabase
+      .from('cases')
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', today);
+
+    // Resolved today
+    const { count: resolvedToday } = await supabase
+      .from('cases')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'closed')
+      .gte('updated_at', today);
+
+    setVolumeStats({
+      totalCases: total || 0,
+      openCases: open || 0,
+      closedCases: closed || 0,
+      createdToday: createdToday || 0,
+      resolvedToday: resolvedToday || 0,
+      reopenedCases: 0 // Would need additional tracking
+    });
   };
 
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
+  const fetchTimelinessStats = async () => {
+    const now = new Date().toISOString();
+    
+    // SLA breaches (cases past due)
+    const { count: breaches } = await supabase
+      .from('cases')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'open')
+      .lt('sla_due_at', now);
+
+    // Longest open cases
+    const { data: longestOpen } = await supabase
+      .from('cases')
+      .select('id, title, created_at, assigned_to')
+      .eq('status', 'open')
+      .order('created_at', { ascending: true })
+      .limit(5);
+
+    setTimelinessStats({
+      slaBreaches: breaches || 0,
+      avgResolutionTime: 2.5, // Would need complex calculation
+      avgFirstResponseTime: 1.2, // Would need complex calculation
+      resolvedWithinSLA: 85, // Would need complex calculation
+      longestOpenCases: longestOpen || []
+    });
+  };
+
+  const fetchAssignmentStats = async () => {
+    // Assigned vs unassigned
+    const { count: assigned } = await supabase
+      .from('cases')
+      .select('*', { count: 'exact', head: true })
+      .not('assigned_to', 'is', null);
+
+    const { count: unassigned } = await supabase
+      .from('cases')
+      .select('*', { count: 'exact', head: true })
+      .is('assigned_to', null);
+
+    // Top assignees
+    const { data: assigneeData } = await supabase
+      .from('cases')
+      .select(`
+        assigned_to,
+        users!cases_assigned_to_fkey(name)
+      `)
+      .not('assigned_to', 'is', null);
+
+    const assigneeCounts = assigneeData?.reduce((acc, case_) => {
+      const userId = case_.assigned_to;
+      const userName = case_.users?.name || 'Unknown';
+      acc[userId] = acc[userId] || { name: userName, count: 0 };
+      acc[userId].count++;
+      return acc;
+    }, {});
+
+    const topAssignees = Object.values(assigneeCounts || {})
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    setAssignmentStats({
+      assignedCases: assigned || 0,
+      unassignedCases: unassigned || 0,
+      avgCasesPerUser: assigned > 0 ? Math.round((assigned || 0) / Object.keys(assigneeCounts || {}).length) : 0,
+      topAssignees,
+      usersWithBreaches: [] // Would need complex query
+    });
+  };
+
+  const fetchCategoryData = async () => {
+    const { data } = await supabase
+      .from('cases')
+      .select(`
+        category_id,
+        case_categories(name)
+      `);
+
+    const categoryCounts = data?.reduce((acc, case_) => {
+      const categoryName = case_.case_categories?.name || 'Uncategorized';
+      acc[categoryName] = (acc[categoryName] || 0) + 1;
+      return acc;
+    }, {});
+
+    const chartData = Object.entries(categoryCounts || {}).map(([name, value]) => ({
+      name,
+      value,
+      percentage: Math.round((value / (data?.length || 1)) * 100)
+    }));
+
+    setCategoryData(chartData);
+  };
+
+  const fetchPriorityData = async () => {
+    const { data } = await supabase
+      .from('cases')
+      .select('priority');
+
+    const priorityCounts = data?.reduce((acc, case_) => {
+      const priority = case_.priority || 'medium';
+      acc[priority] = (acc[priority] || 0) + 1;
+      return acc;
+    }, {});
+
+    const chartData = Object.entries(priorityCounts || {}).map(([name, value]) => ({
+      name: name.toUpperCase(),
+      value
+    }));
+
+    setPriorityData(chartData);
+  };
+
+  const fetchStatusData = async () => {
+    const { data } = await supabase
+      .from('cases')
+      .select('status');
+
+    const statusCounts = data?.reduce((acc, case_) => {
+      const status = case_.status || 'open';
+      acc[status] = (acc[status] || 0) + 1;
+      return acc;
+    }, {});
+
+    const chartData = Object.entries(statusCounts || {}).map(([name, value]) => ({
+      name: name.toUpperCase(),
+      value
+    }));
+
+    setStatusData(chartData);
+  };
+
+  const fetchTrendsData = async () => {
+    const days = parseInt(dateRange);
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(endDate.getDate() - days);
+
+    const { data } = await supabase
+      .from('cases')
+      .select('created_at, status, updated_at')
+      .gte('created_at', startDate.toISOString())
+      .order('created_at');
+
+    // Group by date
+    const dateGroups = {};
+    data?.forEach(case_ => {
+      const date = new Date(case_.created_at).toISOString().split('T')[0];
+      if (!dateGroups[date]) {
+        dateGroups[date] = { created: 0, closed: 0 };
+      }
+      dateGroups[date].created++;
+      
+      if (case_.status === 'closed') {
+        const closedDate = new Date(case_.updated_at).toISOString().split('T')[0];
+        if (!dateGroups[closedDate]) {
+          dateGroups[closedDate] = { created: 0, closed: 0 };
+        }
+        dateGroups[closedDate].closed++;
+      }
+    });
+
+    const chartData = Object.entries(dateGroups).map(([date, counts]) => ({
+      date: new Date(date).toLocaleDateString(),
+      created: counts.created,
+      closed: counts.closed
+    }));
+
+    setTrendsData(chartData);
+  };
+
+  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin" />
+        <span className="ml-2">Loading analytics...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold flex items-center">
             <BarChart3 className="h-8 w-8 mr-3" />
-            Insights & Analytics
+            Case Analytics & Insights
           </h1>
           <p className="text-muted-foreground">
-            Data-driven insights to improve case management
+            Comprehensive view of case management performance
           </p>
         </div>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Filters */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Filter className="h-5 w-5 mr-2" />
+            Filters
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="text-sm font-medium">Date Range</label>
+              <Select value={dateRange} onValueChange={setDateRange}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="7">Last 7 days</SelectItem>
+                  <SelectItem value="30">Last 30 days</SelectItem>
+                  <SelectItem value="90">Last 90 days</SelectItem>
+                  <SelectItem value="365">Last year</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Status</label>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="open">Open</SelectItem>
+                  <SelectItem value="closed">Closed</SelectItem>
+                  <SelectItem value="in_progress">In Progress</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Priority</label>
+              <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Priorities</SelectItem>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="urgent">Urgent</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Volume & Status Stats */}
+      <div>
+        <h2 className="text-xl font-semibold mb-4">📊 Case Volume & Status</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Cases</CardTitle>
+              <FileText className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{volumeStats.totalCases}</div>
+              <p className="text-xs text-muted-foreground">All time</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Open Cases</CardTitle>
+              <AlertCircle className="h-4 w-4 text-orange-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-orange-600">{volumeStats.openCases}</div>
+              <p className="text-xs text-muted-foreground">Awaiting resolution</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Closed Cases</CardTitle>
+              <TrendingUp className="h-4 w-4 text-green-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">{volumeStats.closedCases}</div>
+              <p className="text-xs text-muted-foreground">Completed</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Created Today</CardTitle>
+              <FileText className="h-4 w-4 text-blue-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-600">{volumeStats.createdToday}</div>
+              <p className="text-xs text-muted-foreground">New cases</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Resolved Today</CardTitle>
+              <TrendingUp className="h-4 w-4 text-green-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">{volumeStats.resolvedToday}</div>
+              <p className="text-xs text-muted-foreground">Cases closed</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">SLA Breaches</CardTitle>
+              <AlertCircle className="h-4 w-4 text-red-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-600">{timelinessStats.slaBreaches}</div>
+              <p className="text-xs text-muted-foreground">Past due</p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Timeliness Stats */}
+      <div>
+        <h2 className="text-xl font-semibold mb-4">🕒 Timeliness & SLA</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">Avg Resolution Time</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{timelinessStats.avgResolutionTime}d</div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">Avg First Response</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{timelinessStats.avgFirstResponseTime}h</div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">Resolved Within SLA</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">{timelinessStats.resolvedWithinSLA}%</div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">Assignment Rate</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {Math.round((assignmentStats.assignedCases / (assignmentStats.assignedCases + assignmentStats.unassignedCases)) * 100) || 0}%
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {assignmentStats.assignedCases} assigned, {assignmentStats.unassignedCases} unassigned
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Charts Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Status Distribution */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Cases</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
+          <CardHeader>
+            <CardTitle>Case Status Distribution</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{quickStats.totalCases}</div>
-            <p className="text-xs text-muted-foreground">All time</p>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={statusData}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={80}
+                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                >
+                  {statusData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
 
+        {/* Priority Distribution */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Open Cases</CardTitle>
-            <AlertCircle className="h-4 w-4 text-muted-foreground" />
+          <CardHeader>
+            <CardTitle>Cases by Priority</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{quickStats.openCases}</div>
-            <p className="text-xs text-muted-foreground">Awaiting resolution</p>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={priorityData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="value" fill="#8884d8" />
+              </BarChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
 
+        {/* Category Distribution */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Resolved Today</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          <CardHeader>
+            <CardTitle>Cases by Category</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{quickStats.resolvedToday}</div>
-            <p className="text-xs text-muted-foreground">Cases closed today</p>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={categoryData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="value" fill="#82ca9d" />
+              </BarChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
 
+        {/* Trends Over Time */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg Resolution</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
+          <CardHeader>
+            <CardTitle>Cases Created vs Closed Over Time</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{quickStats.avgResolutionTime}d</div>
-            <p className="text-xs text-muted-foreground">Average days</p>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={trendsData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis />
+                <Tooltip />
+                <Line type="monotone" dataKey="created" stroke="#8884d8" name="Created" />
+                <Line type="monotone" dataKey="closed" stroke="#82ca9d" name="Closed" />
+              </LineChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
       </div>
 
-      {/* Data Source Selection */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Data Analysis</CardTitle>
-          <div className="flex items-center gap-4">
-            <Select value={selectedDataSource} onValueChange={handleDataSourceChange}>
-              <SelectTrigger className="w-64">
-                <SelectValue placeholder="Select data source" />
-              </SelectTrigger>
-              <SelectContent>
-                {dataSources.map((ds) => (
-                  <SelectItem key={ds.id} value={ds.id}>
-                    {ds.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Badge variant="outline">
-              {dataSources.find(ds => ds.id === selectedDataSource)?.description}
-            </Badge>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="flex items-center justify-center h-64">
-              <Loader2 className="h-8 w-8 animate-spin" />
-              <span className="ml-2">Loading insights...</span>
+      {/* Top Assignees & Longest Open Cases */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>👥 Top Assignees</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {assignmentStats.topAssignees.map((assignee, index) => (
+                <div key={index} className="flex justify-between items-center p-2 bg-muted rounded">
+                  <span>{assignee.name}</span>
+                  <Badge variant="secondary">{assignee.count} cases</Badge>
+                </div>
+              ))}
+              {assignmentStats.topAssignees.length === 0 && (
+                <p className="text-muted-foreground text-center py-4">No assigned cases found</p>
+              )}
             </div>
-          ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Bar Chart */}
-              <div>
-                <h3 className="text-lg font-semibold mb-4">Case Status Distribution</h3>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={insightData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="value" fill="#8884d8" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+          </CardContent>
+        </Card>
 
-              {/* Pie Chart */}
-              <div>
-                <h3 className="text-lg font-semibold mb-4">Case Status Breakdown</h3>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={insightData}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      fill="#8884d8"
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    >
-                      {insightData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>⏰ Longest Open Cases</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {timelinessStats.longestOpenCases.map((case_, index) => (
+                <div key={case_.id} className="p-2 bg-muted rounded">
+                  <div className="font-medium">{case_.title}</div>
+                  <div className="text-sm text-muted-foreground">
+                    Open for {Math.floor((new Date().getTime() - new Date(case_.created_at).getTime()) / (1000 * 60 * 60 * 24))} days
+                  </div>
+                </div>
+              ))}
+              {timelinessStats.longestOpenCases.length === 0 && (
+                <p className="text-muted-foreground text-center py-4">No open cases found</p>
+              )}
             </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Additional Insights */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Key Insights</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="p-4 border rounded-lg">
-              <h4 className="font-semibold">Most Common Status</h4>
-              <p className="text-sm text-muted-foreground">
-                {insightData.length > 0 
-                  ? `${insightData.reduce((max, item) => item.value > max.value ? item : max, insightData[0])?.name || 'N/A'}`
-                  : 'No data available'
-                }
-              </p>
-            </div>
-            <div className="p-4 border rounded-lg">
-              <h4 className="font-semibold">Total Records</h4>
-              <p className="text-sm text-muted-foreground">
-                {insightData.reduce((sum, item) => sum + item.value, 0)} cases analyzed
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };

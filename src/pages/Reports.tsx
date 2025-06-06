@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
@@ -155,11 +154,11 @@ const Reports = () => {
   };
 
   const handleViewReport = (reportId: string) => {
-    navigate(`/reports/builder?id=${reportId}&view=true`);
+    navigate(`/reports/builder?id=${reportId}&mode=view`);
   };
 
   const handleEditReport = (reportId: string) => {
-    navigate(`/reports/builder?id=${reportId}&edit=true`);
+    navigate(`/reports/builder?id=${reportId}&mode=edit`);
   };
 
   const handleExportCSV = () => {
