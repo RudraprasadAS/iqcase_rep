@@ -268,6 +268,8 @@ if (formData.category_id && formData.priority) {
       high: slaMatrix.sla_high,
       urgent: slaMatrix.sla_urgent
     }[formData.priority.toLowerCase()] ?? slaMatrix.sla_medium;
+    console.log('[NewCase] SLA hours for priority:', formData.priority, 'is', hours);
+
 
     sla_due_at = new Date(createdAt.getTime() + hours * 60 * 60 * 1000).toISOString();
   } else {
