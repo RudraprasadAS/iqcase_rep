@@ -81,48 +81,48 @@ const ReportViewer = ({ reportId, onClose }: ReportViewerProps) => {
         ? reportData.filters 
         : [];
 
-      // Build query based on report configuration
-      let query = supabase.from(reportData.module as any);
+      // Start building the query
+      let queryBuilder = supabase.from(reportData.module as any);
       
       // Apply selected fields
       if (selectedFields && selectedFields.length > 0) {
         const fields = selectedFields.join(', ');
-        query = query.select(fields);
+        queryBuilder = queryBuilder.select(fields);
       } else {
-        query = query.select('*');
+        queryBuilder = queryBuilder.select('*');
       }
 
-      // Apply filters
+      // Apply filters if they exist
       if (filters && filters.length > 0) {
         filters.forEach((filter: any) => {
           switch (filter.operator) {
             case 'eq':
-              query = query.eq(filter.field, filter.value);
+              queryBuilder = queryBuilder.eq(filter.field, filter.value);
               break;
             case 'neq':
-              query = query.neq(filter.field, filter.value);
+              queryBuilder = queryBuilder.neq(filter.field, filter.value);
               break;
             case 'gt':
-              query = query.gt(filter.field, filter.value);
+              queryBuilder = queryBuilder.gt(filter.field, filter.value);
               break;
             case 'lt':
-              query = query.lt(filter.field, filter.value);
+              queryBuilder = queryBuilder.lt(filter.field, filter.value);
               break;
             case 'like':
-              query = query.ilike(filter.field, `%${filter.value}%`);
+              queryBuilder = queryBuilder.ilike(filter.field, `%${filter.value}%`);
               break;
           }
         });
       }
 
-      // Execute query
-      const { data, error, count } = await query;
+      // Execute the query
+      const result = await queryBuilder;
       
-      if (error) throw error;
+      if (result.error) throw result.error;
       
       setResult({
-        data: data || [],
-        total: count || data?.length || 0
+        data: result.data || [],
+        total: result.data?.length || 0
       });
     } catch (error) {
       console.error('Error executing report:', error);
