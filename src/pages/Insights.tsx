@@ -79,7 +79,7 @@ const Insights = () => {
     const dateThreshold = new Date();
     dateThreshold.setDate(dateThreshold.getDate() - parseInt(dateRange));
 
-    // Total cases
+    // Total cases - properly handle the count response
     const { count: total } = await supabase
       .from('cases')
       .select('*', { count: 'exact', head: true });
@@ -179,10 +179,14 @@ const Insights = () => {
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
 
+    const assignedCount = assigned || 0;
+    const unassignedCount = unassigned || 0;
+    const assigneeCountsKeys = Object.keys(assigneeCounts || {});
+
     setAssignmentStats({
-      assignedCases: assigned || 0,
-      unassignedCases: unassigned || 0,
-      avgCasesPerUser: assigned > 0 ? Math.round((assigned || 0) / Object.keys(assigneeCounts || {}).length) : 0,
+      assignedCases: assignedCount,
+      unassignedCases: unassignedCount,
+      avgCasesPerUser: assignedCount > 0 && assigneeCountsKeys.length > 0 ? Math.round(assignedCount / assigneeCountsKeys.length) : 0,
       topAssignees,
       usersWithBreaches: [] // Would need complex query
     });
