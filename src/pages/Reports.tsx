@@ -113,9 +113,9 @@ const Reports = () => {
                     </div>
                     <div className="flex items-center space-x-1">
                       {report.is_public ? (
-                        <Users className="h-4 w-4 text-blue-500" title="Public" />
+                        <Users className="h-4 w-4 text-blue-500" />
                       ) : (
-                        <Lock className="h-4 w-4 text-gray-500" title="Private" />
+                        <Lock className="h-4 w-4 text-gray-500" />
                       )}
                     </div>
                   </div>
