@@ -440,6 +440,41 @@ export type Database = {
           },
         ]
       }
+      case_sla_policies: {
+        Row: {
+          category_id: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          priority: string
+          sla_hours: number
+        }
+        Insert: {
+          category_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          priority: string
+          sla_hours: number
+        }
+        Update: {
+          category_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          priority?: string
+          sla_hours?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "case_sla_policies_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "case_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       case_tasks: {
         Row: {
           assigned_to: string | null
@@ -616,6 +651,47 @@ export type Database = {
             columns: ["submitted_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      category_sla_matrix: {
+        Row: {
+          category_id: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          sla_high: number | null
+          sla_low: number | null
+          sla_medium: number | null
+          sla_urgent: number | null
+        }
+        Insert: {
+          category_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          sla_high?: number | null
+          sla_low?: number | null
+          sla_medium?: number | null
+          sla_urgent?: number | null
+        }
+        Update: {
+          category_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          sla_high?: number | null
+          sla_low?: number | null
+          sla_medium?: number | null
+          sla_urgent?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "category_sla_matrix_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "case_categories"
             referencedColumns: ["id"]
           },
         ]
@@ -1468,57 +1544,6 @@ export type Database = {
         }
         Relationships: []
       }
-      sla_definitions: {
-        Row: {
-          category_id: string | null
-          created_at: string | null
-          duration_hours: number
-          id: string
-          is_active: boolean | null
-          name: string
-          priority_level: string | null
-          role_id: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          category_id?: string | null
-          created_at?: string | null
-          duration_hours: number
-          id?: string
-          is_active?: boolean | null
-          name: string
-          priority_level?: string | null
-          role_id?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          category_id?: string | null
-          created_at?: string | null
-          duration_hours?: number
-          id?: string
-          is_active?: boolean | null
-          name?: string
-          priority_level?: string | null
-          role_id?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sla_definitions_category_id_fkey"
-            columns: ["category_id"]
-            isOneToOne: false
-            referencedRelation: "case_categories"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sla_definitions_role_id_fkey"
-            columns: ["role_id"]
-            isOneToOne: false
-            referencedRelation: "roles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       user_audit_log: {
         Row: {
           action: string
@@ -1625,6 +1650,32 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_case_with_sla: {
+        Args: {
+          _title: string
+          _description: string
+          _category_id: string
+          _priority: string
+          _location: string
+          _submitted_by: string
+          _visibility: string
+          _tags: string[]
+        }
+        Returns: {
+          id: string
+          title: string
+          description: string
+          category_id: string
+          priority: string
+          location: string
+          status: string
+          submitted_by: string
+          sla_due_at: string
+          visibility: string
+          tags: string[]
+          created_at: string
+        }[]
+      }
       create_role: {
         Args: { role_name: string; role_description: string }
         Returns: string

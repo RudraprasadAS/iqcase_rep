@@ -144,6 +144,47 @@ const NewCase = () => {
     );
   };
 
+  const getSLADueDate = async (categoryId: string, priority: string) => {
+    try {
+      // Look up SLA hours from category_sla_matrix table
+      const { data: slaData, error: slaError } = await supabase
+        .from('category_sla_matrix')
+        .select('sla_low, sla_medium, sla_high, sla_urgent')
+        .eq('category_id', categoryId)
+        .eq('is_active', true)
+        .single();
+
+      if (slaError || !slaData) {
+        console.log('No SLA configuration found for category, using default 72 hours');
+        return new Date(Date.now() + 72 * 60 * 60 * 1000);
+      }
+
+      let slaHours = 72; // Default fallback
+      
+      switch (priority.toLowerCase()) {
+        case 'low':
+          slaHours = slaData.sla_low || 96;
+          break;
+        case 'medium':
+          slaHours = slaData.sla_medium || 48;
+          break;
+        case 'high':
+          slaHours = slaData.sla_high || 24;
+          break;
+        case 'urgent':
+          slaHours = slaData.sla_urgent || 4;
+          break;
+        default:
+          slaHours = slaData.sla_medium || 48;
+      }
+
+      return new Date(Date.now() + slaHours * 60 * 60 * 1000);
+    } catch (error) {
+      console.error('Error fetching SLA configuration:', error);
+      return new Date(Date.now() + 72 * 60 * 60 * 1000); // Fallback to 72 hours
+    }
+  };
+
   const addTag = () => {
     if (newTag.trim() && !tags.includes(newTag.trim())) {
       setTags([...tags, newTag.trim()]);
@@ -250,9 +291,8 @@ const NewCase = () => {
     setLoading(true);
     
     try {
-      const slaHours = 72;
-      const slaDueAt = new Date();
-      slaDueAt.setHours(slaDueAt.getHours() + slaHours);
+      // Get dynamic SLA due date
+      const slaDueAt = await getSLADueDate(formData.category_id, formData.priority);
 
       const caseData = {
         title: formData.title.trim(),
@@ -407,6 +447,7 @@ const NewCase = () => {
                       <SelectItem value="low">Low - General inquiry</SelectItem>
                       <SelectItem value="medium">Medium - Standard request</SelectItem>
                       <SelectItem value="high">High - Urgent issue</SelectItem>
+                      <SelectItem value="urgent">Urgent - Critical issue</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
