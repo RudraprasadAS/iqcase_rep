@@ -177,7 +177,7 @@ Submitted By: ${caseContext?.submitted_by}`;
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'openai/gpt-4o',
+        model: 'deepseek/deepseek-chat:free',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: input }
