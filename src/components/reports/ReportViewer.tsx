@@ -1,39 +1,39 @@
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { X, Download, RefreshCw } from 'lucide-react';
+import { X, RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Json } from '@/integrations/supabase/types';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 interface ReportViewerProps {
   reportId: string;
   onClose: () => void;
 }
 
-interface ReportData {
+interface Report {
   id: string;
   name: string;
   description?: string;
   module: string;
-  selected_fields: Json;
-  filters: Json;
-  group_by?: string;
-  aggregation?: string;
-  chart_type: string;
+  selected_fields: string[];
+  filters: any[];
   created_at: string;
   created_by: string;
 }
 
-interface ReportResult {
-  data: any[];
-  total: number;
-}
-
 const ReportViewer = ({ reportId, onClose }: ReportViewerProps) => {
-  const [report, setReport] = useState<ReportData | null>(null);
-  const [result, setResult] = useState<ReportResult | null>(null);
+  const [report, setReport] = useState<Report | null>(null);
+  const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [executing, setExecuting] = useState(false);
   const { toast } = useToast();
@@ -44,7 +44,7 @@ const ReportViewer = ({ reportId, onClose }: ReportViewerProps) => {
 
   const fetchReport = async () => {
     try {
-      const { data, error } = await supabase
+      const { data: reportData, error } = await supabase
         .from('reports')
         .select('*')
         .eq('id', reportId)
@@ -52,8 +52,8 @@ const ReportViewer = ({ reportId, onClose }: ReportViewerProps) => {
 
       if (error) throw error;
       
-      setReport(data);
-      await executeReport(data);
+      setReport(reportData);
+      await executeReport(reportData);
     } catch (error) {
       console.error('Error fetching report:', error);
       toast({
@@ -66,65 +66,22 @@ const ReportViewer = ({ reportId, onClose }: ReportViewerProps) => {
     }
   };
 
-  const executeReport = async (reportData: ReportData) => {
+  const executeReport = async (reportData: Report) => {
     if (!reportData) return;
     
     setExecuting(true);
     try {
-      // Parse selected fields and filters from JSON
-      const selectedFields = Array.isArray(reportData.selected_fields) 
-        ? reportData.selected_fields 
-        : reportData.selected_fields ? [reportData.selected_fields] : [];
-      
-      const filters = Array.isArray(reportData.filters) 
-        ? reportData.filters 
-        : [];
-
-      // Build the query dynamically
+      // For now, let's just fetch from the specified module/table
       const tableName = reportData.module;
-      let queryBuilder = supabase.from(tableName as any);
       
-      // Apply selected fields
-      if (selectedFields && selectedFields.length > 0) {
-        const fields = selectedFields.join(', ');
-        queryBuilder = queryBuilder.select(fields) as any;
-      } else {
-        queryBuilder = queryBuilder.select('*') as any;
-      }
+      const { data: queryData, error } = await supabase
+        .from(tableName as any)
+        .select('*')
+        .limit(100);
 
-      // Apply filters if they exist
-      if (filters && filters.length > 0) {
-        filters.forEach((filter: any) => {
-          switch (filter.operator) {
-            case 'eq':
-              queryBuilder = (queryBuilder as any).eq(filter.field, filter.value);
-              break;
-            case 'neq':
-              queryBuilder = (queryBuilder as any).neq(filter.field, filter.value);
-              break;
-            case 'gt':
-              queryBuilder = (queryBuilder as any).gt(filter.field, filter.value);
-              break;
-            case 'lt':
-              queryBuilder = (queryBuilder as any).lt(filter.field, filter.value);
-              break;
-            case 'like':
-              queryBuilder = (queryBuilder as any).ilike(filter.field, `%${filter.value}%`);
-              break;
-          }
-        });
-      }
-
-      // Execute the query - this is the fix
-      const response = await queryBuilder;
-      const { data, error } = response;
-      
       if (error) throw error;
       
-      setResult({
-        data: data || [],
-        total: data?.length || 0
-      });
+      setData(queryData || []);
     } catch (error) {
       console.error('Error executing report:', error);
       toast({
@@ -142,7 +99,6 @@ const ReportViewer = ({ reportId, onClose }: ReportViewerProps) => {
     if (typeof value === 'boolean') return value ? 'Yes' : 'No';
     if (value instanceof Date) return value.toLocaleDateString();
     if (typeof value === 'string' && value.includes('T')) {
-      // Try to format as date if it looks like ISO string
       try {
         return new Date(value).toLocaleString();
       } catch {
@@ -213,48 +169,42 @@ const ReportViewer = ({ reportId, onClose }: ReportViewerProps) => {
               <p>Executing report...</p>
             </div>
           </div>
-        ) : result ? (
+        ) : data.length > 0 ? (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <p className="text-sm text-muted-foreground">
-                {result.total} {result.total === 1 ? 'record' : 'records'} found
+                {data.length} {data.length === 1 ? 'record' : 'records'} found
               </p>
             </div>
             
-            {result.data.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse border border-gray-200">
-                  <thead>
-                    <tr className="bg-gray-50">
-                      {Object.keys(result.data[0]).map((key) => (
-                        <th key={key} className="border border-gray-200 px-3 py-2 text-left text-sm font-medium">
-                          {key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {result.data.map((row, index) => (
-                      <tr key={index} className="hover:bg-gray-50">
-                        {Object.values(row).map((value, cellIndex) => (
-                          <td key={cellIndex} className="border border-gray-200 px-3 py-2 text-sm">
-                            {formatValue(value)}
-                          </td>
-                        ))}
-                      </tr>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    {Object.keys(data[0]).map((key) => (
+                      <TableHead key={key}>
+                        {key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                      </TableHead>
                     ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">No data found</p>
-              </div>
-            )}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.map((row, index) => (
+                    <TableRow key={index}>
+                      {Object.values(row).map((value, cellIndex) => (
+                        <TableCell key={cellIndex}>
+                          {formatValue(value)}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </div>
         ) : (
           <div className="text-center py-8">
-            <p className="text-muted-foreground">Click refresh to load data</p>
+            <p className="text-muted-foreground">No data found</p>
           </div>
         )}
       </CardContent>
