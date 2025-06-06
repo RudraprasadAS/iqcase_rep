@@ -150,6 +150,7 @@ export const createMentionNotification = async (
   try {
     console.log('🔔 Creating mention notification:', {
       userId: mentionedUserId,
+      mentionerUserId: mentionerUserId,
       title: 'You were mentioned',
       type: 'mention',
       caseId: caseId,
@@ -157,6 +158,7 @@ export const createMentionNotification = async (
       sourceType: sourceType
     });
 
+    // Get the mentioner's name
     const { data: mentionerData, error: mentionerError } = await supabase
       .from('users')
       .select('name')

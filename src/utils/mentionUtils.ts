@@ -134,7 +134,7 @@ export const processMentionsAndNotify = async (
         
         // Create a notification for the mentioned user
         try {
-          await createMentionNotification(
+          const result = await createMentionNotification(
             user.id,
             senderId,
             caseId,
@@ -143,10 +143,12 @@ export const processMentionsAndNotify = async (
             text
           );
           
-          console.log('🔔 Mention notification created successfully for:', user.email);
-          
-          // Mark this user as notified
-          notifiedUsers.add(user.id);
+          if (result.success) {
+            console.log('🔔 Mention notification created successfully for:', user.email);
+            notifiedUsers.add(user.id);
+          } else {
+            console.error('🔔 Failed to create mention notification:', result.error);
+          }
         } catch (notificationError) {
           console.error('🔔 Error creating mention notification:', notificationError);
         }

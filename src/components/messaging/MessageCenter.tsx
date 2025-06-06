@@ -11,6 +11,7 @@ import { Send, MessageCircle, Paperclip, X, Download, Eye } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import AttachmentViewer from '@/components/attachments/AttachmentViewer';
 import { logMessageAdded } from '@/utils/activityLogger';
+import { processMentionsAndNotify } from '@/utils/mentionUtils';
 
 interface Message {
   id: string;
@@ -241,22 +242,39 @@ const MessageCenter = ({ caseId, isInternal = false }: MessageCenterProps) => {
 
     setLoading(true);
     try {
-      const { error } = await supabase
+      // Process mentions in the message and create notifications
+      let processedMessage = newMessage.trim();
+      if (isInternal) {
+        console.log('🔔 Processing mentions for internal message');
+        processedMessage = await processMentionsAndNotify(
+          newMessage.trim(),
+          caseId,
+          '', // sourceId - will be filled after message is created
+          'message',
+          internalUserId
+        );
+      }
+
+      const { data: messageData, error } = await supabase
         .from('case_messages')
         .insert({
           case_id: caseId,
-          message: newMessage.trim(),
+          message: processedMessage,
           sender_id: internalUserId,
           is_internal: isInternal
-        });
+        })
+        .select('*')
+        .single();
 
       if (error) {
         console.error('Message send error:', error);
         throw error;
       }
 
+      console.log('🔔 Message created successfully:', messageData);
+
       // Log the message activity
-      await logMessageAdded(caseId, newMessage.trim(), isInternal, internalUserId);
+      await logMessageAdded(caseId, processedMessage, isInternal, internalUserId);
 
       // Upload files if any
       if (files.length > 0) {
@@ -285,59 +303,57 @@ const MessageCenter = ({ caseId, isInternal = false }: MessageCenterProps) => {
     }
   };
 
-// Add inside your component above return()
-const [mentionUsers, setMentionUsers] = useState<{ id: string; name: string }[]>([]);
-const [showMentions, setShowMentions] = useState(false);
-const [mentionQuery, setMentionQuery] = useState('');
-const [mentionIndex, setMentionIndex] = useState(0);
+  const [mentionUsers, setMentionUsers] = useState<{ id: string; name: string }[]>([]);
+  const [showMentions, setShowMentions] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState('');
+  const [mentionIndex, setMentionIndex] = useState(0);
 
-useEffect(() => {
-  const fetchUsers = async () => {
-    const { data, error } = await supabase.from('users').select('id, name');
-    if (!error && data) setMentionUsers(data);
+  useEffect(() => {
+    const fetchUsers = async () => {
+      const { data, error } = await supabase.from('users').select('id, name');
+      if (!error && data) setMentionUsers(data);
+    };
+    if (isInternal) fetchUsers();
+  }, [isInternal]);
+
+  useEffect(() => {
+    if (!mentionQuery.trim()) {
+      setShowMentions(false);
+      return;
+    }
+    setShowMentions(true);
+  }, [mentionQuery]);
+
+  const handleTextareaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (!showMentions) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setMentionIndex((prev) => (prev + 1) % mentionUsers.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setMentionIndex((prev) => (prev - 1 + mentionUsers.length) % mentionUsers.length);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const selected = mentionUsers[mentionIndex];
+      const mentionTag = `@${selected.name}`;
+      setNewMessage((prev) => prev.replace(/@[^\s]*$/, mentionTag + ' '));
+      setMentionQuery('');
+      setShowMentions(false);
+    }
   };
-  if (isInternal) fetchUsers();
-}, [isInternal]);
 
-useEffect(() => {
-  if (!mentionQuery.trim()) {
-    setShowMentions(false);
-    return;
-  }
-  setShowMentions(true);
-}, [mentionQuery]);
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    setNewMessage(value);
 
-const handleTextareaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-  if (!showMentions) return;
-  if (e.key === 'ArrowDown') {
-    e.preventDefault();
-    setMentionIndex((prev) => (prev + 1) % mentionUsers.length);
-  } else if (e.key === 'ArrowUp') {
-    e.preventDefault();
-    setMentionIndex((prev) => (prev - 1 + mentionUsers.length) % mentionUsers.length);
-  } else if (e.key === 'Enter') {
-    e.preventDefault();
-    const selected = mentionUsers[mentionIndex];
-    const mentionTag = `@${selected.name}`;
-    setNewMessage((prev) => prev.replace(/@[^\s]*$/, mentionTag + ' '));
-    setMentionQuery('');
-    setShowMentions(false);
-  }
-};
-
-const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-  const value = e.target.value;
-  setNewMessage(value);
-
-  const match = value.match(/@([^\s]*)$/);
-  if (match) {
-    setMentionQuery(match[1]);
-  } else {
-    setMentionQuery('');
-    setShowMentions(false);
-  }
-};
-
+    const match = value.match(/@([^\s]*)$/);
+    if (match) {
+      setMentionQuery(match[1]);
+    } else {
+      setMentionQuery('');
+      setShowMentions(false);
+    }
+  };
 
   return (
     <>

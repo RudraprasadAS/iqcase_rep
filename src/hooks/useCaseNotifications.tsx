@@ -1,6 +1,6 @@
 
 import { useAuth } from './useAuth';
-import { createCaseAssignmentNotification, createCaseStatusChangeNotification } from '@/utils/notificationUtils';
+import { createCaseAssignmentNotification, createCaseStatusChangeNotification, createTaskAssignmentNotification } from '@/utils/notificationUtils';
 import { supabase } from '@/integrations/supabase/client';
 
 export const useCaseNotifications = () => {
@@ -10,11 +10,13 @@ export const useCaseNotifications = () => {
     if (!user) return;
 
     try {
+      console.log('🔔 Processing case assignment notification:', { assignedUserId, caseTitle, caseId });
+
       // Get the internal user ID for the assigned user
       const { data: assignedUserData, error: userError } = await supabase
         .from('users')
         .select('id')
-        .eq('auth_user_id', assignedUserId)
+        .eq('id', assignedUserId) // assuming assignedUserId is already the internal user ID
         .single();
 
       if (userError) {
@@ -36,12 +38,18 @@ export const useCaseNotifications = () => {
         }
 
         if (currentUserData) {
-          await createCaseAssignmentNotification(
+          const result = await createCaseAssignmentNotification(
             assignedUserData.id,
             caseTitle,
             caseId,
             currentUserData.id
           );
+          
+          if (result.success) {
+            console.log('🔔 Case assignment notification sent successfully');
+          } else {
+            console.error('🔔 Failed to send case assignment notification:', result.error);
+          }
         }
       }
     } catch (error) {
@@ -49,29 +57,60 @@ export const useCaseNotifications = () => {
     }
   };
 
+  const notifyOnTaskAssignment = async (assignedUserId: string, taskName: string, caseId: string) => {
+    if (!user) return;
+
+    try {
+      console.log('🔔 Processing task assignment notification:', { assignedUserId, taskName, caseId });
+
+      // Get the current user's internal ID
+      const { data: currentUserData, error: currentUserError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (currentUserError) {
+        console.error('Error fetching current user:', currentUserError);
+        return;
+      }
+
+      if (currentUserData) {
+        const result = await createTaskAssignmentNotification(
+          assignedUserId,
+          taskName,
+          caseId,
+          currentUserData.id
+        );
+        
+        if (result.success) {
+          console.log('🔔 Task assignment notification sent successfully');
+        } else {
+          console.error('🔔 Failed to send task assignment notification:', result.error);
+        }
+      }
+    } catch (error) {
+      console.error('Error creating task assignment notification:', error);
+    }
+  };
+
   const notifyOnStatusChange = async (caseId: string, caseTitle: string, newStatus: string, notifyUserId?: string) => {
     if (!notifyUserId) return;
 
     try {
-      // Get the internal user ID for the user to notify
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('id')
-        .eq('auth_user_id', notifyUserId)
-        .single();
+      console.log('🔔 Processing status change notification:', { caseId, caseTitle, newStatus, notifyUserId });
 
-      if (userError) {
-        console.error('Error fetching user to notify:', userError);
-        return;
-      }
-
-      if (userData) {
-        await createCaseStatusChangeNotification(
-          userData.id,
-          caseTitle,
-          newStatus,
-          caseId
-        );
+      const result = await createCaseStatusChangeNotification(
+        notifyUserId,
+        caseTitle,
+        newStatus,
+        caseId
+      );
+      
+      if (result.success) {
+        console.log('🔔 Status change notification sent successfully');
+      } else {
+        console.error('🔔 Failed to send status change notification:', result.error);
       }
     } catch (error) {
       console.error('Error creating case status change notification:', error);
@@ -80,6 +119,7 @@ export const useCaseNotifications = () => {
 
   return {
     notifyOnCaseAssignment,
+    notifyOnTaskAssignment,
     notifyOnStatusChange
   };
 };
