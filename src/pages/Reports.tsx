@@ -1,325 +1,272 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Helmet } from 'react-helmet-async';
-import { supabase } from '@/integrations/supabase/client';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ScrollArea } from "@/components/ui/scroll-area"
+
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
-import { useReportExport } from '@/hooks/useReportExport';
-import { FileDown, Download, Plus, Eye, Edit } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Plus, Edit, Trash2, Eye, Users, Lock } from 'lucide-react';
+import { useReports } from '@/hooks/useReports';
+import { useNavigate } from 'react-router-dom';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { ReportPreview } from '@/components/reports/ReportPreview';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 const Reports = () => {
   const navigate = useNavigate();
-  const [reports, setReports] = useState([]);
-  const [selectedReport, setSelectedReport] = useState(null);
-  const [reportData, setReportData] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const { toast } = useToast();
-  const { exportToCSV, exportToPDF, isExporting } = useReportExport();
+  const { reports, savedViews, isLoadingReports, deleteReport, deleteSavedView, runReport } = useReports();
+  const [selectedReport, setSelectedReport] = useState<any>(null);
+  const [reportData, setReportData] = useState<any>(null);
+  const [isLoadingReportData, setIsLoadingReportData] = useState(false);
+  const [showReportDialog, setShowReportDialog] = useState(false);
 
-  useEffect(() => {
-    fetchReports();
-  }, []);
-
-  const fetchReports = async () => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('reports')
-        .select('*')
-        .order('name', { ascending: true });
-
-      if (error) {
-        console.error('Error fetching reports:', error);
-        toast({
-          title: "Error",
-          description: "Failed to fetch reports",
-          variant: "destructive"
-        });
-      } else {
-        setReports(data);
-      }
-    } catch (error) {
-      console.error('Error fetching reports:', error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch reports",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchReportData = async (report: any) => {
-    setLoading(true);
-    try {
-      let query;
-      
-      // Build query based on the report module
-      switch (report.module) {
-        case 'cases':
-          query = supabase
-            .from('cases')
-            .select(`
-              *,
-              submitted_by_user:submitted_by(name, email),
-              assigned_to_user:assigned_to(name, email),
-              category:case_categories(name)
-            `);
-          break;
-        case 'users':
-          query = supabase
-            .from('users')
-            .select(`
-              *,
-              role:roles(name)
-            `);
-          break;
-        case 'case_activities':
-          query = supabase
-            .from('case_activities')
-            .select(`
-              *,
-              case:cases(title),
-              user:users(name, email)
-            `);
-          break;
-        default:
-          // For other modules, query the basic table
-          query = supabase.from(report.module).select('*');
-      }
-
-      // Apply filters if they exist
-      if (report.filters && Array.isArray(report.filters)) {
-        report.filters.forEach((filter: any) => {
-          if (filter.field && filter.operator && filter.value) {
-            switch (filter.operator) {
-              case 'equals':
-                query = query.eq(filter.field, filter.value);
-                break;
-              case 'contains':
-                query = query.ilike(filter.field, `%${filter.value}%`);
-                break;
-              case 'greater_than':
-                query = query.gt(filter.field, filter.value);
-                break;
-              case 'less_than':
-                query = query.lt(filter.field, filter.value);
-                break;
-            }
-          }
-        });
-      }
-
-      // Apply ordering
-      query = query.order('created_at', { ascending: false });
-
-      const { data, error } = await query;
-
-      if (error) {
-        console.error('Error fetching report data:', error);
-        toast({
-          title: "Error",
-          description: "Failed to fetch report data",
-          variant: "destructive"
-        });
-        setReportData([]);
-      } else {
-        setReportData(data || []);
-      }
-    } catch (error) {
-      console.error('Error fetching report data:', error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch report data",
-        variant: "destructive"
-      });
-      setReportData([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleReportChange = (reportId: string) => {
-    const selected = reports.find(report => report.id === reportId);
-    setSelectedReport(selected);
-    if (selected) {
-      fetchReportData(selected);
-    } else {
-      setReportData([]);
-    }
-  };
-
-  const handleViewReport = (reportId: string) => {
-    navigate(`/reports/builder?id=${reportId}&mode=view`);
+  const handleCreateReport = () => {
+    navigate('/report-builder');
   };
 
   const handleEditReport = (reportId: string) => {
-    navigate(`/reports/builder?id=${reportId}&mode=edit`);
+    navigate(`/report-builder?edit=${reportId}`);
   };
 
-  const handleExportCSV = () => {
-    if (reportData.length > 0) {
-      exportToCSV(reportData, selectedReport?.name || 'report');
+  const handleViewReport = async (report: any) => {
+    setSelectedReport(report);
+    setIsLoadingReportData(true);
+    setShowReportDialog(true);
+    
+    try {
+      const result = await runReport.mutateAsync(report.id);
+      setReportData(result);
+    } catch (error) {
+      console.error('Error running report:', error);
+      setReportData(null);
+    } finally {
+      setIsLoadingReportData(false);
     }
   };
 
-  const handleExportPDF = () => {
-    if (reportData.length > 0) {
-      exportToPDF(
-        reportData, 
-        selectedReport?.name || 'report',
-        selectedReport?.name || 'Report',
-        { module: selectedReport?.module }
-      );
-    }
+  const handleDeleteReport = async (reportId: string) => {
+    await deleteReport.mutateAsync(reportId);
+  };
+
+  const handleDeleteSavedView = async (viewId: string) => {
+    await deleteSavedView.mutateAsync(viewId);
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString();
+  };
+
+  const exportToCsv = () => {
+    if (!reportData || !reportData.rows || reportData.rows.length === 0) return;
+
+    const headers = reportData.columns;
+    const csvContent = [
+      headers.join(','),
+      ...reportData.rows.map((row: any) =>
+        headers.map((header: string) => {
+          const value = row[header];
+          return typeof value === 'string' && value.includes(',') 
+            ? `"${value}"` 
+            : value || '';
+        }).join(',')
+      )
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${selectedReport?.name || 'report'}.csv`;
+    link.click();
+    window.URL.revokeObjectURL(url);
   };
 
   return (
-    <>
-      <Helmet>
-        <title>Reports - IQCase</title>
-      </Helmet>
-
-      <div className="container mx-auto py-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Reports</h1>
-            <p className="text-muted-foreground">Generate and analyze reports</p>
-          </div>
-          <div className="flex space-x-2">
-            <Button 
-              onClick={() => navigate('/reports/builder')}
-              className="flex items-center gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              Create New Report
-            </Button>
-            {selectedReport && reportData.length > 0 && (
-              <>
-                <Button 
-                  variant="outline" 
-                  onClick={handleExportCSV}
-                  className="flex items-center gap-2"
-                >
-                  <Download className="h-4 w-4" />
-                  Export CSV
-                </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={handleExportPDF}
-                  disabled={isExporting}
-                  className="flex items-center gap-2"
-                >
-                  <FileDown className="h-4 w-4" />
-                  {isExporting ? 'Generating PDF...' : 'Export PDF'}
-                </Button>
-              </>
-            )}
-          </div>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold">Custom Reports</h1>
+          <p className="text-muted-foreground">
+            Create and manage custom reports for your data analysis needs
+          </p>
         </div>
+        <Button onClick={handleCreateReport}>
+          <Plus className="h-4 w-4 mr-2" />
+          Create Report
+        </Button>
+      </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Select Report</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Select onValueChange={handleReportChange}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Choose a report" />
-                </SelectTrigger>
-                <SelectContent>
-                  {reports.map((report) => (
-                    <SelectItem key={report.id} value={report.id}>
-                      {report.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              
-              {selectedReport && (
-                <div className="flex space-x-2 pt-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleViewReport(selectedReport.id)}
-                    className="flex items-center gap-2"
-                  >
-                    <Eye className="h-4 w-4" />
-                    View
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleEditReport(selectedReport.id)}
-                    className="flex items-center gap-2"
-                  >
-                    <Edit className="h-4 w-4" />
-                    Edit
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Report Data</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <div className="text-center">Loading data...</div>
-              ) : selectedReport ? (
-                reportData.length > 0 ? (
-                  <ScrollArea className="rounded-md border">
-                    <div className="relative overflow-x-auto">
-                      <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
-                        <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
-                          <tr>
-                            {reportData.length > 0 && Object.keys(reportData[0]).map(key => (
-                              <th key={key} scope="col" className="px-6 py-3">
-                                {key.replace(/_/g, ' ').toUpperCase()}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {reportData.slice(0, 10).map((row, index) => (
-                            <tr key={index} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
-                              {Object.values(row).map((value, i) => (
-                                <td key={i} className="px-6 py-4">
-                                  {typeof value === 'object' && value !== null 
-                                    ? JSON.stringify(value) 
-                                    : String(value || '').substring(0, 50)
-                                  }
-                                </td>
-                              ))}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                      {reportData.length > 10 && (
-                        <div className="p-4 text-center text-sm text-gray-500">
-                          Showing first 10 rows of {reportData.length} total records. Use export to see all data.
-                        </div>
+      {/* Custom Reports */}
+      <div>
+        <h2 className="text-xl font-semibold mb-4">My Reports</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {isLoadingReports ? (
+            <div className="col-span-full text-center py-8">Loading reports...</div>
+          ) : reports && reports.length > 0 ? (
+            reports.map((report) => (
+              <Card key={report.id} className="hover:shadow-lg transition-shadow">
+                <CardHeader>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <CardTitle className="text-lg">{report.name}</CardTitle>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {report.description}
+                      </p>
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      {report.is_public ? (
+                        <Users className="h-4 w-4 text-blue-500" title="Public" />
+                      ) : (
+                        <Lock className="h-4 w-4 text-gray-500" title="Private" />
                       )}
                     </div>
-                  </ScrollArea>
-                ) : (
-                  <div className="text-center">No data available for this report.</div>
-                )
-              ) : (
-                <div className="text-center">Select a report to view data.</div>
-              )}
-            </CardContent>
-          </Card>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap gap-2">
+                      <Badge variant="secondary">
+                        {report.base_table || report.module}
+                      </Badge>
+                      <Badge variant="outline">
+                        {report.chart_type || 'table'}
+                      </Badge>
+                    </div>
+                    
+                    <div className="text-xs text-muted-foreground">
+                      Created: {formatDate(report.created_at)}
+                    </div>
+                    
+                    <div className="flex space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleViewReport(report)}
+                        className="flex-1"
+                      >
+                        <Eye className="h-4 w-4 mr-1" />
+                        View
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEditReport(report.id)}
+                        className="flex-1"
+                      >
+                        <Edit className="h-4 w-4 mr-1" />
+                        Edit
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Report</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to delete "{report.name}"? This action cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleDeleteReport(report.id)}>
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          ) : (
+            <div className="col-span-full text-center py-8 text-muted-foreground">
+              No reports found. Create your first report to get started.
+            </div>
+          )}
         </div>
       </div>
-    </>
+
+      {/* Saved Views */}
+      {savedViews && savedViews.length > 0 && (
+        <div>
+          <h2 className="text-xl font-semibold mb-4">Saved Views</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {savedViews.map((view) => (
+              <Card key={view.id} className="hover:shadow-lg transition-shadow">
+                <CardHeader>
+                  <CardTitle className="text-lg">{view.name}</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    {view.description}
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="text-xs text-muted-foreground">
+                      Base Report: {view.baseReport}
+                    </div>
+                    
+                    <div className="text-xs text-muted-foreground">
+                      Created: {formatDate(view.created_at)}
+                    </div>
+                    
+                    <div className="flex space-x-2">
+                      <Button variant="outline" size="sm" className="flex-1">
+                        <Eye className="h-4 w-4 mr-1" />
+                        View
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Saved View</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to delete "{view.name}"? This action cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleDeleteSavedView(view.id)}>
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Report View Dialog */}
+      <Dialog open={showReportDialog} onOpenChange={setShowReportDialog}>
+        <DialogContent className="max-w-6xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{selectedReport?.name} - Report View</DialogTitle>
+          </DialogHeader>
+          <div className="mt-4">
+            {selectedReport && (
+              <ReportPreview
+                data={reportData?.rows || []}
+                columns={reportData?.columns || []}
+                chartType={selectedReport.chart_type || 'table'}
+                isLoading={isLoadingReportData}
+                onRunReport={() => handleViewReport(selectedReport)}
+                onExportCsv={exportToCsv}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 };
 
