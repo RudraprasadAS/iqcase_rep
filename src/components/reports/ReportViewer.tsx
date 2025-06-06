@@ -1,5 +1,3 @@
-
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -117,8 +115,9 @@ const ReportViewer = ({ reportId, onClose }: ReportViewerProps) => {
         });
       }
 
-      // Execute the query
-      const { data, error } = await queryBuilder;
+      // Execute the query - this is the fix
+      const response = await queryBuilder;
+      const { data, error } = response;
       
       if (error) throw error;
       
@@ -264,4 +263,3 @@ const ReportViewer = ({ reportId, onClose }: ReportViewerProps) => {
 };
 
 export default ReportViewer;
-
