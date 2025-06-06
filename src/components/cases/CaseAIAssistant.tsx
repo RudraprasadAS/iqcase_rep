@@ -249,12 +249,13 @@ const handleSendMessage = async () => {
 };
 
 
-return (
+rreturn (
   <div className="fixed bottom-4 right-4 w-[380px] max-h-[500px] shadow-lg z-50">
     <Card>
       <CardHeader>
         <CardTitle>
-          <Bot className="inline-block w-5 h-5 mr-2" />
+          {/* 🛠️ Temporarily commenting out to avoid 404 issues */}
+          {/* <Bot className="inline-block w-5 h-5 mr-2" /> */}
           AI Case Assistant
         </CardTitle>
       </CardHeader>
@@ -267,16 +268,21 @@ return (
             >
               <Avatar className="w-6 h-6">
                 <AvatarFallback>
-                  {msg.isBot ? <Bot className="w-4 h-4" /> : <User className="w-4 h-4" />}
+                  {/* 🛠️ Temporarily disabling icon */}
+                  {/* {msg.isBot ? <Bot className="w-4 h-4" /> : <User className="w-4 h-4" />} */}
+                  {msg.isBot ? 'B' : 'U'}
                 </AvatarFallback>
               </Avatar>
               <div className="bg-muted rounded-md px-3 py-2 text-sm whitespace-pre-wrap flex-1">
                 {msg.content}
+                {/* 🛠️ Show icon status visually using text instead */}
                 {msg.action === 'success' && (
-                  <CheckCircle className="inline-block w-4 h-4 ml-2 text-green-600" />
+                  // <CheckCircle className="inline-block w-4 h-4 ml-2 text-green-600" />
+                  <span className="text-green-600 ml-2">✔</span>
                 )}
                 {msg.action === 'error' && (
-                  <AlertTriangle className="inline-block w-4 h-4 ml-2 text-red-600" />
+                  // <AlertTriangle className="inline-block w-4 h-4 ml-2 text-red-600" />
+                  <span className="text-red-600 ml-2">⚠</span>
                 )}
               </div>
             </div>
@@ -291,7 +297,9 @@ return (
             className="resize-none flex-grow min-h-[40px] max-h-[100px]"
           />
           <Button onClick={handleSendMessage} disabled={loading}>
-            <Send className="w-4 h-4" />
+            {/* 🛠️ Commenting out icon for testing */}
+            {/* <Send className="w-4 h-4" /> */}
+            Send
           </Button>
         </div>
       </CardContent>
