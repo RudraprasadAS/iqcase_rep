@@ -42,6 +42,14 @@ const ReportViewer = ({ reportId, onClose }: ReportViewerProps) => {
 
       if (error) throw error;
       
+      // Helper function to validate chart_type
+      const validateChartType = (chartType: string | null): 'table' | 'bar' | 'line' | 'pie' => {
+        if (chartType === 'bar' || chartType === 'line' || chartType === 'pie') {
+          return chartType;
+        }
+        return 'table'; // Default fallback
+      };
+
       // Transform the database response to match the Report interface
       const transformedReport: Report = {
         ...reportData,
@@ -51,6 +59,7 @@ const ReportViewer = ({ reportId, onClose }: ReportViewerProps) => {
           ? [reportData.selected_fields]
           : [],
         base_table: reportData.module,
+        chart_type: validateChartType(reportData.chart_type),
         filters: Array.isArray(reportData.filters) 
           ? reportData.filters as any[]
           : typeof reportData.filters === 'string'
