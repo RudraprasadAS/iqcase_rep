@@ -250,9 +250,31 @@ const NewCase = () => {
     setLoading(true);
     
     try {
-      const slaHours = 72;
-      const slaDueAt = new Date();
-      slaDueAt.setHours(slaDueAt.getHours() + slaHours);
+     const createdAt = new Date();
+let sla_due_at = null;
+
+if (formData.category_id && formData.priority) {
+  const { data: slaMatrix, error: slaError } = await supabase
+    .from('category_sla_matrix')
+    .select('*')
+    .eq('category_id', formData.category_id)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (!slaError && slaMatrix) {
+    const hours = {
+      low: slaMatrix.sla_low,
+      medium: slaMatrix.sla_medium,
+      high: slaMatrix.sla_high,
+      urgent: slaMatrix.sla_urgent
+    }[formData.priority.toLowerCase()] ?? slaMatrix.sla_medium;
+
+    sla_due_at = new Date(createdAt.getTime() + hours * 60 * 60 * 1000).toISOString();
+  } else {
+    console.warn('SLA matrix not found or failed to load, defaulting sla_due_at to null');
+  }
+}
+
 
       const caseData = {
         title: formData.title.trim(),
@@ -262,7 +284,7 @@ const NewCase = () => {
         priority: formData.priority,
         status: 'open',
         submitted_by: internalUserId,
-        sla_due_at: slaDueAt.toISOString(),
+        sla_due_at: sla_due_at,
         visibility: 'internal',
         tags: tags.length > 0 ? tags : null
       };
