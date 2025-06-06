@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -67,224 +66,138 @@ const CaseAIAssistant = ({ caseId, caseContext, onCaseUpdate }: CaseAIAssistantP
     setLoading(true);
 
     try {
-      // Check if this is a command
-      const response = await processMessage(currentMessage);
-      
-      const botMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: response.content,
-        isBot: true,
-        timestamp: new Date(),
-        action: response.action
-      };
-
-      setMessages(prev => [...prev, botMessage]);
+      const ruleBasedResponse = await processMessage(currentMessage);
+      if (ruleBasedResponse) {
+        setMessages(prev => [...prev, {
+          id: (Date.now() + 1).toString(),
+          content: ruleBasedResponse.content,
+          isBot: true,
+          timestamp: new Date(),
+          action: ruleBasedResponse.action
+        }]);
+      } else {
+        const aiResponse = await callOpenRouterAI(currentMessage);
+        setMessages(prev => [...prev, {
+          id: (Date.now() + 2).toString(),
+          content: aiResponse,
+          isBot: true,
+          timestamp: new Date()
+        }]);
+      }
     } catch (error) {
-      console.error('Error processing message:', error);
-      
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: 'I encountered an error processing your request. Please try again.',
+      console.error('Processing error:', error);
+      setMessages(prev => [...prev, {
+        id: (Date.now() + 3).toString(),
+        content: 'I encountered an error. Please try again.',
         isBot: true,
         timestamp: new Date(),
         action: 'error'
-      };
-
-      setMessages(prev => [...prev, errorMessage]);
+      }]);
     } finally {
       setLoading(false);
     }
   };
 
-  const processMessage = async (message: string): Promise<{ content: string; action?: 'success' | 'error' }> => {
-    const lowerMessage = message.toLowerCase();
-    
-    // Handle information queries
-    if (lowerMessage.includes('what is this case about') || lowerMessage.includes('case about')) {
+  const processMessage = async (message: string): Promise<{ content: string; action?: 'success' | 'error' } | null> => {
+    const lower = message.toLowerCase();
+
+    if (lower.includes('what is this case about') || lower.includes('case about')) {
       return {
         content: `This case is titled "${caseContext?.title}" with status "${caseContext?.status}" and priority "${caseContext?.priority}". ${caseContext?.description ? `Description: ${caseContext.description}` : ''}`
       };
     }
-    
-    if (lowerMessage.includes('attachments') || lowerMessage.includes('files')) {
-      try {
-        const { data: attachments } = await supabase
-          .from('case_attachments')
-          .select('file_name, created_at')
-          .eq('case_id', caseId);
-        
-        if (attachments && attachments.length > 0) {
-          const fileList = attachments.map(att => `• ${att.file_name}`).join('\n');
-          return {
-            content: `This case has ${attachments.length} attachment(s):\n${fileList}`
-          };
-        } else {
-          return {
-            content: 'This case has no attachments.'
-          };
-        }
-      } catch (error) {
-        return {
-          content: 'I couldn\'t retrieve attachment information.',
-          action: 'error'
-        };
-      }
-    }
-    
-    if (lowerMessage.includes('who is handling') || lowerMessage.includes('assigned to')) {
-      if (caseContext?.assigned_to) {
-        try {
-          const { data: user } = await supabase
-            .from('users')
-            .select('name, email')
-            .eq('id', caseContext.assigned_to)
-            .single();
-          
-          return {
-            content: `This case is assigned to ${user?.name || 'Unknown user'} (${user?.email || 'No email'})`
-          };
-        } catch (error) {
-          return {
-            content: 'This case is assigned but I couldn\'t retrieve the user details.',
-            action: 'error'
-          };
-        }
-      } else {
-        return {
-          content: 'This case is not currently assigned to anyone.'
-        };
-      }
-    }
-    
-    // Handle commands
-    if (lowerMessage.includes('mark as urgent') || lowerMessage.includes('set priority urgent')) {
-      try {
-        const { error } = await supabase
-          .from('cases')
-          .update({ priority: 'urgent' })
-          .eq('id', caseId);
-        
-        if (error) throw error;
-        
-        // Calculate new SLA due date
-        if (caseContext?.category) {
-          const { data: slaData } = await supabase
-            .from('category_sla_matrix')
-            .select('sla_urgent')
-            .eq('category_id', caseContext.category)
-            .eq('is_active', true)
-            .single();
-          
-          if (slaData?.sla_urgent) {
-            const newDueDate = new Date();
-            newDueDate.setHours(newDueDate.getHours() + slaData.sla_urgent);
-            
-            await supabase
-              .from('cases')
-              .update({ sla_due_at: newDueDate.toISOString() })
-              .eq('id', caseId);
-          }
-        }
-        
-        // Log activity
-        await supabase
-          .from('case_activities')
-          .insert({
-            case_id: caseId,
-            activity_type: 'priority_changed',
-            description: 'Priority changed to urgent via AI Assistant',
-            performed_by: caseContext?.submitted_by
-          });
-        
-        if (onCaseUpdate) onCaseUpdate();
-        
-        return {
-          content: 'Successfully updated case priority to urgent and recalculated SLA due date.',
-          action: 'success'
-        };
-      } catch (error) {
-        return {
-          content: 'Failed to update case priority. Please try again or contact support.',
-          action: 'error'
-        };
-      }
-    }
-    
-    if (lowerMessage.includes('close this case') || lowerMessage.includes('close case')) {
-      try {
-        const { error } = await supabase
-          .from('cases')
-          .update({ status: 'closed' })
-          .eq('id', caseId);
-        
-        if (error) throw error;
-        
-        // Log activity
-        await supabase
-          .from('case_activities')
-          .insert({
-            case_id: caseId,
-            activity_type: 'status_changed',
-            description: 'Case closed via AI Assistant',
-            performed_by: caseContext?.submitted_by
-          });
-        
-        if (onCaseUpdate) onCaseUpdate();
-        
-        return {
-          content: 'Successfully closed this case.',
-          action: 'success'
-        };
-      } catch (error) {
-        return {
-          content: 'Failed to close the case. Please try again or contact support.',
-          action: 'error'
-        };
-      }
-    }
-    
-    // Default response for unclear messages
-    return {
-      content: `I understand you're asking about: "${message}". I can help with:
-      
-      Information:
-      • Case details and status
-      • Attachments and files
-      • Who is handling the case
-      
-      Actions:
-      • Mark as urgent
-      • Close this case
-      • Update case status
-      
-      Try asking something like "What attachments are there?" or "Mark as urgent"`
-    };
-  };
 
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
+    if (lower.includes('close this case')) {
+      try {
+        await supabase.from('cases').update({ status: 'closed' }).eq('id', caseId);
+        await supabase.from('case_activities').insert({
+          case_id: caseId,
+          activity_type: 'status_changed',
+          description: 'Case closed via AI Assistant',
+          performed_by: caseContext?.submitted_by
+        });
+        if (onCaseUpdate) onCaseUpdate();
+        return { content: 'Case successfully closed.', action: 'success' };
+      } catch {
+        return { content: 'Error closing case.', action: 'error' };
+      }
+    }
 
-  const getMessageIcon = (message: Message) => {
-    if (message.action === 'success') return <CheckCircle className="h-3 w-3 text-green-500" />;
-    if (message.action === 'error') return <AlertTriangle className="h-3 w-3 text-red-500" />;
+    if (lower.includes('mark as urgent')) {
+      try {
+        await supabase.from('cases').update({ priority: 'urgent' }).eq('id', caseId);
+        await supabase.from('case_activities').insert({
+          case_id: caseId,
+          activity_type: 'priority_changed',
+          description: 'Priority set to urgent via AI Assistant',
+          performed_by: caseContext?.submitted_by
+        });
+        if (onCaseUpdate) onCaseUpdate();
+        return { content: 'Priority set to urgent.', action: 'success' };
+      } catch {
+        return { content: 'Error updating priority.', action: 'error' };
+      }
+    }
+
+    const assignMatch = lower.match(/assign to (.+)/);
+    if (assignMatch) {
+      const assignee = assignMatch[1].trim();
+      try {
+        await supabase.from('cases').update({ assigned_to: assignee }).eq('id', caseId);
+        await supabase.from('case_activities').insert({
+          case_id: caseId,
+          activity_type: 'assignment_changed',
+          description: `Assigned to ${assignee} via AI Assistant`,
+          performed_by: caseContext?.submitted_by
+        });
+        if (onCaseUpdate) onCaseUpdate();
+        return { content: `Case successfully assigned to ${assignee}.`, action: 'success' };
+      } catch {
+        return { content: 'Error assigning case.', action: 'error' };
+      }
+    }
+
     return null;
   };
+
+  const callOpenRouterAI = async (input: string): Promise<string> => {
+    const systemPrompt = `You are a helpful AI assistant for internal case management. Case context:
+Title: ${caseContext?.title}
+Status: ${caseContext?.status}
+Priority: ${caseContext?.priority}
+Description: ${caseContext?.description}
+Category: ${caseContext?.category}
+Assigned To: ${caseContext?.assigned_to}
+Submitted By: ${caseContext?.submitted_by}`;
+
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer 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',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'openai/gpt-4o',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: input }
+        ]
+      })
+    });
+
+    const data = await res.json();
+    return data?.choices?.[0]?.message?.content || 'No response.';
+  };
+
+  const formatTime = (date: Date) => date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  const getMessageIcon = (m: Message) => m.action === 'success' ? <CheckCircle className="h-3 w-3 text-green-500" /> : m.action === 'error' ? <AlertTriangle className="h-3 w-3 text-red-500" /> : null;
 
   return (
     <div className="fixed bottom-4 right-4 z-50">
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CollapsibleTrigger asChild>
-          <Button 
-            size="lg" 
-            className="rounded-full shadow-lg bg-blue-600 hover:bg-blue-700"
-            onClick={() => setIsOpen(!isOpen)}
-          >
-            <MessageSquare className="h-5 w-5 mr-2" />
-            AI Assistant
+          <Button size="lg" className="rounded-full shadow-lg bg-blue-600 hover:bg-blue-700">
+            <MessageSquare className="h-5 w-5 mr-2" /> AI Assistant
           </Button>
         </CollapsibleTrigger>
         <CollapsibleContent className="absolute bottom-16 right-0 w-96">
@@ -292,66 +205,44 @@ const CaseAIAssistant = ({ caseId, caseContext, onCaseUpdate }: CaseAIAssistantP
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2 text-lg">
-                  <Bot className="h-5 w-5" />
-                  Case AI Assistant
+                  <Bot className="h-5 w-5" /> Case AI Assistant
                 </CardTitle>
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => setIsOpen(false)}
-                >
+                <Button variant="ghost" size="sm" onClick={() => setIsOpen(false)}>
                   <X className="h-4 w-4" />
                 </Button>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-3 max-h-64 overflow-y-auto">
-                {messages.map((message) => (
-                  <div key={message.id} className={`flex gap-2 ${message.isBot ? '' : 'flex-row-reverse'}`}>
+                {messages.map((m) => (
+                  <div key={m.id} className={`flex gap-2 ${m.isBot ? '' : 'flex-row-reverse'}`}>
                     <Avatar className="h-6 w-6">
-                      <AvatarFallback className="text-xs">
-                        {message.isBot ? <Bot className="h-3 w-3" /> : <User className="h-3 w-3" />}
-                      </AvatarFallback>
+                      <AvatarFallback className="text-xs">{m.isBot ? <Bot className="h-3 w-3" /> : <User className="h-3 w-3" />}</AvatarFallback>
                     </Avatar>
-                    <div className={`flex-1 max-w-[80%] ${message.isBot ? '' : 'text-right'}`}>
+                    <div className={`flex-1 max-w-[80%] ${m.isBot ? '' : 'text-right'}`}>
                       <div className={`text-xs p-2 rounded-lg whitespace-pre-line ${
-                        message.isBot 
-                          ? message.action === 'success'
-                            ? 'bg-green-50 border border-green-200'
-                            : message.action === 'error'
-                            ? 'bg-red-50 border border-red-200'
-                            : 'bg-muted'
-                          : 'bg-primary text-primary-foreground'
-                      }`}>
-                        <div className="flex items-start gap-1">
-                          {message.content}
-                          {getMessageIcon(message)}
-                        </div>
+                        m.isBot ? m.action === 'success' ? 'bg-green-50 border border-green-200' : m.action === 'error' ? 'bg-red-50 border border-red-200' : 'bg-muted' : 'bg-primary text-primary-foreground'}`}>
+                        <div className="flex items-start gap-1">{m.content}{getMessageIcon(m)}</div>
                       </div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {formatTime(message.timestamp)}
-                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">{formatTime(m.timestamp)}</div>
                     </div>
                   </div>
                 ))}
                 {loading && (
                   <div className="flex gap-2">
                     <Avatar className="h-6 w-6">
-                      <AvatarFallback className="text-xs">
-                        <Bot className="h-3 w-3" />
-                      </AvatarFallback>
+                      <AvatarFallback className="text-xs"><Bot className="h-3 w-3" /></AvatarFallback>
                     </Avatar>
                     <div className="bg-muted p-2 rounded-lg">
                       <div className="flex gap-1">
                         <div className="w-1 h-1 bg-muted-foreground rounded-full animate-bounce"></div>
-                        <div className="w-1 h-1 bg-muted-foreground rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
-                        <div className="w-1 h-1 bg-muted-foreground rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                        <div className="w-1 h-1 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                        <div className="w-1 h-1 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                       </div>
                     </div>
                   </div>
                 )}
               </div>
-
               <div className="space-y-2">
                 <Textarea
                   placeholder="Ask about this case or give me a command..."
@@ -366,14 +257,8 @@ const CaseAIAssistant = ({ caseId, caseContext, onCaseUpdate }: CaseAIAssistantP
                     }
                   }}
                 />
-                <Button 
-                  onClick={handleSendMessage} 
-                  disabled={loading || !newMessage.trim()}
-                  size="sm"
-                  className="w-full"
-                >
-                  <Send className="h-3 w-3 mr-2" />
-                  {loading ? 'Processing...' : 'Send'}
+                <Button onClick={handleSendMessage} disabled={loading || !newMessage.trim()} size="sm" className="w-full">
+                  <Send className="h-3 w-3 mr-2" />{loading ? 'Processing...' : 'Send'}
                 </Button>
               </div>
             </CardContent>
