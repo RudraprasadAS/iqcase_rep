@@ -148,12 +148,12 @@ const Insights = () => {
 
   const fetchAssignmentStats = async () => {
     // Assigned vs unassigned
-    const { count: assigned } = await supabase
+    const { count: assignedCount } = await supabase
       .from('cases')
       .select('*', { count: 'exact', head: true })
       .not('assigned_to', 'is', null);
 
-    const { count: unassigned } = await supabase
+    const { count: unassignedCount } = await supabase
       .from('cases')
       .select('*', { count: 'exact', head: true })
       .is('assigned_to', null);
@@ -167,7 +167,7 @@ const Insights = () => {
       `)
       .not('assigned_to', 'is', null);
 
-    const assigneeCounts = assigneeData?.reduce((acc, case_) => {
+    const assigneeCounts = assigneeData?.reduce((acc: any, case_: any) => {
       const userId = case_.assigned_to;
       const userName = case_.users?.name || 'Unknown';
       acc[userId] = acc[userId] || { name: userName, count: 0 };
@@ -176,17 +176,17 @@ const Insights = () => {
     }, {});
 
     const topAssignees = Object.values(assigneeCounts || {})
-      .sort((a, b) => b.count - a.count)
+      .sort((a: any, b: any) => b.count - a.count)
       .slice(0, 5);
 
-    const assignedCount = assigned || 0;
-    const unassignedCount = unassigned || 0;
+    const assigned = assignedCount || 0;
+    const unassigned = unassignedCount || 0;
     const assigneeCountsKeys = Object.keys(assigneeCounts || {});
 
     setAssignmentStats({
-      assignedCases: assignedCount,
-      unassignedCases: unassignedCount,
-      avgCasesPerUser: assignedCount > 0 && assigneeCountsKeys.length > 0 ? Math.round(assignedCount / assigneeCountsKeys.length) : 0,
+      assignedCases: assigned,
+      unassignedCases: unassigned,
+      avgCasesPerUser: assigned > 0 && assigneeCountsKeys.length > 0 ? Math.round(assigned / assigneeCountsKeys.length) : 0,
       topAssignees,
       usersWithBreaches: [] // Would need complex query
     });
@@ -200,7 +200,7 @@ const Insights = () => {
         case_categories(name)
       `);
 
-    const categoryCounts = data?.reduce((acc, case_) => {
+    const categoryCounts = data?.reduce((acc: any, case_: any) => {
       const categoryName = case_.case_categories?.name || 'Uncategorized';
       acc[categoryName] = (acc[categoryName] || 0) + 1;
       return acc;
@@ -209,7 +209,7 @@ const Insights = () => {
     const chartData = Object.entries(categoryCounts || {}).map(([name, value]) => ({
       name,
       value,
-      percentage: Math.round((value / (data?.length || 1)) * 100)
+      percentage: Math.round(((value as number) / (data?.length || 1)) * 100)
     }));
 
     setCategoryData(chartData);
@@ -220,7 +220,7 @@ const Insights = () => {
       .from('cases')
       .select('priority');
 
-    const priorityCounts = data?.reduce((acc, case_) => {
+    const priorityCounts = data?.reduce((acc: any, case_: any) => {
       const priority = case_.priority || 'medium';
       acc[priority] = (acc[priority] || 0) + 1;
       return acc;
@@ -239,7 +239,7 @@ const Insights = () => {
       .from('cases')
       .select('status');
 
-    const statusCounts = data?.reduce((acc, case_) => {
+    const statusCounts = data?.reduce((acc: any, case_: any) => {
       const status = case_.status || 'open';
       acc[status] = (acc[status] || 0) + 1;
       return acc;
@@ -266,8 +266,8 @@ const Insights = () => {
       .order('created_at');
 
     // Group by date
-    const dateGroups = {};
-    data?.forEach(case_ => {
+    const dateGroups: any = {};
+    data?.forEach((case_: any) => {
       const date = new Date(case_.created_at).toISOString().split('T')[0];
       if (!dateGroups[date]) {
         dateGroups[date] = { created: 0, closed: 0 };
@@ -283,7 +283,7 @@ const Insights = () => {
       }
     });
 
-    const chartData = Object.entries(dateGroups).map(([date, counts]) => ({
+    const chartData = Object.entries(dateGroups).map(([date, counts]: [string, any]) => ({
       date: new Date(date).toLocaleDateString(),
       created: counts.created,
       closed: counts.closed
@@ -511,7 +511,7 @@ const Insights = () => {
                   cx="50%"
                   cy="50%"
                   outerRadius={80}
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  label={({ name, percent }: any) => `${name} ${(percent * 100).toFixed(0)}%`}
                 >
                   {statusData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -587,7 +587,7 @@ const Insights = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {assignmentStats.topAssignees.map((assignee, index) => (
+              {assignmentStats.topAssignees.map((assignee: any, index) => (
                 <div key={index} className="flex justify-between items-center p-2 bg-muted rounded">
                   <span>{assignee.name}</span>
                   <Badge variant="secondary">{assignee.count} cases</Badge>
@@ -606,7 +606,7 @@ const Insights = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {timelinessStats.longestOpenCases.map((case_, index) => (
+              {timelinessStats.longestOpenCases.map((case_: any, index) => (
                 <div key={case_.id} className="p-2 bg-muted rounded">
                   <div className="font-medium">{case_.title}</div>
                   <div className="text-sm text-muted-foreground">
