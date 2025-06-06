@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { X, Download, RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Json } from '@/integrations/supabase/types';
 
 interface ReportViewerProps {
   reportId: string;
@@ -17,8 +18,8 @@ interface ReportData {
   name: string;
   description?: string;
   module: string;
-  selected_fields: any[];
-  filters: any[];
+  selected_fields: Json;
+  filters: Json;
   group_by?: string;
   aggregation?: string;
   chart_type: string;
@@ -71,20 +72,29 @@ const ReportViewer = ({ reportId, onClose }: ReportViewerProps) => {
     
     setExecuting(true);
     try {
+      // Parse selected fields and filters from JSON
+      const selectedFields = Array.isArray(reportData.selected_fields) 
+        ? reportData.selected_fields 
+        : reportData.selected_fields ? [reportData.selected_fields] : [];
+      
+      const filters = Array.isArray(reportData.filters) 
+        ? reportData.filters 
+        : [];
+
       // Build query based on report configuration
-      let query = supabase.from(reportData.module);
+      let query = supabase.from(reportData.module as any);
       
       // Apply selected fields
-      if (reportData.selected_fields && reportData.selected_fields.length > 0) {
-        const fields = reportData.selected_fields.join(', ');
+      if (selectedFields && selectedFields.length > 0) {
+        const fields = selectedFields.join(', ');
         query = query.select(fields);
       } else {
         query = query.select('*');
       }
 
       // Apply filters
-      if (reportData.filters && reportData.filters.length > 0) {
-        reportData.filters.forEach(filter => {
+      if (filters && filters.length > 0) {
+        filters.forEach((filter: any) => {
           switch (filter.operator) {
             case 'eq':
               query = query.eq(filter.field, filter.value);
