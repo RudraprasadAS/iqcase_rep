@@ -277,32 +277,37 @@ const { data: newCase, error } = await supabase.rpc('create_case_with_sla', {
   _tags: tags.length > 0 ? tags : null
 });
 
-console.log('SLA due at:', newCase.sla_due_at);
+if (!newCase) {
+  console.error('No case returned from Supabase.');
+  toast({
+    title: 'Error',
+    description: 'Case was not created. Please try again.',
+    variant: 'destructive'
+  });
+  return;
+}
+
+console.log('Case created successfully:', newCase);
+console.log('SLA due at:', newCase[0]?.sla_due_at);
 
 
-      if (error) {
-        console.error('Case creation error:', error);
-        throw error;
-      }
 
-      console.log('Case created successfully:', newCase);
+// Upload files after case creation
+if (files.length > 0) {
+  try {
+    await uploadFiles(newCase[0].id);
+  } catch (uploadError) {
+    console.error('File upload failed:', uploadError);
+  }
+}
 
-      // Upload files after case creation
-      if (files.length > 0) {
-        try {
-          await uploadFiles(newCase.id);
-        } catch (uploadError) {
-          console.error('File upload failed:', uploadError);
-          // Continue even if file upload fails
-        }
-      }
 
       // Log activity
       try {
         await supabase
           .from('case_activities')
           .insert({
-            case_id: newCase.id,
+            case_id: newCase [0].id,
             activity_type: 'case_created',
             description: 'Case created',
             performed_by: internalUserId
@@ -317,7 +322,7 @@ console.log('SLA due at:', newCase.sla_due_at);
         description: 'Case created successfully'
       });
 
-      navigate(`/cases/${newCase.id}`);
+      navigate(`/cases/${newCase [0].id}`);
 
     } catch (error) {
       console.error('Error creating case:', error);
