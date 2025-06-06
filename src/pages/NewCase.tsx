@@ -260,6 +260,7 @@ const NewCase = () => {
         priority: formData.priority,
         status: 'open',
         submitted_by: internalUserId,
+        sla_due_at: sla_due_at,
         visibility: 'internal',
         tags: tags.length > 0 ? tags : null
       };
