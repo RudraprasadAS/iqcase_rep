@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, BarChart3, TrendingUp, Users, FileText, Clock, AlertCircle, Filter } from 'lucide-react';
+import { Loader2, BarChart3, TrendingUp, Users, FileText, Clock, AlertCircle, Calendar } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
@@ -12,21 +12,19 @@ const Insights = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [dateRange, setDateRange] = useState('30'); // days
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [priorityFilter, setPriorityFilter] = useState('all');
   
   // Analytics data states
   const [volumeStats, setVolumeStats] = useState({
     totalCases: 0,
     openCases: 0,
     closedCases: 0,
+    inProgressCases: 0,
     createdToday: 0,
     resolvedToday: 0,
-    reopenedCases: 0
+    slaBreaches: 0
   });
 
   const [timelinessStats, setTimelinessStats] = useState({
-    slaBreaches: 0,
     avgResolutionTime: 0,
     avgFirstResponseTime: 0,
     resolvedWithinSLA: 0,
@@ -37,8 +35,7 @@ const Insights = () => {
     assignedCases: 0,
     unassignedCases: 0,
     avgCasesPerUser: 0,
-    topAssignees: [],
-    usersWithBreaches: []
+    topAssignees: []
   });
 
   const [categoryData, setCategoryData] = useState([]);
@@ -48,7 +45,7 @@ const Insights = () => {
 
   useEffect(() => {
     fetchAllAnalytics();
-  }, [dateRange, statusFilter, priorityFilter]);
+  }, [dateRange]);
 
   const fetchAllAnalytics = async () => {
     setLoading(true);
@@ -79,96 +76,78 @@ const Insights = () => {
     const dateThreshold = new Date();
     dateThreshold.setDate(dateThreshold.getDate() - parseInt(dateRange));
 
-    // Get total cases with filters
-    let totalQuery = supabase.from('cases').select('*', { count: 'exact', head: true })
+    // Get total cases in date range
+    const { count: total } = await supabase
+      .from('cases')
+      .select('*', { count: 'exact', head: true })
       .gte('created_at', dateThreshold.toISOString());
-    
-    if (statusFilter !== 'all') {
-      totalQuery = totalQuery.eq('status', statusFilter);
-    }
-    if (priorityFilter !== 'all') {
-      totalQuery = totalQuery.eq('priority', priorityFilter);
-    }
-    const { count: total } = await totalQuery;
 
-    // Get open cases with filters
-    let openQuery = supabase.from('cases').select('*', { count: 'exact', head: true })
+    // Get cases by status in date range
+    const { count: open } = await supabase
+      .from('cases')
+      .select('*', { count: 'exact', head: true })
       .eq('status', 'open')
       .gte('created_at', dateThreshold.toISOString());
-    if (priorityFilter !== 'all') {
-      openQuery = openQuery.eq('priority', priorityFilter);
-    }
-    const { count: open } = await openQuery;
 
-    // Get closed cases with filters
-    let closedQuery = supabase.from('cases').select('*', { count: 'exact', head: true })
+    const { count: closed } = await supabase
+      .from('cases')
+      .select('*', { count: 'exact', head: true })
       .eq('status', 'closed')
       .gte('created_at', dateThreshold.toISOString());
-    if (priorityFilter !== 'all') {
-      closedQuery = closedQuery.eq('priority', priorityFilter);
-    }
-    const { count: closed } = await closedQuery;
 
-    // Get cases created today with filters
-    let createdTodayQuery = supabase.from('cases').select('*', { count: 'exact', head: true })
+    const { count: inProgress } = await supabase
+      .from('cases')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'in_progress')
+      .gte('created_at', dateThreshold.toISOString());
+
+    // Get cases created today
+    const { count: createdToday } = await supabase
+      .from('cases')
+      .select('*', { count: 'exact', head: true })
       .gte('created_at', today);
-    if (statusFilter !== 'all') {
-      createdTodayQuery = createdTodayQuery.eq('status', statusFilter);
-    }
-    if (priorityFilter !== 'all') {
-      createdTodayQuery = createdTodayQuery.eq('priority', priorityFilter);
-    }
-    const { count: createdToday } = await createdTodayQuery;
 
-    // Get cases resolved today with filters
-    let resolvedTodayQuery = supabase.from('cases').select('*', { count: 'exact', head: true })
+    // Get cases resolved today
+    const { count: resolvedToday } = await supabase
+      .from('cases')
+      .select('*', { count: 'exact', head: true })
       .eq('status', 'closed')
       .gte('updated_at', today);
-    if (priorityFilter !== 'all') {
-      resolvedTodayQuery = resolvedTodayQuery.eq('priority', priorityFilter);
-    }
-    const { count: resolvedToday } = await resolvedTodayQuery;
+
+    // Get SLA breaches
+    const now = new Date().toISOString();
+    const { count: breaches } = await supabase
+      .from('cases')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'open')
+      .lt('sla_due_at', now)
+      .gte('created_at', dateThreshold.toISOString());
 
     setVolumeStats({
       totalCases: (total as number) || 0,
       openCases: (open as number) || 0,
       closedCases: (closed as number) || 0,
+      inProgressCases: (inProgress as number) || 0,
       createdToday: (createdToday as number) || 0,
       resolvedToday: (resolvedToday as number) || 0,
-      reopenedCases: 0
+      slaBreaches: (breaches as number) || 0
     });
   };
 
   const fetchTimelinessStats = async () => {
-    const now = new Date().toISOString();
     const dateThreshold = new Date();
     dateThreshold.setDate(dateThreshold.getDate() - parseInt(dateRange));
     
-    // Get SLA breaches with filters
-    let breachQuery = supabase.from('cases').select('*', { count: 'exact', head: true })
-      .eq('status', 'open')
-      .lt('sla_due_at', now)
-      .gte('created_at', dateThreshold.toISOString());
-    
-    if (priorityFilter !== 'all') {
-      breachQuery = breachQuery.eq('priority', priorityFilter);
-    }
-    const { count: breaches } = await breachQuery;
-
-    // Get longest open cases with filters
-    let longestQuery = supabase.from('cases').select('id, title, created_at, assigned_to')
+    // Get longest open cases
+    const { data: longestOpen } = await supabase
+      .from('cases')
+      .select('id, title, created_at, assigned_to')
       .eq('status', 'open')
       .gte('created_at', dateThreshold.toISOString())
       .order('created_at', { ascending: true })
       .limit(5);
-    
-    if (priorityFilter !== 'all') {
-      longestQuery = longestQuery.eq('priority', priorityFilter);
-    }
-    const { data: longestOpen } = await longestQuery;
 
     setTimelinessStats({
-      slaBreaches: (breaches as number) || 0,
       avgResolutionTime: 2.5,
       avgFirstResponseTime: 1.2,
       resolvedWithinSLA: 85,
@@ -180,45 +159,29 @@ const Insights = () => {
     const dateThreshold = new Date();
     dateThreshold.setDate(dateThreshold.getDate() - parseInt(dateRange));
     
-    // Get assigned cases with filters
-    let assignedQuery = supabase.from('cases').select('*', { count: 'exact', head: true })
+    // Get assigned cases
+    const { count: assignedCount } = await supabase
+      .from('cases')
+      .select('*', { count: 'exact', head: true })
       .gte('created_at', dateThreshold.toISOString())
       .not('assigned_to', 'is', null);
-    
-    if (statusFilter !== 'all') {
-      assignedQuery = assignedQuery.eq('status', statusFilter);
-    }
-    if (priorityFilter !== 'all') {
-      assignedQuery = assignedQuery.eq('priority', priorityFilter);
-    }
-    const { count: assignedCount } = await assignedQuery;
 
-    // Get unassigned cases with filters
-    let unassignedQuery = supabase.from('cases').select('*', { count: 'exact', head: true })
+    // Get unassigned cases
+    const { count: unassignedCount } = await supabase
+      .from('cases')
+      .select('*', { count: 'exact', head: true })
       .gte('created_at', dateThreshold.toISOString())
       .is('assigned_to', null);
-    
-    if (statusFilter !== 'all') {
-      unassignedQuery = unassignedQuery.eq('status', statusFilter);
-    }
-    if (priorityFilter !== 'all') {
-      unassignedQuery = unassignedQuery.eq('priority', priorityFilter);
-    }
-    const { count: unassignedCount } = await unassignedQuery;
 
-    // Get top assignees with filters
-    let assigneeQuery = supabase.from('cases').select(`
-      assigned_to,
-      users!cases_assigned_to_fkey(name)
-    `).gte('created_at', dateThreshold.toISOString()).not('assigned_to', 'is', null);
-
-    if (statusFilter !== 'all') {
-      assigneeQuery = assigneeQuery.eq('status', statusFilter);
-    }
-    if (priorityFilter !== 'all') {
-      assigneeQuery = assigneeQuery.eq('priority', priorityFilter);
-    }
-    const { data: assigneeData } = await assigneeQuery;
+    // Get top assignees
+    const { data: assigneeData } = await supabase
+      .from('cases')
+      .select(`
+        assigned_to,
+        users!cases_assigned_to_fkey(name)
+      `)
+      .gte('created_at', dateThreshold.toISOString())
+      .not('assigned_to', 'is', null);
 
     const assigneeCounts = assigneeData?.reduce((acc: any, case_: any) => {
       const userId = case_.assigned_to;
@@ -240,8 +203,7 @@ const Insights = () => {
       assignedCases: assigned,
       unassignedCases: unassigned,
       avgCasesPerUser: assigned > 0 && assigneeCountsKeys.length > 0 ? Math.round(assigned / assigneeCountsKeys.length) : 0,
-      topAssignees,
-      usersWithBreaches: []
+      topAssignees
     });
   };
 
@@ -249,18 +211,13 @@ const Insights = () => {
     const dateThreshold = new Date();
     dateThreshold.setDate(dateThreshold.getDate() - parseInt(dateRange));
     
-    let query = supabase.from('cases').select(`
-      category_id,
-      case_categories(name)
-    `).gte('created_at', dateThreshold.toISOString());
-    
-    if (statusFilter !== 'all') {
-      query = query.eq('status', statusFilter);
-    }
-    if (priorityFilter !== 'all') {
-      query = query.eq('priority', priorityFilter);
-    }
-    const { data } = await query;
+    const { data } = await supabase
+      .from('cases')
+      .select(`
+        category_id,
+        case_categories(name)
+      `)
+      .gte('created_at', dateThreshold.toISOString());
 
     const categoryCounts = data?.reduce((acc: any, case_: any) => {
       const categoryName = case_.case_categories?.name || 'Uncategorized';
@@ -281,14 +238,10 @@ const Insights = () => {
     const dateThreshold = new Date();
     dateThreshold.setDate(dateThreshold.getDate() - parseInt(dateRange));
     
-    let query = supabase.from('cases').select('priority')
+    const { data } = await supabase
+      .from('cases')
+      .select('priority')
       .gte('created_at', dateThreshold.toISOString());
-    
-    if (statusFilter !== 'all') {
-      query = query.eq('status', statusFilter);
-    }
-    // Don't apply priority filter to priority distribution chart
-    const { data } = await query;
 
     const priorityCounts = data?.reduce((acc: any, case_: any) => {
       const priority = case_.priority || 'medium';
@@ -308,14 +261,10 @@ const Insights = () => {
     const dateThreshold = new Date();
     dateThreshold.setDate(dateThreshold.getDate() - parseInt(dateRange));
     
-    let query = supabase.from('cases').select('status')
+    const { data } = await supabase
+      .from('cases')
+      .select('status')
       .gte('created_at', dateThreshold.toISOString());
-    
-    // Don't apply status filter to status distribution chart
-    if (priorityFilter !== 'all') {
-      query = query.eq('priority', priorityFilter);
-    }
-    const { data } = await query;
 
     const statusCounts = data?.reduce((acc: any, case_: any) => {
       const status = case_.status || 'open';
@@ -337,17 +286,11 @@ const Insights = () => {
     const startDate = new Date();
     startDate.setDate(endDate.getDate() - days);
 
-    let query = supabase.from('cases').select('created_at, status, updated_at')
+    const { data } = await supabase
+      .from('cases')
+      .select('created_at, status, updated_at')
       .gte('created_at', startDate.toISOString())
       .order('created_at');
-    
-    if (statusFilter !== 'all') {
-      query = query.eq('status', statusFilter);
-    }
-    if (priorityFilter !== 'all') {
-      query = query.eq('priority', priorityFilter);
-    }
-    const { data } = await query;
 
     // Group by date
     const dateGroups: any = {};
@@ -402,59 +345,28 @@ const Insights = () => {
         </div>
       </div>
 
-      {/* Filters */}
+      {/* Date Range Filter */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center">
-            <Filter className="h-5 w-5 mr-2" />
-            Filters
+            <Calendar className="h-5 w-5 mr-2" />
+            Time Period
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="text-sm font-medium">Date Range</label>
-              <Select value={dateRange} onValueChange={setDateRange}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="7">Last 7 days</SelectItem>
-                  <SelectItem value="30">Last 30 days</SelectItem>
-                  <SelectItem value="90">Last 90 days</SelectItem>
-                  <SelectItem value="365">Last year</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="text-sm font-medium">Status</label>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="open">Open</SelectItem>
-                  <SelectItem value="closed">Closed</SelectItem>
-                  <SelectItem value="in_progress">In Progress</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="text-sm font-medium">Priority</label>
-              <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Priorities</SelectItem>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="urgent">Urgent</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="w-64">
+            <label className="text-sm font-medium">Date Range</label>
+            <Select value={dateRange} onValueChange={setDateRange}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="7">Last 7 days</SelectItem>
+                <SelectItem value="30">Last 30 days</SelectItem>
+                <SelectItem value="90">Last 90 days</SelectItem>
+                <SelectItem value="365">Last year</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
@@ -462,7 +374,7 @@ const Insights = () => {
       {/* Volume & Status Stats */}
       <div>
         <h2 className="text-xl font-semibold mb-4">📊 Case Volume & Status</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Cases</CardTitle>
@@ -482,6 +394,17 @@ const Insights = () => {
             <CardContent>
               <div className="text-2xl font-bold text-orange-600">{volumeStats.openCases}</div>
               <p className="text-xs text-muted-foreground">Awaiting resolution</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">In Progress</CardTitle>
+              <Clock className="h-4 w-4 text-blue-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-600">{volumeStats.inProgressCases}</div>
+              <p className="text-xs text-muted-foreground">Being worked on</p>
             </CardContent>
           </Card>
 
@@ -524,17 +447,17 @@ const Insights = () => {
               <AlertCircle className="h-4 w-4 text-red-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-red-600">{timelinessStats.slaBreaches}</div>
+              <div className="text-2xl font-bold text-red-600">{volumeStats.slaBreaches}</div>
               <p className="text-xs text-muted-foreground">Past due</p>
             </CardContent>
           </Card>
         </div>
       </div>
 
-      {/* Timeliness Stats */}
+      {/* Performance Stats */}
       <div>
-        <h2 className="text-xl font-semibold mb-4">🕒 Timeliness & SLA</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <h2 className="text-xl font-semibold mb-4">⚡ Performance Metrics</h2>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
             <CardHeader>
               <CardTitle className="text-sm">Avg Resolution Time</CardTitle>
@@ -588,24 +511,30 @@ const Insights = () => {
             <CardTitle>Case Status Distribution</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={statusData}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  label={({ name, percent }: any) => `${name} ${(percent * 100).toFixed(0)}%`}
-                >
-                  {statusData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
+            {statusData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={statusData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    label={({ name, percent }: any) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  >
+                    {statusData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                No data available for selected time period
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -615,15 +544,21 @@ const Insights = () => {
             <CardTitle>Cases by Priority</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={priorityData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="value" fill="#8884d8" />
-              </BarChart>
-            </ResponsiveContainer>
+            {priorityData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={priorityData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="value" fill="#8884d8" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                No data available for selected time period
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -633,15 +568,21 @@ const Insights = () => {
             <CardTitle>Cases by Category</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={categoryData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="value" fill="#82ca9d" />
-              </BarChart>
-            </ResponsiveContainer>
+            {categoryData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={categoryData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="value" fill="#82ca9d" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                No data available for selected time period
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -651,16 +592,22 @@ const Insights = () => {
             <CardTitle>Cases Created vs Closed Over Time</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={trendsData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis />
-                <Tooltip />
-                <Line type="monotone" dataKey="created" stroke="#8884d8" name="Created" />
-                <Line type="monotone" dataKey="closed" stroke="#82ca9d" name="Closed" />
-              </LineChart>
-            </ResponsiveContainer>
+            {trendsData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={trendsData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" />
+                  <YAxis />
+                  <Tooltip />
+                  <Line type="monotone" dataKey="created" stroke="#8884d8" name="Created" />
+                  <Line type="monotone" dataKey="closed" stroke="#82ca9d" name="Closed" />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                No data available for selected time period
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -673,14 +620,15 @@ const Insights = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {assignmentStats.topAssignees.map((assignee: any, index) => (
-                <div key={index} className="flex justify-between items-center p-2 bg-muted rounded">
-                  <span>{assignee.name}</span>
-                  <Badge variant="secondary">{assignee.count} cases</Badge>
-                </div>
-              ))}
-              {assignmentStats.topAssignees.length === 0 && (
-                <p className="text-muted-foreground text-center py-4">No assigned cases found</p>
+              {assignmentStats.topAssignees.length > 0 ? (
+                assignmentStats.topAssignees.map((assignee: any, index) => (
+                  <div key={index} className="flex justify-between items-center p-2 bg-muted rounded">
+                    <span>{assignee.name}</span>
+                    <Badge variant="secondary">{assignee.count} cases</Badge>
+                  </div>
+                ))
+              ) : (
+                <p className="text-muted-foreground text-center py-4">No assigned cases found in selected period</p>
               )}
             </div>
           </CardContent>
@@ -692,16 +640,17 @@ const Insights = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {timelinessStats.longestOpenCases.map((case_: any, index) => (
-                <div key={case_.id} className="p-2 bg-muted rounded">
-                  <div className="font-medium">{case_.title}</div>
-                  <div className="text-sm text-muted-foreground">
-                    Open for {Math.floor((new Date().getTime() - new Date(case_.created_at).getTime()) / (1000 * 60 * 60 * 24))} days
+              {timelinessStats.longestOpenCases.length > 0 ? (
+                timelinessStats.longestOpenCases.map((case_: any, index) => (
+                  <div key={case_.id} className="p-2 bg-muted rounded">
+                    <div className="font-medium">{case_.title}</div>
+                    <div className="text-sm text-muted-foreground">
+                      Open for {Math.floor((new Date().getTime() - new Date(case_.created_at).getTime()) / (1000 * 60 * 60 * 24))} days
+                    </div>
                   </div>
-                </div>
-              ))}
-              {timelinessStats.longestOpenCases.length === 0 && (
-                <p className="text-muted-foreground text-center py-4">No open cases found</p>
+                ))
+              ) : (
+                <p className="text-muted-foreground text-center py-4">No open cases found in selected period</p>
               )}
             </div>
           </CardContent>

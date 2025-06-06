@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 
 const Reports = () => {
   const navigate = useNavigate();
-  const { reports, savedViews, isLoadingReports, deleteReport, deleteSavedView, runReport } = useReports();
+  const { reports, isLoadingReports, deleteReport, runReport } = useReports();
   const [selectedReport, setSelectedReport] = useState<any>(null);
   const [reportData, setReportData] = useState<any>(null);
   const [isLoadingReportData, setIsLoadingReportData] = useState(false);
@@ -44,10 +44,6 @@ const Reports = () => {
 
   const handleDeleteReport = async (reportId: string) => {
     await deleteReport.mutateAsync(reportId);
-  };
-
-  const handleDeleteSavedView = async (viewId: string) => {
-    await deleteSavedView.mutateAsync(viewId);
   };
 
   const formatDate = (dateString: string) => {
@@ -187,64 +183,6 @@ const Reports = () => {
           )}
         </div>
       </div>
-
-      {/* Saved Views */}
-      {savedViews && savedViews.length > 0 && (
-        <div>
-          <h2 className="text-xl font-semibold mb-4">Saved Views</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {savedViews.map((view) => (
-              <Card key={view.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <CardTitle className="text-lg">{view.name}</CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    {view.description}
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="text-xs text-muted-foreground">
-                      Base Report: {view.baseReport}
-                    </div>
-                    
-                    <div className="text-xs text-muted-foreground">
-                      Created: {formatDate(view.created_at)}
-                    </div>
-                    
-                    <div className="flex space-x-2">
-                      <Button variant="outline" size="sm" className="flex-1">
-                        <Eye className="h-4 w-4 mr-1" />
-                        View
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Delete Saved View</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Are you sure you want to delete "{view.name}"? This action cannot be undone.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleDeleteSavedView(view.id)}>
-                              Delete
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Report View Dialog */}
       <Dialog open={showReportDialog} onOpenChange={setShowReportDialog}>
