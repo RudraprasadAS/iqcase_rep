@@ -79,42 +79,39 @@ const Insights = () => {
     const dateThreshold = new Date();
     dateThreshold.setDate(dateThreshold.getDate() - parseInt(dateRange));
 
-    let baseQuery = supabase.from('cases').select('*', { count: 'exact', head: true });
+    // Get total cases with filters
+    let totalQuery = supabase.from('cases').select('*', { count: 'exact', head: true })
+      .gte('created_at', dateThreshold.toISOString());
     
-    // Apply status filter
     if (statusFilter !== 'all') {
-      baseQuery = baseQuery.eq('status', statusFilter);
+      totalQuery = totalQuery.eq('status', statusFilter);
     }
-    
-    // Apply priority filter
     if (priorityFilter !== 'all') {
-      baseQuery = baseQuery.eq('priority', priorityFilter);
+      totalQuery = totalQuery.eq('priority', priorityFilter);
     }
+    const { count: total } = await totalQuery;
 
-    // Apply date range filter
-    baseQuery = baseQuery.gte('created_at', dateThreshold.toISOString());
-
-    // Get filtered total cases
-    const { count: total } = await baseQuery;
-
-    // Open cases with filters
-    let openQuery = supabase.from('cases').select('*', { count: 'exact', head: true }).eq('status', 'open');
+    // Get open cases with filters
+    let openQuery = supabase.from('cases').select('*', { count: 'exact', head: true })
+      .eq('status', 'open')
+      .gte('created_at', dateThreshold.toISOString());
     if (priorityFilter !== 'all') {
       openQuery = openQuery.eq('priority', priorityFilter);
     }
-    openQuery = openQuery.gte('created_at', dateThreshold.toISOString());
     const { count: open } = await openQuery;
 
-    // Closed cases with filters
-    let closedQuery = supabase.from('cases').select('*', { count: 'exact', head: true }).eq('status', 'closed');
+    // Get closed cases with filters
+    let closedQuery = supabase.from('cases').select('*', { count: 'exact', head: true })
+      .eq('status', 'closed')
+      .gte('created_at', dateThreshold.toISOString());
     if (priorityFilter !== 'all') {
       closedQuery = closedQuery.eq('priority', priorityFilter);
     }
-    closedQuery = closedQuery.gte('created_at', dateThreshold.toISOString());
     const { count: closed } = await closedQuery;
 
-    // Created today with filters
-    let createdTodayQuery = supabase.from('cases').select('*', { count: 'exact', head: true }).gte('created_at', today);
+    // Get cases created today with filters
+    let createdTodayQuery = supabase.from('cases').select('*', { count: 'exact', head: true })
+      .gte('created_at', today);
     if (statusFilter !== 'all') {
       createdTodayQuery = createdTodayQuery.eq('status', statusFilter);
     }
@@ -123,9 +120,8 @@ const Insights = () => {
     }
     const { count: createdToday } = await createdTodayQuery;
 
-    // Resolved today with filters
-    let resolvedTodayQuery = supabase.from('cases')
-      .select('*', { count: 'exact', head: true })
+    // Get cases resolved today with filters
+    let resolvedTodayQuery = supabase.from('cases').select('*', { count: 'exact', head: true })
       .eq('status', 'closed')
       .gte('updated_at', today);
     if (priorityFilter !== 'all') {
@@ -134,54 +130,48 @@ const Insights = () => {
     const { count: resolvedToday } = await resolvedTodayQuery;
 
     setVolumeStats({
-      totalCases: total || 0,
-      openCases: open || 0,
-      closedCases: closed || 0,
-      createdToday: createdToday || 0,
-      resolvedToday: resolvedToday || 0,
-      reopenedCases: 0 // Would need additional tracking
+      totalCases: (total as number) || 0,
+      openCases: (open as number) || 0,
+      closedCases: (closed as number) || 0,
+      createdToday: (createdToday as number) || 0,
+      resolvedToday: (resolvedToday as number) || 0,
+      reopenedCases: 0
     });
   };
 
   const fetchTimelinessStats = async () => {
     const now = new Date().toISOString();
+    const dateThreshold = new Date();
+    dateThreshold.setDate(dateThreshold.getDate() - parseInt(dateRange));
     
-    let breachQuery = supabase.from('cases')
-      .select('*', { count: 'exact', head: true })
+    // Get SLA breaches with filters
+    let breachQuery = supabase.from('cases').select('*', { count: 'exact', head: true })
       .eq('status', 'open')
-      .lt('sla_due_at', now);
+      .lt('sla_due_at', now)
+      .gte('created_at', dateThreshold.toISOString());
     
-    // Apply filters
     if (priorityFilter !== 'all') {
       breachQuery = breachQuery.eq('priority', priorityFilter);
     }
-    
-    const dateThreshold = new Date();
-    dateThreshold.setDate(dateThreshold.getDate() - parseInt(dateRange));
-    breachQuery = breachQuery.gte('created_at', dateThreshold.toISOString());
-    
     const { count: breaches } = await breachQuery;
 
-    // Longest open cases with filters
-    let longestQuery = supabase.from('cases')
-      .select('id, title, created_at, assigned_to')
+    // Get longest open cases with filters
+    let longestQuery = supabase.from('cases').select('id, title, created_at, assigned_to')
       .eq('status', 'open')
+      .gte('created_at', dateThreshold.toISOString())
       .order('created_at', { ascending: true })
       .limit(5);
     
     if (priorityFilter !== 'all') {
       longestQuery = longestQuery.eq('priority', priorityFilter);
     }
-    
-    longestQuery = longestQuery.gte('created_at', new Date(Date.now() - parseInt(dateRange) * 24 * 60 * 60 * 1000).toISOString());
-    
     const { data: longestOpen } = await longestQuery;
 
     setTimelinessStats({
-      slaBreaches: breaches || 0,
-      avgResolutionTime: 2.5, // Would need complex calculation
-      avgFirstResponseTime: 1.2, // Would need complex calculation
-      resolvedWithinSLA: 85, // Would need complex calculation
+      slaBreaches: (breaches as number) || 0,
+      avgResolutionTime: 2.5,
+      avgFirstResponseTime: 1.2,
+      resolvedWithinSLA: 85,
       longestOpenCases: longestOpen || []
     });
   };
@@ -190,46 +180,33 @@ const Insights = () => {
     const dateThreshold = new Date();
     dateThreshold.setDate(dateThreshold.getDate() - parseInt(dateRange));
     
-    let baseQuery = supabase.from('cases').select('*', { count: 'exact', head: true }).gte('created_at', dateThreshold.toISOString());
-    
-    // Apply filters
-    if (statusFilter !== 'all') {
-      baseQuery = baseQuery.eq('status', statusFilter);
-    }
-    if (priorityFilter !== 'all') {
-      baseQuery = baseQuery.eq('priority', priorityFilter);
-    }
-
-    // Assigned vs unassigned with filters
-    const assignedQuery = supabase.from('cases')
-      .select('*', { count: 'exact', head: true })
+    // Get assigned cases with filters
+    let assignedQuery = supabase.from('cases').select('*', { count: 'exact', head: true })
       .gte('created_at', dateThreshold.toISOString())
       .not('assigned_to', 'is', null);
     
     if (statusFilter !== 'all') {
-      assignedQuery.eq('status', statusFilter);
+      assignedQuery = assignedQuery.eq('status', statusFilter);
     }
     if (priorityFilter !== 'all') {
-      assignedQuery.eq('priority', priorityFilter);
+      assignedQuery = assignedQuery.eq('priority', priorityFilter);
     }
-    
     const { count: assignedCount } = await assignedQuery;
 
-    const unassignedQuery = supabase.from('cases')
-      .select('*', { count: 'exact', head: true })
+    // Get unassigned cases with filters
+    let unassignedQuery = supabase.from('cases').select('*', { count: 'exact', head: true })
       .gte('created_at', dateThreshold.toISOString())
       .is('assigned_to', null);
     
     if (statusFilter !== 'all') {
-      unassignedQuery.eq('status', statusFilter);
+      unassignedQuery = unassignedQuery.eq('status', statusFilter);
     }
     if (priorityFilter !== 'all') {
-      unassignedQuery.eq('priority', priorityFilter);
+      unassignedQuery = unassignedQuery.eq('priority', priorityFilter);
     }
-    
     const { count: unassignedCount } = await unassignedQuery;
 
-    // Top assignees with filters
+    // Get top assignees with filters
     let assigneeQuery = supabase.from('cases').select(`
       assigned_to,
       users!cases_assigned_to_fkey(name)
@@ -241,7 +218,6 @@ const Insights = () => {
     if (priorityFilter !== 'all') {
       assigneeQuery = assigneeQuery.eq('priority', priorityFilter);
     }
-
     const { data: assigneeData } = await assigneeQuery;
 
     const assigneeCounts = assigneeData?.reduce((acc: any, case_: any) => {
@@ -265,7 +241,7 @@ const Insights = () => {
       unassignedCases: unassigned,
       avgCasesPerUser: assigned > 0 && assigneeCountsKeys.length > 0 ? Math.round(assigned / assigneeCountsKeys.length) : 0,
       topAssignees,
-      usersWithBreaches: [] // Would need complex query
+      usersWithBreaches: []
     });
   };
 
@@ -273,21 +249,17 @@ const Insights = () => {
     const dateThreshold = new Date();
     dateThreshold.setDate(dateThreshold.getDate() - parseInt(dateRange));
     
-    let query = supabase.from('cases')
-      .select(`
-        category_id,
-        case_categories(name)
-      `)
-      .gte('created_at', dateThreshold.toISOString());
+    let query = supabase.from('cases').select(`
+      category_id,
+      case_categories(name)
+    `).gte('created_at', dateThreshold.toISOString());
     
-    // Apply filters
     if (statusFilter !== 'all') {
       query = query.eq('status', statusFilter);
     }
     if (priorityFilter !== 'all') {
       query = query.eq('priority', priorityFilter);
     }
-
     const { data } = await query;
 
     const categoryCounts = data?.reduce((acc: any, case_: any) => {
@@ -309,15 +281,13 @@ const Insights = () => {
     const dateThreshold = new Date();
     dateThreshold.setDate(dateThreshold.getDate() - parseInt(dateRange));
     
-    let query = supabase.from('cases')
-      .select('priority')
+    let query = supabase.from('cases').select('priority')
       .gte('created_at', dateThreshold.toISOString());
     
-    // Apply status filter only
     if (statusFilter !== 'all') {
       query = query.eq('status', statusFilter);
     }
-
+    // Don't apply priority filter to priority distribution chart
     const { data } = await query;
 
     const priorityCounts = data?.reduce((acc: any, case_: any) => {
@@ -338,15 +308,13 @@ const Insights = () => {
     const dateThreshold = new Date();
     dateThreshold.setDate(dateThreshold.getDate() - parseInt(dateRange));
     
-    let query = supabase.from('cases')
-      .select('status')
+    let query = supabase.from('cases').select('status')
       .gte('created_at', dateThreshold.toISOString());
     
-    // Apply priority filter only
+    // Don't apply status filter to status distribution chart
     if (priorityFilter !== 'all') {
       query = query.eq('priority', priorityFilter);
     }
-
     const { data } = await query;
 
     const statusCounts = data?.reduce((acc: any, case_: any) => {
@@ -369,19 +337,16 @@ const Insights = () => {
     const startDate = new Date();
     startDate.setDate(endDate.getDate() - days);
 
-    let query = supabase.from('cases')
-      .select('created_at, status, updated_at')
+    let query = supabase.from('cases').select('created_at, status, updated_at')
       .gte('created_at', startDate.toISOString())
       .order('created_at');
     
-    // Apply filters
     if (statusFilter !== 'all') {
       query = query.eq('status', statusFilter);
     }
     if (priorityFilter !== 'all') {
       query = query.eq('priority', priorityFilter);
     }
-
     const { data } = await query;
 
     // Group by date
@@ -505,7 +470,7 @@ const Insights = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{volumeStats.totalCases}</div>
-              <p className="text-xs text-muted-foreground">All time</p>
+              <p className="text-xs text-muted-foreground">In selected period</p>
             </CardContent>
           </Card>
 
@@ -603,7 +568,9 @@ const Insights = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {Math.round((assignmentStats.assignedCases / (assignmentStats.assignedCases + assignmentStats.unassignedCases)) * 100) || 0}%
+                {assignmentStats.assignedCases + assignmentStats.unassignedCases > 0
+                  ? Math.round((assignmentStats.assignedCases / (assignmentStats.assignedCases + assignmentStats.unassignedCases)) * 100)
+                  : 0}%
               </div>
               <p className="text-xs text-muted-foreground">
                 {assignmentStats.assignedCases} assigned, {assignmentStats.unassignedCases} unassigned
