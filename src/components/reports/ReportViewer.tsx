@@ -14,21 +14,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Report } from '@/types/reports';
 
 interface ReportViewerProps {
   reportId: string;
   onClose: () => void;
-}
-
-interface Report {
-  id: string;
-  name: string;
-  description?: string;
-  module: string;
-  selected_fields: string[];
-  filters: any[];
-  created_at: string;
-  created_by: string;
 }
 
 const ReportViewer = ({ reportId, onClose }: ReportViewerProps) => {
@@ -52,8 +42,25 @@ const ReportViewer = ({ reportId, onClose }: ReportViewerProps) => {
 
       if (error) throw error;
       
-      setReport(reportData);
-      await executeReport(reportData);
+      // Transform the database response to match the Report interface
+      const transformedReport: Report = {
+        ...reportData,
+        fields: Array.isArray(reportData.selected_fields) 
+          ? reportData.selected_fields as string[]
+          : typeof reportData.selected_fields === 'string'
+          ? [reportData.selected_fields]
+          : [],
+        base_table: reportData.module,
+        filters: Array.isArray(reportData.filters) 
+          ? reportData.filters as any[]
+          : typeof reportData.filters === 'string'
+          ? JSON.parse(reportData.filters)
+          : [],
+        joins: [] // Default empty array for joins
+      };
+      
+      setReport(transformedReport);
+      await executeReport(transformedReport);
     } catch (error) {
       console.error('Error fetching report:', error);
       toast({
