@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -80,8 +81,9 @@ const ReportViewer = ({ reportId, onClose }: ReportViewerProps) => {
         ? reportData.filters 
         : [];
 
-      // Start building the query
-      let query = supabase.from(reportData.module as any);
+      // Build the query dynamically
+      const tableName = reportData.module;
+      let query = supabase.from(tableName as any);
       
       // Apply selected fields
       if (selectedFields && selectedFields.length > 0) {
@@ -96,26 +98,26 @@ const ReportViewer = ({ reportId, onClose }: ReportViewerProps) => {
         filters.forEach((filter: any) => {
           switch (filter.operator) {
             case 'eq':
-              query = query.eq(filter.field, filter.value);
+              query = (query as any).eq(filter.field, filter.value);
               break;
             case 'neq':
-              query = query.neq(filter.field, filter.value);
+              query = (query as any).neq(filter.field, filter.value);
               break;
             case 'gt':
-              query = query.gt(filter.field, filter.value);
+              query = (query as any).gt(filter.field, filter.value);
               break;
             case 'lt':
-              query = query.lt(filter.field, filter.value);
+              query = (query as any).lt(filter.field, filter.value);
               break;
             case 'like':
-              query = query.ilike(filter.field, `%${filter.value}%`);
+              query = (query as any).ilike(filter.field, `%${filter.value}%`);
               break;
           }
         });
       }
 
       // Execute the query
-      const { data, error } = await query;
+      const { data, error } = await (query as any);
       
       if (error) throw error;
       
