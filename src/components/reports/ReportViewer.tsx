@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -82,14 +81,14 @@ const ReportViewer = ({ reportId, onClose }: ReportViewerProps) => {
         : [];
 
       // Start building the query
-      let queryBuilder = supabase.from(reportData.module as any);
+      let query = supabase.from(reportData.module as any);
       
       // Apply selected fields
       if (selectedFields && selectedFields.length > 0) {
         const fields = selectedFields.join(', ');
-        queryBuilder = queryBuilder.select(fields);
+        query = query.select(fields);
       } else {
-        queryBuilder = queryBuilder.select('*');
+        query = query.select('*');
       }
 
       // Apply filters if they exist
@@ -97,32 +96,32 @@ const ReportViewer = ({ reportId, onClose }: ReportViewerProps) => {
         filters.forEach((filter: any) => {
           switch (filter.operator) {
             case 'eq':
-              queryBuilder = queryBuilder.eq(filter.field, filter.value);
+              query = query.eq(filter.field, filter.value);
               break;
             case 'neq':
-              queryBuilder = queryBuilder.neq(filter.field, filter.value);
+              query = query.neq(filter.field, filter.value);
               break;
             case 'gt':
-              queryBuilder = queryBuilder.gt(filter.field, filter.value);
+              query = query.gt(filter.field, filter.value);
               break;
             case 'lt':
-              queryBuilder = queryBuilder.lt(filter.field, filter.value);
+              query = query.lt(filter.field, filter.value);
               break;
             case 'like':
-              queryBuilder = queryBuilder.ilike(filter.field, `%${filter.value}%`);
+              query = query.ilike(filter.field, `%${filter.value}%`);
               break;
           }
         });
       }
 
       // Execute the query
-      const result = await queryBuilder;
+      const { data, error } = await query;
       
-      if (result.error) throw result.error;
+      if (error) throw error;
       
       setResult({
-        data: result.data || [],
-        total: result.data?.length || 0
+        data: data || [],
+        total: data?.length || 0
       });
     } catch (error) {
       console.error('Error executing report:', error);
