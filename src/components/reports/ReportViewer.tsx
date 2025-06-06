@@ -1,4 +1,5 @@
 
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -83,14 +84,14 @@ const ReportViewer = ({ reportId, onClose }: ReportViewerProps) => {
 
       // Build the query dynamically
       const tableName = reportData.module;
-      let query = supabase.from(tableName as any);
+      let queryBuilder = supabase.from(tableName as any);
       
       // Apply selected fields
       if (selectedFields && selectedFields.length > 0) {
         const fields = selectedFields.join(', ');
-        query = query.select(fields);
+        queryBuilder = queryBuilder.select(fields) as any;
       } else {
-        query = query.select('*');
+        queryBuilder = queryBuilder.select('*') as any;
       }
 
       // Apply filters if they exist
@@ -98,26 +99,26 @@ const ReportViewer = ({ reportId, onClose }: ReportViewerProps) => {
         filters.forEach((filter: any) => {
           switch (filter.operator) {
             case 'eq':
-              query = (query as any).eq(filter.field, filter.value);
+              queryBuilder = (queryBuilder as any).eq(filter.field, filter.value);
               break;
             case 'neq':
-              query = (query as any).neq(filter.field, filter.value);
+              queryBuilder = (queryBuilder as any).neq(filter.field, filter.value);
               break;
             case 'gt':
-              query = (query as any).gt(filter.field, filter.value);
+              queryBuilder = (queryBuilder as any).gt(filter.field, filter.value);
               break;
             case 'lt':
-              query = (query as any).lt(filter.field, filter.value);
+              queryBuilder = (queryBuilder as any).lt(filter.field, filter.value);
               break;
             case 'like':
-              query = (query as any).ilike(filter.field, `%${filter.value}%`);
+              queryBuilder = (queryBuilder as any).ilike(filter.field, `%${filter.value}%`);
               break;
           }
         });
       }
 
       // Execute the query
-      const { data, error } = await (query as any);
+      const { data, error } = await queryBuilder;
       
       if (error) throw error;
       
@@ -263,3 +264,4 @@ const ReportViewer = ({ reportId, onClose }: ReportViewerProps) => {
 };
 
 export default ReportViewer;
+
