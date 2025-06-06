@@ -249,7 +249,51 @@ const handleSendMessage = async () => {
 };
 
 
-  return <div />; // truncated UI for brevity
+return (
+  <Card className="my-4">
+    <CardHeader>
+      <CardTitle>
+        <Bot className="inline-block w-5 h-5 mr-2" />
+        AI Case Assistant
+      </CardTitle>
+    </CardHeader>
+    <CardContent>
+      <div className="space-y-4 max-h-[300px] overflow-y-auto">
+        {messages.map((msg) => (
+          <div key={msg.id} className={`flex items-start space-x-2 ${msg.isBot ? 'text-blue-700' : 'text-gray-800'}`}>
+            <Avatar className="w-6 h-6">
+              <AvatarFallback>
+                {msg.isBot ? <Bot className="w-4 h-4" /> : <User className="w-4 h-4" />}
+              </AvatarFallback>
+            </Avatar>
+            <div className="bg-muted rounded-md p-2 text-sm whitespace-pre-wrap">
+              {msg.content}
+              {msg.action === 'success' && (
+                <CheckCircle className="inline-block w-4 h-4 ml-2 text-green-600" />
+              )}
+              {msg.action === 'error' && (
+                <AlertTriangle className="inline-block w-4 h-4 ml-2 text-red-600" />
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-4 flex space-x-2">
+        <Textarea
+          value={newMessage}
+          onChange={(e) => setNewMessage(e.target.value)}
+          placeholder="Ask me to do something..."
+          className="flex-grow"
+        />
+        <Button onClick={handleSendMessage} disabled={loading}>
+          <Send className="w-4 h-4" />
+        </Button>
+      </div>
+    </CardContent>
+  </Card>
+);
+
 };
 
 export default CaseAIAssistant;
