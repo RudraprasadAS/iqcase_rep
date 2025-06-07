@@ -14,6 +14,20 @@ import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 
+interface SimpleReport {
+  id: string;
+  name: string;
+  description?: string;
+  module: string;
+  base_table: string;
+  selected_fields: any[];
+  filters: any[];
+  chart_type: string;
+  is_public: boolean;
+  created_at: string;
+  created_by: string;
+}
+
 const ReportBuilder = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -38,7 +52,7 @@ const ReportBuilder = () => {
   // Load existing report if in edit mode
   useEffect(() => {
     if (reportId && reports && Array.isArray(reports) && reports.length > 0) {
-      const report = reports.find(r => r.id === reportId);
+      const report = (reports as SimpleReport[]).find(r => r.id === reportId);
       if (report) {
         setFormData({
           name: report.name,

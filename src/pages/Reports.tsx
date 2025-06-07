@@ -9,6 +9,20 @@ import { useNavigate } from 'react-router-dom';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import SimpleReportViewer from '@/components/reports/SimpleReportViewer';
 
+interface SimpleReport {
+  id: string;
+  name: string;
+  description?: string;
+  module: string;
+  base_table: string;
+  selected_fields: any[];
+  filters: any[];
+  chart_type: string;
+  is_public: boolean;
+  created_at: string;
+  created_by: string;
+}
+
 const Reports = () => {
   const navigate = useNavigate();
   const { reports, isLoadingReports, deleteReport } = useSimpleReports();
@@ -64,7 +78,7 @@ const Reports = () => {
           {isLoadingReports ? (
             <div className="col-span-full text-center py-8">Loading reports...</div>
           ) : reports && Array.isArray(reports) && reports.length > 0 ? (
-            reports.map((report) => (
+            (reports as SimpleReport[]).map((report) => (
               <Card key={report.id} className="hover:shadow-lg transition-shadow">
                 <CardHeader>
                   <div className="flex justify-between items-start">

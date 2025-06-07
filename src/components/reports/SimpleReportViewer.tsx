@@ -54,7 +54,7 @@ const SimpleReportViewer = ({ reportId, onClose }: SimpleReportViewerProps) => {
       if (error) throw error;
       
       if (reportData && Array.isArray(reportData) && reportData.length > 0) {
-        const reportRecord = reportData[0];
+        const reportRecord = reportData[0] as ReportData;
         setReport(reportRecord);
         await executeReport(reportRecord);
       } else {
