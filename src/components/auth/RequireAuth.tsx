@@ -1,8 +1,12 @@
 
-import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 
-const RequireAuth = () => {
+interface RequireAuthProps {
+  children: React.ReactNode;
+}
+
+const RequireAuth = ({ children }: RequireAuthProps) => {
   const { isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
 
@@ -24,7 +28,7 @@ const RequireAuth = () => {
   }
 
   console.log('User authenticated, rendering protected content');
-  return <Outlet />;
+  return <>{children}</>;
 };
 
 export default RequireAuth;

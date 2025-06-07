@@ -55,7 +55,14 @@ const App = () => (
             </Route>
 
             {/* Citizen portal routes */}
-            <Route path="/citizen" element={<RequireAuth><CitizenLayout /></RequireAuth>}>
+            <Route 
+              path="/citizen" 
+              element={
+                <RequireAuth>
+                  <CitizenLayout />
+                </RequireAuth>
+              }
+            >
               <Route index element={<Navigate to="/citizen/dashboard" replace />} />
               <Route path="dashboard" element={<CitizenDashboard />} />
               <Route path="cases" element={<CitizenCases />} />
@@ -65,7 +72,14 @@ const App = () => (
             </Route>
 
             {/* Protected admin routes */}
-            <Route path="/" element={<RequireAuth><Layout /></RequireAuth>}>
+            <Route 
+              path="/" 
+              element={
+                <RequireAuth>
+                  <Layout />
+                </RequireAuth>
+              }
+            >
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="cases" element={<Cases />} />
               <Route path="cases/new" element={<NewCase />} />
