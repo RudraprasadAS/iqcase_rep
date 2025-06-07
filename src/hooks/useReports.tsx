@@ -329,11 +329,11 @@ export const useReports = () => {
 
         console.log('Running query on table:', baseTableName, 'with fields:', selectedFields);
         
-        // Build query - simplified to avoid deep type instantiation
+        // Build query with type assertion to avoid deep type instantiation
         const selectFields = selectedFields.includes('*') ? '*' : selectedFields.join(',');
-        let query = supabase.from(baseTableName as any).select(selectFields);
+        let query: any = supabase.from(baseTableName as any).select(selectFields);
 
-        // Apply filters if present
+        // Apply filters if present - use type assertion to prevent deep inference
         if (report.filters && Array.isArray(report.filters)) {
           report.filters.forEach((filter: any) => {
             const { field, operator, value } = filter;
