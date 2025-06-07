@@ -41,7 +41,7 @@ export const useDashboardLayout = (dashboardId: string) => {
         return null;
       }
       
-      return data?.layout_data as LayoutItem[] || null;
+      return data?.layout_data ? (data.layout_data as unknown as LayoutItem[]) : null;
     },
     enabled: !!user?.id
   });
