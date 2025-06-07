@@ -150,7 +150,7 @@ export const useReports = () => {
           throw new Error("User record not found. Please contact an administrator.");
         }
 
-        // Convert filters to Json format
+        // Convert filters to Json format - safe conversion
         const filtersAsJson = report.filters as unknown as Json;
         const fieldsAsJson = report.fields as unknown as Json;
 
@@ -206,7 +206,7 @@ export const useReports = () => {
       try {
         console.log("Updating report:", id, report);
         
-        // Convert filters to Json format
+        // Convert filters to Json format - safe conversion
         const filtersAsJson = report.filters as unknown as Json;
         const fieldsAsJson = report.fields as unknown as Json;
         
@@ -329,15 +329,10 @@ export const useReports = () => {
 
         console.log('Running query on table:', baseTableName, 'with fields:', selectedFields);
         
-        // Build query
-        let queryBuilder = supabase.from(baseTableName as any);
-        
-        // Select fields
-        if (selectedFields.includes('*')) {
-          queryBuilder = queryBuilder.select('*');
-        } else {
-          queryBuilder = queryBuilder.select(selectedFields.join(','));
-        }
+        // Build query with proper typing
+        let queryBuilder = supabase.from(baseTableName as any).select(
+          selectedFields.includes('*') ? '*' : selectedFields.join(',')
+        );
 
         // Apply filters if present
         if (report.filters && Array.isArray(report.filters)) {
