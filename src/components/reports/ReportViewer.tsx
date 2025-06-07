@@ -2,16 +2,17 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, Play, Download } from 'lucide-react';
+import { Loader2, Play, Download, ArrowLeft } from 'lucide-react';
 import { ReportPreview } from './ReportPreview';
 import { useReports } from '@/hooks/useReports';
 import { Report } from '@/types/reports';
 
 interface ReportViewerProps {
   reportId: string;
+  onClose?: () => void;
 }
 
-export const ReportViewer = ({ reportId }: ReportViewerProps) => {
+export const ReportViewer = ({ reportId, onClose }: ReportViewerProps) => {
   const { reports, isLoadingReports, runReportWithJoins } = useReports();
   const [reportData, setReportData] = useState<any[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
@@ -84,6 +85,12 @@ export const ReportViewer = ({ reportId }: ReportViewerProps) => {
     return (
       <div className="text-center p-8">
         <p>Report not found.</p>
+        {onClose && (
+          <Button onClick={onClose} className="mt-4">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Reports
+          </Button>
+        )}
       </div>
     );
   }
@@ -92,7 +99,18 @@ export const ReportViewer = ({ reportId }: ReportViewerProps) => {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
-          <span>{currentReport.name}</span>
+          <div className="flex items-center gap-2">
+            {onClose && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onClose}
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            )}
+            <span>{currentReport.name}</span>
+          </div>
           <div className="flex gap-2">
             <Button
               variant="outline"
