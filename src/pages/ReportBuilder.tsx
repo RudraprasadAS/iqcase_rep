@@ -77,7 +77,7 @@ const ReportBuilder = () => {
         form.setValue('fields', fieldsArray);
         setFilters(Array.isArray(report.filters) ? report.filters : []);
         
-        // Chart config - properly handle ALL chart configuration fields
+        // CRITICAL FIX: Properly load ALL chart configuration including date_grouping
         let loadedChartConfig: ChartConfig = {
           type: report.chart_type || 'table'
         };
@@ -92,17 +92,24 @@ const ReportBuilder = () => {
           loadedChartConfig.xAxis = report.group_by;
         }
 
-        // CRITICAL: Load date_grouping field specifically
+        // CRITICAL: Load date_grouping field specifically from database
         if (report.date_grouping) {
           loadedChartConfig.dateGrouping = report.date_grouping as ChartConfig['dateGrouping'];
-          console.log('Loaded date_grouping from report:', report.date_grouping);
+          console.log('✅ Loaded date_grouping from database:', report.date_grouping);
         }
 
-        console.log('Final loaded chart config:', loadedChartConfig);
+        console.log('Final loaded chart config with date grouping:', loadedChartConfig);
         setChartConfig(loadedChartConfig);
+
+        // Auto-run report in view mode
+        if (isViewMode && fieldsArray.length > 0 && report.base_table) {
+          setTimeout(() => {
+            handleRunReportWithConfig(report.base_table, fieldsArray, Array.isArray(report.filters) ? report.filters : []);
+          }, 500);
+        }
       }
     }
-  }, [reportId, reports, form]);
+  }, [reportId, reports, form, isViewMode]);
 
   // Update available columns when base table changes
   useEffect(() => {
@@ -126,10 +133,12 @@ const ReportBuilder = () => {
       .replace(/\b\w/g, c => c.toUpperCase());
   };
 
-  const handleRunReport = async () => {
-    const baseTable = form.getValues('base_table');
+  const handleRunReportWithConfig = async (baseTable?: string, fields?: string[], reportFilters?: ReportFilter[]) => {
+    const tableToUse = baseTable || form.getValues('base_table');
+    const fieldsToUse = fields || selectedFields;
+    const filtersToUse = reportFilters || filters;
     
-    if (!baseTable || selectedFields.length === 0) {
+    if (!tableToUse || fieldsToUse.length === 0) {
       toast({
         variant: "destructive",
         title: "Cannot run report",
@@ -141,9 +150,9 @@ const ReportBuilder = () => {
     setIsLoadingData(true);
     try {
       const result = await runReportWithJoins.mutateAsync({
-        baseTable: baseTable,
-        selectedColumns: selectedFields,
-        filters: filters
+        baseTable: tableToUse,
+        selectedColumns: fieldsToUse,
+        filters: filtersToUse
       });
       
       setReportData(result.rows || []);
@@ -163,6 +172,10 @@ const ReportBuilder = () => {
     } finally {
       setIsLoadingData(false);
     }
+  };
+
+  const handleRunReport = () => {
+    handleRunReportWithConfig();
   };
 
   const handleSaveReport = async () => {
@@ -187,6 +200,7 @@ const ReportBuilder = () => {
     }
     
     try {
+      // CRITICAL FIX: Ensure ALL chart config is saved including date_grouping
       const reportData = {
         name: formValues.name,
         description: formValues.description,
@@ -197,12 +211,12 @@ const ReportBuilder = () => {
         chart_type: chartConfig.type,
         aggregation: chartConfig.aggregation,
         group_by: chartConfig.xAxis,
-        date_grouping: chartConfig.dateGrouping, // CRITICAL: Save date_grouping separately
+        date_grouping: chartConfig.dateGrouping, // CRITICAL: Save date_grouping
         is_public: formValues.is_public
       };
 
-      console.log('Saving report with complete chart config:', chartConfig);
-      console.log('Report data being saved (with date_grouping):', reportData);
+      console.log('💾 Saving report with COMPLETE chart config:', chartConfig);
+      console.log('💾 Date grouping being saved:', chartConfig.dateGrouping);
 
       if (reportId && isEditMode) {
         await updateReport.mutateAsync({
@@ -293,7 +307,6 @@ const ReportBuilder = () => {
     setFilters(updatedFilters);
   };
 
-  // Add function to get related tables for cases
   function getRelatedTables() {
     const baseTable = form.watch('base_table');
     

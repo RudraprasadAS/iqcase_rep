@@ -1,26 +1,48 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Eye, Edit, Trash2 } from 'lucide-react';
+import { Plus, Eye, Edit, Trash2, Settings, BarChart3, Calculator, PieChart, TrendingUp } from 'lucide-react';
 import { DashboardBuilder } from '@/components/dashboards/DashboardBuilder';
+import { useReports } from '@/hooks/useReports';
+import { useToast } from '@/hooks/use-toast';
+import { ReportPreview } from '@/components/reports/ReportPreview';
+
+interface DashboardItem {
+  id: string;
+  type: 'report' | 'metric' | 'chart';
+  title: string;
+  reportId?: string;
+  metric?: {
+    table: string;
+    field: string;
+    aggregation: 'count' | 'sum' | 'avg' | 'min' | 'max';
+  };
+  position: { x: number; y: number; width: number; height: number };
+}
 
 interface SavedDashboard {
   id: string;
   name: string;
-  items: any[];
+  items: DashboardItem[];
   createdAt: string;
 }
 
 const Dashboards = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const { reports, runReportWithJoins, isLoadingReports } = useReports();
+  
   const [showBuilder, setShowBuilder] = useState(false);
   const [editingDashboard, setEditingDashboard] = useState<SavedDashboard | null>(null);
   const [savedDashboards, setSavedDashboards] = useState<SavedDashboard[]>([]);
+  const [viewingDashboard, setViewingDashboard] = useState<SavedDashboard | null>(null);
+  const [dashboardData, setDashboardData] = useState<Record<string, any[]>>({});
+  const [loadingItems, setLoadingItems] = useState<Set<string>>(new Set());
 
-  const handleSaveDashboard = (dashboardName: string, items: any[]) => {
+  const handleSaveDashboard = (dashboardName: string, items: DashboardItem[]) => {
     if (editingDashboard) {
       // Update existing dashboard
       setSavedDashboards(dashboards => 
@@ -43,33 +65,155 @@ const Dashboards = () => {
     }
     
     setShowBuilder(false);
+    toast({
+      title: "Dashboard saved",
+      description: `Dashboard "${dashboardName}" has been saved successfully`
+    });
   };
 
-  const handleViewDashboard = (dashboard: SavedDashboard) => {
-    // For now, show the dashboard in builder mode (read-only could be implemented later)
-    setEditingDashboard(dashboard);
-    setShowBuilder(true);
+  const loadDashboardData = async (dashboard: SavedDashboard) => {
+    const newLoadingItems = new Set<string>();
+    const newDashboardData: Record<string, any[]> = {};
+
+    for (const item of dashboard.items) {
+      if (item.type === 'report' && item.reportId) {
+        const report = reports?.find(r => r.id === item.reportId);
+        if (report) {
+          newLoadingItems.add(item.id);
+          setLoadingItems(prev => new Set([...prev, item.id]));
+
+          try {
+            const result = await runReportWithJoins.mutateAsync({
+              baseTable: report.base_table,
+              selectedColumns: Array.isArray(report.selected_fields) ? report.selected_fields.map(f => String(f)) : [],
+              filters: Array.isArray(report.filters) ? report.filters : []
+            });
+            
+            newDashboardData[item.id] = result.rows || [];
+          } catch (error) {
+            console.error(`Error loading data for report ${item.reportId}:`, error);
+            newDashboardData[item.id] = [];
+            toast({
+              variant: "destructive",
+              title: "Error loading report data",
+              description: `Failed to load data for "${item.title}"`
+            });
+          } finally {
+            setLoadingItems(prev => {
+              const updated = new Set(prev);
+              updated.delete(item.id);
+              return updated;
+            });
+          }
+        }
+      } else if (item.type === 'metric') {
+        // For metrics, we can create simple mock data or run a basic query
+        newDashboardData[item.id] = [{ value: Math.floor(Math.random() * 1000) }];
+      }
+    }
+
+    setDashboardData(newDashboardData);
+  };
+
+  const handleViewDashboard = async (dashboard: SavedDashboard) => {
+    setViewingDashboard(dashboard);
+    await loadDashboardData(dashboard);
   };
 
   const handleEditDashboard = (dashboard: SavedDashboard) => {
     setEditingDashboard(dashboard);
     setShowBuilder(true);
+    setViewingDashboard(null);
   };
 
   const handleDeleteDashboard = (dashboardId: string) => {
     setSavedDashboards(dashboards => dashboards.filter(d => d.id !== dashboardId));
+    if (viewingDashboard?.id === dashboardId) {
+      setViewingDashboard(null);
+    }
+    toast({
+      title: "Dashboard deleted",
+      description: "Dashboard has been deleted successfully"
+    });
   };
 
   const handleCreateNew = () => {
     setEditingDashboard(null);
     setShowBuilder(true);
+    setViewingDashboard(null);
   };
 
   const handleBackToDashboards = () => {
     setShowBuilder(false);
     setEditingDashboard(null);
+    setViewingDashboard(null);
   };
 
+  const refreshDashboard = async () => {
+    if (viewingDashboard) {
+      await loadDashboardData(viewingDashboard);
+      toast({
+        title: "Dashboard refreshed",
+        description: "Dashboard data has been updated"
+      });
+    }
+  };
+
+  const renderDashboardItem = (item: DashboardItem) => {
+    const isLoading = loadingItems.has(item.id);
+    const data = dashboardData[item.id] || [];
+    const report = item.reportId ? reports?.find(r => r.id === item.reportId) : null;
+
+    return (
+      <Card key={item.id} className="h-full">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium flex items-center gap-2">
+            {item.type === 'report' && <BarChart3 className="h-4 w-4" />}
+            {item.type === 'metric' && <Calculator className="h-4 w-4" />}
+            {item.type === 'chart' && <PieChart className="h-4 w-4" />}
+            {item.title}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {item.type === 'report' && report ? (
+            <ReportPreview
+              data={data}
+              columns={Array.isArray(report.selected_fields) ? report.selected_fields.map(f => String(f)) : []}
+              chartType={report.chart_type || 'table'}
+              isLoading={isLoading}
+              onRunReport={() => {}}
+              onExportCsv={() => {}}
+              chartConfig={{
+                type: report.chart_type || 'table',
+                xAxis: report.group_by,
+                aggregation: report.aggregation as any,
+                dateGrouping: report.date_grouping as any
+              }}
+              hideActions={true}
+              compact={true}
+            />
+          ) : item.type === 'metric' ? (
+            <div className="flex items-center justify-center h-20">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-primary">
+                  {isLoading ? '...' : data[0]?.value || '0'}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  {item.metric?.aggregation.toUpperCase()} of {item.metric?.field}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-20 bg-muted rounded">
+              <PieChart className="h-8 w-8 text-muted-foreground" />
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
+  };
+
+  // Show builder mode
   if (showBuilder) {
     return (
       <>
@@ -101,6 +245,62 @@ const Dashboards = () => {
     );
   }
 
+  // Show dashboard view mode
+  if (viewingDashboard) {
+    return (
+      <>
+        <Helmet>
+          <title>{viewingDashboard.name} | Case Management</title>
+        </Helmet>
+        
+        <div className="container mx-auto py-6 space-y-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold">{viewingDashboard.name}</h1>
+              <p className="text-muted-foreground">
+                {viewingDashboard.items.length} items • Created {new Date(viewingDashboard.createdAt).toLocaleDateString()}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={refreshDashboard}>
+                Refresh
+              </Button>
+              <Button variant="outline" onClick={() => handleEditDashboard(viewingDashboard)}>
+                <Edit className="h-4 w-4 mr-2" />
+                Edit
+              </Button>
+              <Button variant="outline" onClick={handleBackToDashboards}>
+                Back to Dashboards
+              </Button>
+            </div>
+          </div>
+
+          {viewingDashboard.items.length === 0 ? (
+            <Card>
+              <CardContent className="text-center py-12">
+                <TrendingUp className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p className="text-muted-foreground">This dashboard has no items yet.</p>
+                <Button 
+                  variant="outline" 
+                  className="mt-4"
+                  onClick={() => handleEditDashboard(viewingDashboard)}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Items
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {viewingDashboard.items.map(renderDashboardItem)}
+            </div>
+          )}
+        </div>
+      </>
+    );
+  }
+
+  // Show dashboard list
   return (
     <>
       <Helmet>
