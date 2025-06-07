@@ -329,10 +329,9 @@ export const useReports = () => {
 
         console.log('Running query on table:', baseTableName, 'with fields:', selectedFields);
         
-        // Build query with proper typing
-        let queryBuilder = supabase.from(baseTableName as any).select(
-          selectedFields.includes('*') ? '*' : selectedFields.join(',')
-        );
+        // Build query - simplified to avoid deep type instantiation
+        const selectFields = selectedFields.includes('*') ? '*' : selectedFields.join(',');
+        let query = supabase.from(baseTableName as any).select(selectFields);
 
         // Apply filters if present
         if (report.filters && Array.isArray(report.filters)) {
@@ -341,36 +340,36 @@ export const useReports = () => {
             
             switch (operator) {
               case 'eq':
-                queryBuilder = queryBuilder.eq(field, value);
+                query = query.eq(field, value);
                 break;
               case 'neq':
-                queryBuilder = queryBuilder.neq(field, value);
+                query = query.neq(field, value);
                 break;
               case 'gt':
-                queryBuilder = queryBuilder.gt(field, value);
+                query = query.gt(field, value);
                 break;
               case 'gte':
-                queryBuilder = queryBuilder.gte(field, value);
+                query = query.gte(field, value);
                 break;
               case 'lt':
-                queryBuilder = queryBuilder.lt(field, value);
+                query = query.lt(field, value);
                 break;
               case 'lte':
-                queryBuilder = queryBuilder.lte(field, value);
+                query = query.lte(field, value);
                 break;
               case 'like':
-                queryBuilder = queryBuilder.like(field, `%${value}%`);
+                query = query.like(field, `%${value}%`);
                 break;
               case 'ilike':
-                queryBuilder = queryBuilder.ilike(field, `%${value}%`);
+                query = query.ilike(field, `%${value}%`);
                 break;
               case 'in':
                 if (Array.isArray(value)) {
-                  queryBuilder = queryBuilder.in(field, value);
+                  query = query.in(field, value);
                 }
                 break;
               case 'is':
-                queryBuilder = queryBuilder.is(field, value);
+                query = query.is(field, value);
                 break;
               default:
                 break;
@@ -378,7 +377,7 @@ export const useReports = () => {
           });
         }
         
-        const { data, error } = await queryBuilder.limit(1000);
+        const { data, error } = await query.limit(1000);
         
         if (error) {
           console.error("Error running report query:", error);
