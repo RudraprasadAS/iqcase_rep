@@ -122,11 +122,21 @@ export const ReportPreview = ({
     return Object.entries(grouped).map(([key, values]) => {
       let aggregatedValue: number;
       
+      // Ensure values is an array
+      if (!Array.isArray(values)) {
+        console.warn('Values is not an array:', values);
+        return {
+          [xAxis]: key,
+          value: 0,
+          label: key
+        } as ChartDataPoint;
+      }
+      
       if (aggregation === 'count') {
         aggregatedValue = values.length;
       } else if (chartConfig.yAxis) {
         const numericValues: number[] = values
-          .map(v => parseFloat(v[chartConfig.yAxis!]))
+          .map((v: any) => parseFloat(v[chartConfig.yAxis!]))
           .filter((v: number) => !isNaN(v));
         
         switch (aggregation) {
@@ -162,7 +172,7 @@ export const ReportPreview = ({
   const renderChart = () => {
     const chartData = processDataForChart();
     const containerHeight = compact ? 200 : 400;
-    const margin = compact ? { top: 5, right: 30, left: 5, bottom: 5 } : { top: 20, right: 50, left: 20, bottom: 60 };
+    const margin = compact ? { top: 5, right: 30, left: 5, bottom: 5 } : { top: 20, right: 50, left: 20, bottom: 80 };
 
     if (chartData.length === 0) {
       return (
