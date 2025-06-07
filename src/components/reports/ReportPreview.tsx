@@ -49,6 +49,12 @@ interface ReportPreviewProps {
   compact?: boolean;
 }
 
+interface ChartDataPoint {
+  [key: string]: any;
+  value: number;
+  label: string;
+}
+
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
 export const ReportPreview = ({
@@ -65,8 +71,8 @@ export const ReportPreview = ({
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = compact ? 5 : 10;
 
-  const processDataForChart = () => {
-    if (!data || data.length === 0 || !chartConfig) return [];
+  const processDataForChart = (): ChartDataPoint[] => {
+    if (!Array.isArray(data) || data.length === 0 || !chartConfig) return [];
 
     const xAxis = chartConfig.xAxis;
     const aggregation = chartConfig.aggregation || 'count';
@@ -75,7 +81,7 @@ export const ReportPreview = ({
     if (!xAxis) return [];
 
     // Group data by xAxis field
-    const grouped = data.reduce((acc, row) => {
+    const grouped = data.reduce((acc: Record<string, any[]>, row: any) => {
       let key = row[xAxis];
       
       // Handle date grouping
@@ -114,7 +120,7 @@ export const ReportPreview = ({
 
     // Calculate aggregated values
     return Object.entries(grouped).map(([key, values]) => {
-      let aggregatedValue;
+      let aggregatedValue: number;
       
       if (aggregation === 'count') {
         aggregatedValue = values.length;
@@ -149,14 +155,14 @@ export const ReportPreview = ({
         [xAxis]: key,
         value: aggregatedValue,
         label: key
-      };
+      } as ChartDataPoint;
     }).sort((a, b) => a.label.localeCompare(b.label));
   };
 
   const renderChart = () => {
     const chartData = processDataForChart();
     const containerHeight = compact ? 200 : 400;
-    const margin = compact ? { top: 5, right: 5, left: 5, bottom: 5 } : { top: 20, right: 30, left: 20, bottom: 60 };
+    const margin = compact ? { top: 5, right: 30, left: 5, bottom: 5 } : { top: 20, right: 50, left: 20, bottom: 60 };
 
     if (chartData.length === 0) {
       return (
@@ -234,7 +240,7 @@ export const ReportPreview = ({
   };
 
   const renderTable = () => {
-    if (!data || data.length === 0) {
+    if (!Array.isArray(data) || data.length === 0) {
       return (
         <div className="text-center py-8 text-muted-foreground">
           <Table className="h-12 w-12 mx-auto mb-2 opacity-50" />
@@ -243,7 +249,7 @@ export const ReportPreview = ({
       );
     }
 
-    const headers = columns.length > 0 ? columns : Object.keys(data[0]);
+    const headers = columns.length > 0 ? columns : Object.keys(data[0] || {});
     const startIndex = (currentPage - 1) * rowsPerPage;
     const endIndex = startIndex + rowsPerPage;
     const paginatedData = data.slice(startIndex, endIndex);
@@ -331,7 +337,7 @@ export const ReportPreview = ({
               {chartType === 'pie' && <PieChart className="h-3 w-3" />}
               {chartType.charAt(0).toUpperCase() + chartType.slice(1)}
             </Badge>
-            {data.length > 0 && (
+            {Array.isArray(data) && data.length > 0 && (
               <Badge variant="secondary">
                 {data.length} record{data.length !== 1 ? 's' : ''}
               </Badge>
@@ -343,7 +349,7 @@ export const ReportPreview = ({
               variant="outline"
               size="sm"
               onClick={onExportCsv}
-              disabled={!data || data.length === 0}
+              disabled={!Array.isArray(data) || data.length === 0}
             >
               <Download className="mr-2 h-4 w-4" />
               Export CSV
