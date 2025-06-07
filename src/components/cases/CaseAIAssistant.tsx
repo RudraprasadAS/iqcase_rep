@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -38,9 +39,9 @@ const CaseAIAssistant = ({ caseId, caseContext, onCaseUpdate }: CaseAIAssistantP
       
       • "What is this case about?"
       • "Who raised this case?"
-      • "Mark as urgent"
-      • "Assign to [user]"
       • "Close this case"
+      • "Mark as urgent"
+      • "Assign to [user name]"
       • "What attachments are there?"`,
       isBot: true,
       timestamp: new Date()
@@ -77,7 +78,7 @@ const CaseAIAssistant = ({ caseId, caseContext, onCaseUpdate }: CaseAIAssistantP
           action: ruleBasedResponse.action
         }]);
       } else {
-        const aiResponse = await callOpenRouterAI(currentMessage);
+        const aiResponse = await callAI(currentMessage);
         setMessages(prev => [...prev, {
           id: (Date.now() + 2).toString(),
           content: aiResponse,
@@ -110,7 +111,7 @@ const CaseAIAssistant = ({ caseId, caseContext, onCaseUpdate }: CaseAIAssistantP
       
       if (error) {
         console.error('Error fetching user:', error);
-        return userId; // fallback to ID
+        return userId;
       }
       
       if (user) {
@@ -118,10 +119,29 @@ const CaseAIAssistant = ({ caseId, caseContext, onCaseUpdate }: CaseAIAssistantP
         return user.name || user.email || userId;
       }
       
-      return userId; // fallback if no user found
+      return userId;
     } catch (error) {
       console.error('Error in getUserName:', error);
       return userId;
+    }
+  };
+
+  const findUserByName = async (name: string): Promise<string | null> => {
+    try {
+      const { data: users, error } = await supabase
+        .from('users')
+        .select('id, name, email')
+        .or(`name.ilike.%${name}%, email.ilike.%${name}%`)
+        .limit(1);
+
+      if (error || !users || users.length === 0) {
+        return null;
+      }
+
+      return users[0].id;
+    } catch (error) {
+      console.error('Error finding user by name:', error);
+      return null;
     }
   };
 
@@ -167,13 +187,14 @@ const CaseAIAssistant = ({ caseId, caseContext, onCaseUpdate }: CaseAIAssistantP
           throw updateError;
         }
 
+        // Log the activity
         const { error: activityError } = await supabase
           .from('case_activities')
           .insert({
             case_id: caseId,
             activity_type: 'status_changed',
             description: 'Case closed via AI Assistant',
-            performed_by: caseContext?.submitted_by
+            performed_by: caseContext?.submitted_by || 'system'
           });
 
         if (activityError) {
@@ -196,7 +217,7 @@ const CaseAIAssistant = ({ caseId, caseContext, onCaseUpdate }: CaseAIAssistantP
       }
     }
 
-    if (lower.includes('mark as urgent') || lower.includes('set to urgent')) {
+    if (lower.includes('mark as urgent') || lower.includes('set to urgent') || lower.includes('urgent priority')) {
       try {
         console.log('Attempting to set case as urgent:', caseId);
         
@@ -210,13 +231,14 @@ const CaseAIAssistant = ({ caseId, caseContext, onCaseUpdate }: CaseAIAssistantP
           throw updateError;
         }
 
+        // Log the activity
         const { error: activityError } = await supabase
           .from('case_activities')
           .insert({
             case_id: caseId,
             activity_type: 'priority_changed',
             description: 'Priority set to urgent via AI Assistant',
-            performed_by: caseContext?.submitted_by
+            performed_by: caseContext?.submitted_by || 'system'
           });
 
         if (activityError) {
@@ -239,22 +261,21 @@ const CaseAIAssistant = ({ caseId, caseContext, onCaseUpdate }: CaseAIAssistantP
       }
     }
 
+    // Handle assignment commands
     const assignMatch = lower.match(/assign to (.+)/);
     if (assignMatch) {
-      const assignee = assignMatch[1].trim();
+      const assigneeName = assignMatch[1].trim();
       try {
-        console.log('Attempting to assign case to:', assignee);
+        console.log('Attempting to assign case to:', assigneeName);
         
-        // Try to find user by name first
-        const { data: users, error: userError } = await supabase
-          .from('users')
-          .select('id, name')
-          .ilike('name', `%${assignee}%`);
-
-        let assigneeId = assignee;
-        if (users && users.length > 0) {
-          assigneeId = users[0].id;
-          console.log('Found user ID:', assigneeId, 'for name:', assignee);
+        // Find user by name
+        const assigneeId = await findUserByName(assigneeName);
+        
+        if (!assigneeId) {
+          return { 
+            content: `Could not find a user named "${assigneeName}". Please check the name and try again.`, 
+            action: 'error' 
+          };
         }
 
         const { error: updateError } = await supabase
@@ -267,13 +288,14 @@ const CaseAIAssistant = ({ caseId, caseContext, onCaseUpdate }: CaseAIAssistantP
           throw updateError;
         }
 
+        // Log the activity
         const { error: activityError } = await supabase
           .from('case_activities')
           .insert({
             case_id: caseId,
             activity_type: 'assignment_changed',
-            description: `Assigned to ${assignee} via AI Assistant`,
-            performed_by: caseContext?.submitted_by
+            description: `Assigned to ${assigneeName} via AI Assistant`,
+            performed_by: caseContext?.submitted_by || 'system'
           });
 
         if (activityError) {
@@ -284,12 +306,14 @@ const CaseAIAssistant = ({ caseId, caseContext, onCaseUpdate }: CaseAIAssistantP
           onCaseUpdate();
         }
 
+        const assigneeFriendlyName = await getUserName(assigneeId);
+
         toast({
           title: 'Case Assigned',
-          description: `Case has been assigned to ${assignee}.`
+          description: `Case has been assigned to ${assigneeFriendlyName}.`
         });
 
-        return { content: `Case successfully assigned to ${assignee}.`, action: 'success' };
+        return { content: `Case successfully assigned to ${assigneeFriendlyName}.`, action: 'success' };
       } catch (error) {
         console.error('Error assigning case:', error);
         return { content: 'Error assigning case. Please try again.', action: 'error' };
@@ -299,44 +323,47 @@ const CaseAIAssistant = ({ caseId, caseContext, onCaseUpdate }: CaseAIAssistantP
     return null;
   };
 
-  const callOpenRouterAI = async (input: string): Promise<string> => {
-    const systemPrompt = `You are a helpful AI assistant for internal case management. Case context:
+  const callAI = async (input: string): Promise<string> => {
+    const systemPrompt = `You are a helpful AI assistant for case management. Case context:
 Title: ${caseContext?.title}
 Status: ${caseContext?.status}
 Priority: ${caseContext?.priority}
 Description: ${caseContext?.description}
-Category: ${caseContext?.category}
-Assigned To: ${caseContext?.assigned_to}
-Submitted By: ${caseContext?.submitted_by}
 
-Provide helpful, concise responses about this case. If asked about user IDs, explain that you can help with case information but suggest using specific commands for actions.`;
+Provide helpful, concise responses about this case. If asked about user IDs, explain that you can help with case information but suggest using specific commands for actions like:
+- "Close this case" to close the case
+- "Mark as urgent" to set priority to urgent
+- "Assign to [user name]" to assign the case
+
+Keep responses brief and professional.`;
 
     try {
-      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          Authorization: 'Bearer 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',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: 'deepseek/deepseek-chat:free',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: input }
-          ]
-        })
+      const { data, error } = await supabase.functions.invoke('knowledge-assistant', {
+        body: {
+          message: input,
+          context: systemPrompt
+        }
       });
 
-      const data = await res.json();
-      return data?.choices?.[0]?.message?.content || 'I\'m sorry, I couldn\'t process that request. Please try asking about the case details or use specific commands like "close this case" or "mark as urgent".';
+      if (error) {
+        console.error('Error calling AI function:', error);
+        throw error;
+      }
+
+      return data?.response || 'I\'m sorry, I couldn\'t process that request. Please try asking about the case details or use specific commands like "close this case" or "mark as urgent".';
     } catch (error) {
-      console.error('Error calling OpenRouter AI:', error);
+      console.error('Error calling AI:', error);
       return 'I\'m sorry, I\'m having trouble connecting to my AI service. Please try asking about the case details or use specific commands.';
     }
   };
 
   const formatTime = (date: Date) => date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-  const getMessageIcon = (m: Message) => m.action === 'success' ? <CheckCircle className="h-3 w-3 text-green-500" /> : m.action === 'error' ? <AlertTriangle className="h-3 w-3 text-red-500" /> : null;
+  
+  const getMessageIcon = (m: Message) => {
+    if (m.action === 'success') return <CheckCircle className="h-3 w-3 text-green-500" />;
+    if (m.action === 'error') return <AlertTriangle className="h-3 w-3 text-red-500" />;
+    return null;
+  };
 
   return (
     <div className="fixed bottom-4 right-4 z-50">
@@ -363,21 +390,37 @@ Provide helpful, concise responses about this case. If asked about user IDs, exp
                 {messages.map((m) => (
                   <div key={m.id} className={`flex gap-2 ${m.isBot ? '' : 'flex-row-reverse'}`}>
                     <Avatar className="h-6 w-6">
-                      <AvatarFallback className="text-xs">{m.isBot ? <Bot className="h-3 w-3" /> : <User className="h-3 w-3" />}</AvatarFallback>
+                      <AvatarFallback className="text-xs">
+                        {m.isBot ? <Bot className="h-3 w-3" /> : <User className="h-3 w-3" />}
+                      </AvatarFallback>
                     </Avatar>
                     <div className={`flex-1 max-w-[80%] ${m.isBot ? '' : 'text-right'}`}>
                       <div className={`text-xs p-2 rounded-lg whitespace-pre-line ${
-                        m.isBot ? m.action === 'success' ? 'bg-green-50 border border-green-200' : m.action === 'error' ? 'bg-red-50 border border-red-200' : 'bg-muted' : 'bg-primary text-primary-foreground'}`}>
-                        <div className="flex items-start gap-1">{m.content}{getMessageIcon(m)}</div>
+                        m.isBot 
+                          ? m.action === 'success' 
+                            ? 'bg-green-50 border border-green-200' 
+                            : m.action === 'error' 
+                            ? 'bg-red-50 border border-red-200' 
+                            : 'bg-muted' 
+                          : 'bg-primary text-primary-foreground'
+                      }`}>
+                        <div className="flex items-start gap-1">
+                          {m.content}
+                          {getMessageIcon(m)}
+                        </div>
                       </div>
-                      <div className="text-xs text-muted-foreground mt-1">{formatTime(m.timestamp)}</div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {formatTime(m.timestamp)}
+                      </div>
                     </div>
                   </div>
                 ))}
                 {loading && (
                   <div className="flex gap-2">
                     <Avatar className="h-6 w-6">
-                      <AvatarFallback className="text-xs"><Bot className="h-3 w-3" /></AvatarFallback>
+                      <AvatarFallback className="text-xs">
+                        <Bot className="h-3 w-3" />
+                      </AvatarFallback>
                     </Avatar>
                     <div className="bg-muted p-2 rounded-lg">
                       <div className="flex gap-1">
@@ -403,8 +446,14 @@ Provide helpful, concise responses about this case. If asked about user IDs, exp
                     }
                   }}
                 />
-                <Button onClick={handleSendMessage} disabled={loading || !newMessage.trim()} size="sm" className="w-full">
-                  <Send className="h-3 w-3 mr-2" />{loading ? 'Processing...' : 'Send'}
+                <Button 
+                  onClick={handleSendMessage} 
+                  disabled={loading || !newMessage.trim()} 
+                  size="sm" 
+                  className="w-full"
+                >
+                  <Send className="h-3 w-3 mr-2" />
+                  {loading ? 'Processing...' : 'Send'}
                 </Button>
               </div>
             </CardContent>

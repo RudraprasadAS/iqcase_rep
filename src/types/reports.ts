@@ -26,3 +26,12 @@ export interface ReportData {
   data: Record<string, any>[];
   error?: string;
 }
+
+// Add missing types for backward compatibility
+export interface ColumnDefinition {
+  name: string;
+  type: string;
+  label: string;
+}
+
+export type FilterOperator = 'eq' | 'like' | 'gt' | 'lt' | 'gte' | 'lte';

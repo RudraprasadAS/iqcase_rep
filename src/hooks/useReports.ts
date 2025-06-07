@@ -31,7 +31,13 @@ export const useReports = () => {
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return data as Report[];
+      
+      // Transform the data to match our Report interface
+      return (data || []).map(item => ({
+        ...item,
+        selected_fields: Array.isArray(item.selected_fields) ? item.selected_fields as string[] : [],
+        filters: Array.isArray(item.filters) ? item.filters as ReportFilter[] : []
+      })) as Report[];
     }
   });
 
@@ -40,11 +46,23 @@ export const useReports = () => {
     mutationFn: async (report: Omit<Report, 'id' | 'created_at' | 'updated_at' | 'created_by'>) => {
       if (!user) throw new Error('User not authenticated');
       
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (userError || !userData) throw new Error('User not found');
+      
       const { data, error } = await supabase
         .from('reports')
         .insert({
-          ...report,
-          created_by: user.id
+          name: report.name,
+          description: report.description,
+          table_name: report.table_name,
+          selected_fields: report.selected_fields as any,
+          filters: report.filters as any,
+          created_by: userData.id
         })
         .select()
         .single();
@@ -71,9 +89,17 @@ export const useReports = () => {
   // Update report
   const updateReport = useMutation({
     mutationFn: async ({ id, ...report }: Partial<Report> & { id: string }) => {
+      const updateData: any = {};
+      
+      if (report.name !== undefined) updateData.name = report.name;
+      if (report.description !== undefined) updateData.description = report.description;
+      if (report.table_name !== undefined) updateData.table_name = report.table_name;
+      if (report.selected_fields !== undefined) updateData.selected_fields = report.selected_fields;
+      if (report.filters !== undefined) updateData.filters = report.filters;
+      
       const { data, error } = await supabase
         .from('reports')
-        .update(report)
+        .update(updateData)
         .eq('id', id)
         .select()
         .single();
@@ -115,8 +141,8 @@ export const useReports = () => {
     mutationFn: async (report: Report): Promise<ReportData> => {
       const { data, error } = await supabase.rpc('execute_report', {
         p_table_name: report.table_name,
-        p_selected_fields: report.selected_fields,
-        p_filters: report.filters
+        p_selected_fields: report.selected_fields as any,
+        p_filters: report.filters as any
       });
       
       if (error) throw error;
@@ -125,7 +151,8 @@ export const useReports = () => {
         return { data: [], error: data.error as string };
       }
       
-      return { data: Array.isArray(data) ? data : [] };
+      const resultArray = Array.isArray(data) ? data : (data ? [data] : []);
+      return { data: resultArray as Record<string, any>[] };
     }
   });
 
