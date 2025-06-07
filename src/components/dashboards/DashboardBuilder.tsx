@@ -23,7 +23,7 @@ interface DashboardItem {
 }
 
 interface DashboardLayoutProps {
-  onSave?: (items: DashboardItem[]) => void;
+  onSave?: (dashboardName: string, items: DashboardItem[]) => void;
 }
 
 export const DashboardBuilder = ({ onSave }: DashboardLayoutProps) => {
@@ -126,7 +126,7 @@ export const DashboardBuilder = ({ onSave }: DashboardLayoutProps) => {
     }
 
     if (onSave) {
-      onSave(dashboardItems);
+      onSave(dashboardName, dashboardItems);
     }
 
     toast({

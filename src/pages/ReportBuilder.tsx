@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
@@ -189,7 +188,9 @@ const ReportBuilder = () => {
         chart_type: chartConfig.type,
         aggregation: chartConfig.aggregation,
         group_by: chartConfig.xAxis,
-        is_public: formValues.is_public
+        is_public: formValues.is_public,
+        // Preserve the date grouping when saving
+        date_grouping: chartConfig.dateGrouping
       };
 
       if (reportId && isEditMode) {
@@ -280,6 +281,63 @@ const ReportBuilder = () => {
     updatedFilters[index] = { ...updatedFilters[index], [key]: value };
     setFilters(updatedFilters);
   };
+
+  // Add function to get related tables for cases
+  function getRelatedTables() {
+    const baseTable = form.watch('base_table');
+    
+    if (!baseTable || !tables) return [];
+    
+    // Define relationships for the cases table
+    if (baseTable === 'cases') {
+      const relatedTables = [
+        {
+          name: 'users_submitted',
+          columns: tables.find(t => t.name === 'users')?.fields.map(field => ({
+            key: `users_submitted.${field}`,
+            label: `Submitted By: ${formatFieldName(field)}`,
+            table: 'users'
+          })) || []
+        },
+        {
+          name: 'users_assigned',
+          columns: tables.find(t => t.name === 'users')?.fields.map(field => ({
+            key: `users_assigned.${field}`,
+            label: `Assigned To: ${formatFieldName(field)}`,
+            table: 'users'
+          })) || []
+        },
+        {
+          name: 'case_categories',
+          columns: tables.find(t => t.name === 'case_categories')?.fields.map(field => ({
+            key: `case_categories.${field}`,
+            label: `Category: ${formatFieldName(field)}`,
+            table: 'case_categories'
+          })) || []
+        },
+        {
+          name: 'case_attachments',
+          columns: tables.find(t => t.name === 'case_attachments')?.fields.map(field => ({
+            key: `case_attachments.${field}`,
+            label: `Attachments: ${formatFieldName(field)}`,
+            table: 'case_attachments'
+          })) || []
+        },
+        {
+          name: 'case_activities',
+          columns: tables.find(t => t.name === 'case_activities')?.fields.map(field => ({
+            key: `case_activities.${field}`,
+            label: `Activities: ${formatFieldName(field)}`,
+            table: 'case_activities'
+          })) || []
+        }
+      ];
+      
+      return relatedTables.filter(table => table.columns.length > 0);
+    }
+    
+    return [];
+  }
 
   if (isLoadingTables || isLoadingReports) {
     return (
@@ -408,7 +466,7 @@ const ReportBuilder = () => {
                         setSelectedFields(fields);
                         form.setValue('fields', fields);
                       }}
-                      relatedTables={[]}
+                      relatedTables={getRelatedTables()}
                     />
 
                     <ChartConfiguration
@@ -462,7 +520,7 @@ const ReportBuilder = () => {
                       setSelectedFields(fields);
                       form.setValue('fields', fields);
                     }}
-                    relatedTables={[]}
+                    relatedTables={getRelatedTables()}
                   />
 
                   <ChartConfiguration

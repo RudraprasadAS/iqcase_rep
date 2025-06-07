@@ -6,15 +6,21 @@ import { Button } from '@/components/ui/button';
 import { Plus, Eye, Edit, Trash2 } from 'lucide-react';
 import { DashboardBuilder } from '@/components/dashboards/DashboardBuilder';
 
+interface SavedDashboard {
+  id: string;
+  name: string;
+  items: any[];
+  createdAt: string;
+}
+
 const Dashboards = () => {
   const [showBuilder, setShowBuilder] = useState(false);
-  const [savedDashboards, setSavedDashboards] = useState<any[]>([]);
+  const [savedDashboards, setSavedDashboards] = useState<SavedDashboard[]>([]);
 
-  const handleSaveDashboard = (items: any[]) => {
-    // In a real app, this would save to the database
-    const newDashboard = {
+  const handleSaveDashboard = (dashboardName: string, items: any[]) => {
+    const newDashboard: SavedDashboard = {
       id: Date.now().toString(),
-      name: `Dashboard ${savedDashboards.length + 1}`,
+      name: dashboardName,
       items: items,
       createdAt: new Date().toISOString()
     };
@@ -30,7 +36,7 @@ const Dashboards = () => {
           <title>Dashboard Builder | Case Management</title>
         </Helmet>
         
-        <div className="space-y-6">
+        <div className="container mx-auto py-6 space-y-6">
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-3xl font-bold">Dashboard Builder</h1>
@@ -55,7 +61,7 @@ const Dashboards = () => {
         <title>Dashboards | Case Management</title>
       </Helmet>
       
-      <div className="space-y-6">
+      <div className="container mx-auto py-6 space-y-6">
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold">Dashboards</h1>
@@ -89,7 +95,14 @@ const Dashboards = () => {
                       <Edit className="h-4 w-4 mr-1" />
                       Edit
                     </Button>
-                    <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="text-red-600 hover:text-red-700"
+                      onClick={() => {
+                        setSavedDashboards(savedDashboards.filter(d => d.id !== dashboard.id));
+                      }}
+                    >
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
