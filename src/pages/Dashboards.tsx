@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
@@ -289,6 +288,62 @@ const Dashboards = () => {
     );
   };
 
+  // Convert DashboardItem to format expected by ResizableDashboard
+  const convertToResizableDashboardItems = (items: DashboardItem[]) => {
+    return items.map(item => ({
+      id: item.id,
+      type: item.type,
+      title: item.title,
+      content: renderDashboardItemContent(item)
+    }));
+  };
+
+  const renderDashboardItemContent = (item: DashboardItem) => {
+    const isLoading = loadingItems.has(item.id);
+    const data = dashboardData[item.id] || [];
+    const report = item.reportId ? reports?.find(r => r.id === item.reportId) : null;
+
+    if (item.type === 'report' && report) {
+      return (
+        <ReportPreview
+          data={data}
+          columns={Array.isArray(report.selected_fields) ? report.selected_fields.map(f => String(f)) : []}
+          chartType={report.chart_type || 'table'}
+          isLoading={isLoading}
+          onRunReport={() => {}}
+          onExportCsv={() => {}}
+          chartConfig={{
+            type: report.chart_type || 'table',
+            xAxis: report.group_by,
+            aggregation: report.aggregation as any,
+            dateGrouping: report.date_grouping as any
+          }}
+          hideActions={true}
+          compact={true}
+        />
+      );
+    } else if (item.type === 'metric') {
+      return (
+        <div className="flex items-center justify-center h-full">
+          <div className="text-center">
+            <div className="text-3xl font-bold text-primary">
+              {isLoading ? '...' : (data[0]?.value || '0')}
+            </div>
+            <div className="text-sm text-muted-foreground mt-2">
+              {item.metric?.aggregation.toUpperCase()} of {item.metric?.field === '*' ? 'records' : item.metric?.field}
+            </div>
+          </div>
+        </div>
+      );
+    } else {
+      return (
+        <div className="flex items-center justify-center h-full bg-muted rounded">
+          <PieChart className="h-12 w-12 text-muted-foreground" />
+        </div>
+      );
+    }
+  };
+
   // Show builder mode
   if (showBuilder) {
     return (
@@ -321,7 +376,7 @@ const Dashboards = () => {
     );
   }
 
-  // Show dashboard view mode
+  // Show resizable dashboard view mode
   if (viewingDashboard) {
     return (
       <>
@@ -367,9 +422,11 @@ const Dashboards = () => {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {viewingDashboard.items.map(renderDashboardItem)}
-            </div>
+            <ResizableDashboard
+              dashboardId={viewingDashboard.id}
+              items={convertToResizableDashboardItems(viewingDashboard.items)}
+              onItemsChange={() => {}}
+            />
           )}
         </div>
       </>

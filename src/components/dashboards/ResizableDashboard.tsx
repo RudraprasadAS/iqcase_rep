@@ -130,7 +130,7 @@ export const ResizableDashboard: React.FC<ResizableDashboardProps> = ({
   return (
     <div className="space-y-4">
       {/* Layout Controls */}
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center p-4 bg-muted rounded-lg">
         <div className="flex gap-2">
           {!isEditMode ? (
             <Button
@@ -173,68 +173,73 @@ export const ResizableDashboard: React.FC<ResizableDashboardProps> = ({
         
         {isEditMode && (
           <div className="text-sm text-muted-foreground">
-            Drag corners to resize • Drag headers to move
+            Drag corners to resize • Drag headers to move • Changes will be saved to your profile
           </div>
         )}
       </div>
 
       {/* Grid Layout */}
-      <ResponsiveGridLayout
-        className={`layout ${isEditMode ? 'edit-mode' : ''}`}
-        layouts={{ lg: currentLayout }}
-        breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
-        cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
-        rowHeight={60}
-        isDraggable={isEditMode}
-        isResizable={isEditMode}
-        onLayoutChange={handleLayoutChange}
-        margin={[16, 16]}
-        containerPadding={[0, 0]}
-        useCSSTransforms={true}
-      >
-        {items.map((item) => (
-          <div key={item.id} className="dashboard-item">
-            <Card className="h-full">
-              <CardHeader className={`pb-2 ${isEditMode ? 'cursor-move' : ''}`}>
-                <CardTitle className="text-sm font-medium">
-                  {item.title}
-                  {isEditMode && (
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      [{item.type}]
-                    </span>
-                  )}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="h-[calc(100%-theme(spacing.16))] overflow-hidden">
-                {item.content}
-              </CardContent>
-            </Card>
-          </div>
-        ))}
-      </ResponsiveGridLayout>
+      <div className={`relative ${isEditMode ? 'bg-accent/30 p-4 rounded-lg border-2 border-dashed border-primary/30' : ''}`}>
+        <ResponsiveGridLayout
+          className={`layout ${isEditMode ? 'edit-mode' : ''}`}
+          layouts={{ lg: currentLayout }}
+          breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
+          cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
+          rowHeight={60}
+          isDraggable={isEditMode}
+          isResizable={isEditMode}
+          onLayoutChange={handleLayoutChange}
+          margin={[16, 16]}
+          containerPadding={[0, 0]}
+          useCSSTransforms={true}
+          resizeHandles={['se']}
+        >
+          {items.map((item) => (
+            <div key={item.id} className="dashboard-item">
+              <Card className={`h-full ${isEditMode ? 'ring-2 ring-primary/20 shadow-lg' : ''}`}>
+                <CardHeader className={`pb-2 ${isEditMode ? 'cursor-move bg-primary/5' : ''}`}>
+                  <CardTitle className="text-sm font-medium flex items-center justify-between">
+                    <span>{item.title}</span>
+                    {isEditMode && (
+                      <span className="text-xs text-muted-foreground bg-primary/10 px-2 py-1 rounded">
+                        {item.type}
+                      </span>
+                    )}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="h-[calc(100%-theme(spacing.16))] overflow-hidden p-4">
+                  {item.content}
+                </CardContent>
+              </Card>
+            </div>
+          ))}
+        </ResponsiveGridLayout>
+      </div>
 
       <style>{`
         .layout {
           position: relative;
+          min-height: 400px;
         }
         
         .edit-mode .dashboard-item {
-          border: 2px dashed #e2e8f0;
-          border-radius: 8px;
+          transition: all 200ms ease;
         }
         
         .edit-mode .dashboard-item:hover {
-          border-color: #3b82f6;
+          z-index: 10;
         }
         
         .react-grid-item {
           transition: all 200ms ease;
+          transition-property: left, top, width, height;
         }
         
         .react-grid-item.react-grid-placeholder {
-          background: #3b82f0 !important;
+          background: hsl(var(--primary)) !important;
           opacity: 0.2;
-          border-radius: 4px;
+          border-radius: 8px;
+          border: 2px dashed hsl(var(--primary));
         }
         
         .react-resizable-handle {
@@ -250,6 +255,18 @@ export const ResizableDashboard: React.FC<ResizableDashboardProps> = ({
           background-origin: content-box;
           box-sizing: border-box;
           cursor: se-resize;
+          opacity: 0.6;
+        }
+        
+        .edit-mode .react-resizable-handle {
+          opacity: 1;
+          background-color: hsl(var(--primary));
+          border-radius: 0 0 4px 0;
+        }
+        
+        .edit-mode .react-resizable-handle:hover {
+          background-color: hsl(var(--primary));
+          opacity: 0.8;
         }
       `}</style>
     </div>
