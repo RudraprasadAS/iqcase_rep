@@ -125,13 +125,13 @@ export const ReportPreview = ({
       if (aggregation === 'count') {
         aggregatedValue = values.length;
       } else if (chartConfig.yAxis) {
-        const numericValues = values
+        const numericValues: number[] = values
           .map(v => parseFloat(v[chartConfig.yAxis!]))
-          .filter(v => !isNaN(v));
+          .filter((v: number) => !isNaN(v));
         
         switch (aggregation) {
           case 'sum':
-            aggregatedValue = numericValues.reduce((sum, val) => sum + val, 0);
+            aggregatedValue = numericValues.length > 0 ? numericValues.reduce((sum, val) => sum + val, 0) : 0;
             break;
           case 'avg':
             aggregatedValue = numericValues.length > 0 
