@@ -19,9 +19,8 @@ import RequireAuth from "./components/auth/RequireAuth";
 import Permissions from "./pages/admin/Permissions";
 import Users from "./pages/admin/Users";
 import Reports from "./pages/Reports";
-import StandardReports from "./pages/StandardReports";
 import ReportBuilder from "./pages/ReportBuilder";
-import TableReportBuilder from './pages/TableReportBuilder';
+import Dashboards from "./pages/Dashboards";
 import Cases from './pages/Cases';
 import CaseDetail from './pages/CaseDetail';
 import NewCase from './pages/NewCase';
@@ -69,11 +68,10 @@ function App() {
                   <Route path="/notifications" element={<Notifications />} />
                   <Route path="/insights" element={<Insights />} />
                   
-                  {/* Reports */}
+                  {/* Analytics */}
                   <Route path="/reports" element={<Reports />} />
-                  <Route path="/reports/standard" element={<StandardReports />} />
                   <Route path="/reports/builder" element={<ReportBuilder />} />
-                  <Route path="/reports/table-builder" element={<TableReportBuilder />} />
+                  <Route path="/dashboards" element={<Dashboards />} />
                   
                   {/* Admin */}
                   <Route path="/admin/users" element={<Users />} />

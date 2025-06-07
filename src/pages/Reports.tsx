@@ -7,39 +7,21 @@ import { Plus, Edit, Trash2, Eye, Users, Lock } from 'lucide-react';
 import { useReports } from '@/hooks/useReports';
 import { useNavigate } from 'react-router-dom';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { ReportPreview } from '@/components/reports/ReportPreview';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 const Reports = () => {
   const navigate = useNavigate();
-  const { reports, isLoadingReports, deleteReport, runReport } = useReports();
-  const [selectedReport, setSelectedReport] = useState<any>(null);
-  const [reportData, setReportData] = useState<any>(null);
-  const [isLoadingReportData, setIsLoadingReportData] = useState(false);
-  const [showReportDialog, setShowReportDialog] = useState(false);
+  const { reports, isLoadingReports, deleteReport } = useReports();
 
   const handleCreateReport = () => {
-    navigate('/report-builder');
+    navigate('/reports/builder');
   };
 
   const handleEditReport = (reportId: string) => {
-    navigate(`/report-builder?edit=${reportId}`);
+    navigate(`/reports/builder?id=${reportId}&edit=true`);
   };
 
-  const handleViewReport = async (report: any) => {
-    setSelectedReport(report);
-    setIsLoadingReportData(true);
-    setShowReportDialog(true);
-    
-    try {
-      const result = await runReport.mutateAsync(report.id);
-      setReportData(result);
-    } catch (error) {
-      console.error('Error running report:', error);
-      setReportData(null);
-    } finally {
-      setIsLoadingReportData(false);
-    }
+  const handleViewReport = (reportId: string) => {
+    navigate(`/reports/builder?id=${reportId}&view=true`);
   };
 
   const handleDeleteReport = async (reportId: string) => {
@@ -50,36 +32,11 @@ const Reports = () => {
     return new Date(dateString).toLocaleDateString();
   };
 
-  const exportToCsv = () => {
-    if (!reportData || !reportData.rows || reportData.rows.length === 0) return;
-
-    const headers = reportData.columns;
-    const csvContent = [
-      headers.join(','),
-      ...reportData.rows.map((row: any) =>
-        headers.map((header: string) => {
-          const value = row[header];
-          return typeof value === 'string' && value.includes(',') 
-            ? `"${value}"` 
-            : value || '';
-        }).join(',')
-      )
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${selectedReport?.name || 'report'}.csv`;
-    link.click();
-    window.URL.revokeObjectURL(url);
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Custom Reports</h1>
+          <h1 className="text-3xl font-bold">Reports</h1>
           <p className="text-muted-foreground">
             Create and manage custom reports for your data analysis needs
           </p>
@@ -90,7 +47,6 @@ const Reports = () => {
         </Button>
       </div>
 
-      {/* Custom Reports */}
       <div>
         <h2 className="text-xl font-semibold mb-4">My Reports</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -135,7 +91,7 @@ const Reports = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleViewReport(report)}
+                        onClick={() => handleViewReport(report.id)}
                         className="flex-1"
                       >
                         <Eye className="h-4 w-4 mr-1" />
@@ -183,27 +139,6 @@ const Reports = () => {
           )}
         </div>
       </div>
-
-      {/* Report View Dialog */}
-      <Dialog open={showReportDialog} onOpenChange={setShowReportDialog}>
-        <DialogContent className="max-w-6xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{selectedReport?.name} - Report View</DialogTitle>
-          </DialogHeader>
-          <div className="mt-4">
-            {selectedReport && (
-              <ReportPreview
-                data={reportData?.rows || []}
-                columns={reportData?.columns || []}
-                chartType={selectedReport.chart_type || 'table'}
-                isLoading={isLoadingReportData}
-                onRunReport={() => handleViewReport(selectedReport)}
-                onExportCsv={exportToCsv}
-              />
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };

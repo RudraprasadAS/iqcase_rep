@@ -41,14 +41,15 @@ const navigation = [
 ];
 
 const reportNavigation = [
-  { name: 'Standard Reports', href: '/reports/standard' },
+  { name: 'Reports', href: '/reports' },
   { name: 'Report Builder', href: '/reports/builder' },
-  { name: 'Table Builder', href: '/reports/table-builder' },
+  { name: 'Dashboards', href: '/dashboards' },
 ];
 
 const adminNavigation = [
   { name: 'Users', href: '/admin/users' },
   { name: 'Permissions', href: '/admin/permissions' },
+  { name: 'Roles', href: '/admin/roles' },
 ];
 
 export function AppSidebar() {
@@ -98,15 +99,15 @@ export function AppSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel>Reports</SidebarGroupLabel>
+          <SidebarGroupLabel>Analytics</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               <Collapsible open={isReportsOpen} onOpenChange={setIsReportsOpen}>
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
-                    <SidebarMenuButton tooltip="Reports">
+                    <SidebarMenuButton tooltip="Analytics">
                       <BarChart3 />
-                      <span>Reports</span>
+                      <span>Analytics</span>
                       <ChevronDown className={cn("ml-auto transition-transform", isReportsOpen && "rotate-180")} />
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
