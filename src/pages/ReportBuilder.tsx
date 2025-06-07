@@ -32,7 +32,7 @@ const ReportBuilder = () => {
     isLoadingTables,
     createReport,
     updateReport,
-    runReport,
+    runReportWithJoins,
     reports,
     isLoadingReports
   } = useReports();
@@ -132,18 +132,17 @@ const ReportBuilder = () => {
 
     setIsLoadingData(true);
     try {
-      // For now, let's simulate report execution
-      const mockData = [
-        { id: '1', title: 'Sample Case 1', status: 'open', priority: 'high' },
-        { id: '2', title: 'Sample Case 2', status: 'closed', priority: 'medium' },
-        { id: '3', title: 'Sample Case 3', status: 'in_progress', priority: 'low' }
-      ];
+      const result = await runReportWithJoins.mutateAsync({
+        baseTable: baseTable,
+        selectedColumns: selectedFields,
+        filters: filters
+      });
       
-      setReportData(mockData);
+      setReportData(result.rows || []);
       
       toast({
         title: "Report executed successfully",
-        description: `Found ${mockData.length} records`
+        description: `Found ${result.rows?.length || 0} records`
       });
     } catch (error) {
       console.error('Error running report:', error);
@@ -152,6 +151,7 @@ const ReportBuilder = () => {
         title: "Error running report",
         description: "Failed to execute report. Please try again."
       });
+      setReportData([]);
     } finally {
       setIsLoadingData(false);
     }

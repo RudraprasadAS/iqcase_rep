@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Eye, Edit, Calendar, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import ReportViewer from '@/components/reports/ReportViewer';
+import { ReportViewer } from '@/components/reports/ReportViewer';
 
 interface Report {
   id: string;
