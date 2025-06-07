@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -38,10 +37,9 @@ const CaseAIAssistant = ({ caseId, caseContext, onCaseUpdate }: CaseAIAssistantP
       content: `Hi! I'm your Case Assistant. I can help you with this case: "${caseContext?.title || 'Current Case'}". Ask me questions or give me commands like:
       
       • "What is this case about?"
-      • "Who raised this case?"
-      • "Close this case"
       • "Mark as urgent"
-      • "Assign to [user name]"
+      • "Assign to [user]"
+      • "Close this case"
       • "What attachments are there?"`,
       isBot: true,
       timestamp: new Date()
@@ -78,7 +76,7 @@ const CaseAIAssistant = ({ caseId, caseContext, onCaseUpdate }: CaseAIAssistantP
           action: ruleBasedResponse.action
         }]);
       } else {
-        const aiResponse = await callAI(currentMessage);
+        const aiResponse = await callOpenRouterAI(currentMessage);
         setMessages(prev => [...prev, {
           id: (Date.now() + 2).toString(),
           content: aiResponse,
@@ -100,51 +98,6 @@ const CaseAIAssistant = ({ caseId, caseContext, onCaseUpdate }: CaseAIAssistantP
     }
   };
 
-  const getUserName = async (userId: string): Promise<string> => {
-    try {
-      console.log('Looking up user name for ID:', userId);
-      const { data: user, error } = await supabase
-        .from('users')
-        .select('name, email')
-        .eq('id', userId)
-        .maybeSingle();
-      
-      if (error) {
-        console.error('Error fetching user:', error);
-        return userId;
-      }
-      
-      if (user) {
-        console.log('Found user:', user);
-        return user.name || user.email || userId;
-      }
-      
-      return userId;
-    } catch (error) {
-      console.error('Error in getUserName:', error);
-      return userId;
-    }
-  };
-
-  const findUserByName = async (name: string): Promise<string | null> => {
-    try {
-      const { data: users, error } = await supabase
-        .from('users')
-        .select('id, name, email')
-        .or(`name.ilike.%${name}%, email.ilike.%${name}%`)
-        .limit(1);
-
-      if (error || !users || users.length === 0) {
-        return null;
-      }
-
-      return users[0].id;
-    } catch (error) {
-      console.error('Error finding user by name:', error);
-      return null;
-    }
-  };
-
   const processMessage = async (message: string): Promise<{ content: string; action?: 'success' | 'error' } | null> => {
     const lower = message.toLowerCase();
 
@@ -154,216 +107,90 @@ const CaseAIAssistant = ({ caseId, caseContext, onCaseUpdate }: CaseAIAssistantP
       };
     }
 
-    if (lower.includes('who raised this case') || lower.includes('who submitted') || lower.includes('submitted by')) {
-      if (caseContext?.submitted_by) {
-        try {
-          const submitterName = await getUserName(caseContext.submitted_by);
-          return {
-            content: `This case was submitted by: ${submitterName}`
-          };
-        } catch (error) {
-          return {
-            content: `This case was submitted by user ID: ${caseContext.submitted_by}`
-          };
-        }
-      } else {
-        return {
-          content: 'No submitter information is available for this case.'
-        };
-      }
-    }
-
-    if (lower.includes('close this case') || lower.includes('close case')) {
+    if (lower.includes('close this case')) {
       try {
-        console.log('Attempting to close case:', caseId);
-        
-        const { error: updateError } = await supabase
-          .from('cases')
-          .update({ status: 'closed' })
-          .eq('id', caseId);
-
-        if (updateError) {
-          console.error('Error updating case status:', updateError);
-          throw updateError;
-        }
-
-        // Log the activity
-        const { error: activityError } = await supabase
-          .from('case_activities')
-          .insert({
-            case_id: caseId,
-            activity_type: 'status_changed',
-            description: 'Case closed via AI Assistant',
-            performed_by: caseContext?.submitted_by || 'system'
-          });
-
-        if (activityError) {
-          console.error('Error creating activity log:', activityError);
-        }
-
-        if (onCaseUpdate) {
-          onCaseUpdate();
-        }
-
-        toast({
-          title: 'Case Closed',
-          description: 'The case has been successfully closed.'
+        await supabase.from('cases').update({ status: 'closed' }).eq('id', caseId);
+        await supabase.from('case_activities').insert({
+          case_id: caseId,
+          activity_type: 'status_changed',
+          description: 'Case closed via AI Assistant',
+          performed_by: caseContext?.submitted_by
         });
-
+        if (onCaseUpdate) onCaseUpdate();
         return { content: 'Case successfully closed.', action: 'success' };
-      } catch (error) {
-        console.error('Error closing case:', error);
-        return { content: 'Error closing case. Please try again.', action: 'error' };
+      } catch {
+        return { content: 'Error closing case.', action: 'error' };
       }
     }
 
-    if (lower.includes('mark as urgent') || lower.includes('set to urgent') || lower.includes('urgent priority')) {
+    if (lower.includes('mark as urgent')) {
       try {
-        console.log('Attempting to set case as urgent:', caseId);
-        
-        const { error: updateError } = await supabase
-          .from('cases')
-          .update({ priority: 'urgent' })
-          .eq('id', caseId);
-
-        if (updateError) {
-          console.error('Error updating case priority:', updateError);
-          throw updateError;
-        }
-
-        // Log the activity
-        const { error: activityError } = await supabase
-          .from('case_activities')
-          .insert({
-            case_id: caseId,
-            activity_type: 'priority_changed',
-            description: 'Priority set to urgent via AI Assistant',
-            performed_by: caseContext?.submitted_by || 'system'
-          });
-
-        if (activityError) {
-          console.error('Error creating activity log:', activityError);
-        }
-
-        if (onCaseUpdate) {
-          onCaseUpdate();
-        }
-
-        toast({
-          title: 'Priority Updated',
-          description: 'Case priority has been set to urgent.'
+        await supabase.from('cases').update({ priority: 'urgent' }).eq('id', caseId);
+        await supabase.from('case_activities').insert({
+          case_id: caseId,
+          activity_type: 'priority_changed',
+          description: 'Priority set to urgent via AI Assistant',
+          performed_by: caseContext?.submitted_by
         });
-
+        if (onCaseUpdate) onCaseUpdate();
         return { content: 'Priority set to urgent.', action: 'success' };
-      } catch (error) {
-        console.error('Error updating priority:', error);
-        return { content: 'Error updating priority. Please try again.', action: 'error' };
+      } catch {
+        return { content: 'Error updating priority.', action: 'error' };
       }
     }
 
-    // Handle assignment commands
     const assignMatch = lower.match(/assign to (.+)/);
     if (assignMatch) {
-      const assigneeName = assignMatch[1].trim();
+      const assignee = assignMatch[1].trim();
       try {
-        console.log('Attempting to assign case to:', assigneeName);
-        
-        // Find user by name
-        const assigneeId = await findUserByName(assigneeName);
-        
-        if (!assigneeId) {
-          return { 
-            content: `Could not find a user named "${assigneeName}". Please check the name and try again.`, 
-            action: 'error' 
-          };
-        }
-
-        const { error: updateError } = await supabase
-          .from('cases')
-          .update({ assigned_to: assigneeId })
-          .eq('id', caseId);
-
-        if (updateError) {
-          console.error('Error updating case assignment:', updateError);
-          throw updateError;
-        }
-
-        // Log the activity
-        const { error: activityError } = await supabase
-          .from('case_activities')
-          .insert({
-            case_id: caseId,
-            activity_type: 'assignment_changed',
-            description: `Assigned to ${assigneeName} via AI Assistant`,
-            performed_by: caseContext?.submitted_by || 'system'
-          });
-
-        if (activityError) {
-          console.error('Error creating activity log:', activityError);
-        }
-
-        if (onCaseUpdate) {
-          onCaseUpdate();
-        }
-
-        const assigneeFriendlyName = await getUserName(assigneeId);
-
-        toast({
-          title: 'Case Assigned',
-          description: `Case has been assigned to ${assigneeFriendlyName}.`
+        await supabase.from('cases').update({ assigned_to: assignee }).eq('id', caseId);
+        await supabase.from('case_activities').insert({
+          case_id: caseId,
+          activity_type: 'assignment_changed',
+          description: `Assigned to ${assignee} via AI Assistant`,
+          performed_by: caseContext?.submitted_by
         });
-
-        return { content: `Case successfully assigned to ${assigneeFriendlyName}.`, action: 'success' };
-      } catch (error) {
-        console.error('Error assigning case:', error);
-        return { content: 'Error assigning case. Please try again.', action: 'error' };
+        if (onCaseUpdate) onCaseUpdate();
+        return { content: `Case successfully assigned to ${assignee}.`, action: 'success' };
+      } catch {
+        return { content: 'Error assigning case.', action: 'error' };
       }
     }
 
     return null;
   };
 
-  const callAI = async (input: string): Promise<string> => {
-    const systemPrompt = `You are a helpful AI assistant for case management. Case context:
+  const callOpenRouterAI = async (input: string): Promise<string> => {
+    const systemPrompt = `You are a helpful AI assistant for internal case management. Case context:
 Title: ${caseContext?.title}
 Status: ${caseContext?.status}
 Priority: ${caseContext?.priority}
 Description: ${caseContext?.description}
+Category: ${caseContext?.category}
+Assigned To: ${caseContext?.assigned_to}
+Submitted By: ${caseContext?.submitted_by}`;
 
-Provide helpful, concise responses about this case. If asked about user IDs, explain that you can help with case information but suggest using specific commands for actions like:
-- "Close this case" to close the case
-- "Mark as urgent" to set priority to urgent
-- "Assign to [user name]" to assign the case
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer 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',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'deepseek/deepseek-chat:free',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: input }
+        ]
+      })
+    });
 
-Keep responses brief and professional.`;
-
-    try {
-      const { data, error } = await supabase.functions.invoke('knowledge-assistant', {
-        body: {
-          message: input,
-          context: systemPrompt
-        }
-      });
-
-      if (error) {
-        console.error('Error calling AI function:', error);
-        throw error;
-      }
-
-      return data?.response || 'I\'m sorry, I couldn\'t process that request. Please try asking about the case details or use specific commands like "close this case" or "mark as urgent".';
-    } catch (error) {
-      console.error('Error calling AI:', error);
-      return 'I\'m sorry, I\'m having trouble connecting to my AI service. Please try asking about the case details or use specific commands.';
-    }
+    const data = await res.json();
+    return data?.choices?.[0]?.message?.content || 'No response.';
   };
 
   const formatTime = (date: Date) => date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-  
-  const getMessageIcon = (m: Message) => {
-    if (m.action === 'success') return <CheckCircle className="h-3 w-3 text-green-500" />;
-    if (m.action === 'error') return <AlertTriangle className="h-3 w-3 text-red-500" />;
-    return null;
-  };
+  const getMessageIcon = (m: Message) => m.action === 'success' ? <CheckCircle className="h-3 w-3 text-green-500" /> : m.action === 'error' ? <AlertTriangle className="h-3 w-3 text-red-500" /> : null;
 
   return (
     <div className="fixed bottom-4 right-4 z-50">
@@ -390,37 +217,21 @@ Keep responses brief and professional.`;
                 {messages.map((m) => (
                   <div key={m.id} className={`flex gap-2 ${m.isBot ? '' : 'flex-row-reverse'}`}>
                     <Avatar className="h-6 w-6">
-                      <AvatarFallback className="text-xs">
-                        {m.isBot ? <Bot className="h-3 w-3" /> : <User className="h-3 w-3" />}
-                      </AvatarFallback>
+                      <AvatarFallback className="text-xs">{m.isBot ? <Bot className="h-3 w-3" /> : <User className="h-3 w-3" />}</AvatarFallback>
                     </Avatar>
                     <div className={`flex-1 max-w-[80%] ${m.isBot ? '' : 'text-right'}`}>
                       <div className={`text-xs p-2 rounded-lg whitespace-pre-line ${
-                        m.isBot 
-                          ? m.action === 'success' 
-                            ? 'bg-green-50 border border-green-200' 
-                            : m.action === 'error' 
-                            ? 'bg-red-50 border border-red-200' 
-                            : 'bg-muted' 
-                          : 'bg-primary text-primary-foreground'
-                      }`}>
-                        <div className="flex items-start gap-1">
-                          {m.content}
-                          {getMessageIcon(m)}
-                        </div>
+                        m.isBot ? m.action === 'success' ? 'bg-green-50 border border-green-200' : m.action === 'error' ? 'bg-red-50 border border-red-200' : 'bg-muted' : 'bg-primary text-primary-foreground'}`}>
+                        <div className="flex items-start gap-1">{m.content}{getMessageIcon(m)}</div>
                       </div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {formatTime(m.timestamp)}
-                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">{formatTime(m.timestamp)}</div>
                     </div>
                   </div>
                 ))}
                 {loading && (
                   <div className="flex gap-2">
                     <Avatar className="h-6 w-6">
-                      <AvatarFallback className="text-xs">
-                        <Bot className="h-3 w-3" />
-                      </AvatarFallback>
+                      <AvatarFallback className="text-xs"><Bot className="h-3 w-3" /></AvatarFallback>
                     </Avatar>
                     <div className="bg-muted p-2 rounded-lg">
                       <div className="flex gap-1">
@@ -446,14 +257,8 @@ Keep responses brief and professional.`;
                     }
                   }}
                 />
-                <Button 
-                  onClick={handleSendMessage} 
-                  disabled={loading || !newMessage.trim()} 
-                  size="sm" 
-                  className="w-full"
-                >
-                  <Send className="h-3 w-3 mr-2" />
-                  {loading ? 'Processing...' : 'Send'}
+                <Button onClick={handleSendMessage} disabled={loading || !newMessage.trim()} size="sm" className="w-full">
+                  <Send className="h-3 w-3 mr-2" />{loading ? 'Processing...' : 'Send'}
                 </Button>
               </div>
             </CardContent>

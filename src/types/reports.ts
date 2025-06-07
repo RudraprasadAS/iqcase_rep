@@ -1,154 +1,97 @@
 
-export interface DataSource {
-  id: string;
-  name: string;
-  table_name: string;
-  description?: string;
-  fields: FieldDefinition[];
-  relationships: Relationship[];
-  is_active: boolean;
-  created_at: string;
-}
+import { Json } from '@/integrations/supabase/types';
 
-export interface FieldDefinition {
-  name: string;
-  type: string;
-  label: string;
-  nullable?: boolean;
-  default_value?: string;
-}
-
-export interface Relationship {
-  table: string;
-  field: string;
-  target_field: string;
-  label: string;
-}
-
-export interface ReportTemplate {
+export interface Report {
   id: string;
   name: string;
   description?: string;
-  base_table: string;
-  config: ReportConfig;
   created_by: string;
-  created_at: string;
-  updated_at: string;
-  is_public: boolean;
-  is_active: boolean;
-}
-
-export interface ReportConfig {
-  selected_fields: SelectedField[];
+  created_at?: string;
+  updated_at?: string;
+  module: string;
+  base_table: string;
+  selected_fields: Json;
+  fields: string[];
   filters: ReportFilter[];
-  grouping: GroupingConfig[];
-  aggregations: AggregationConfig[];
-  joins: JoinConfig[];
-  chart_type?: 'table' | 'bar' | 'line' | 'pie' | 'donut';
-  sort_by?: SortConfig[];
-  limit?: number;
+  aggregation?: string;
+  chart_type?: 'table' | 'bar' | 'line' | 'pie';
+  group_by?: string;
+  is_public: boolean;
+  joins?: TableJoin[];
 }
 
-export interface SelectedField {
-  table: string;
-  field: string;
-  alias?: string;
-  label: string;
-}
-
-export type FilterOperator = 'eq' | 'neq' | 'gt' | 'lt' | 'gte' | 'lte' | 'like' | 'ilike' | 'in' | 'between' | 'is';
+export type FilterOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'like' | 'ilike' | 'in' | 'is';
 
 export interface ReportFilter {
   field: string;
   operator: FilterOperator;
-  value: string | string[];
-  table?: string;
-}
-
-export interface GroupingConfig {
-  field: string;
-  table?: string;
-}
-
-export interface AggregationConfig {
-  function: 'COUNT' | 'SUM' | 'AVG' | 'MIN' | 'MAX';
-  field: string;
-  alias: string;
-  table?: string;
-}
-
-export interface JoinConfig {
-  table: string;
-  join_type: 'INNER' | 'LEFT' | 'RIGHT';
-  on_field: string;
-  target_field: string;
-}
-
-export interface SortConfig {
-  field: string;
-  direction: 'ASC' | 'DESC';
-  table?: string;
-}
-
-export interface DashboardTemplate {
-  id: string;
-  name: string;
-  description?: string;
-  layout: DashboardLayout;
-  created_by: string;
-  created_at: string;
-  updated_at: string;
-  is_active: boolean;
-}
-
-export interface DashboardLayout {
-  widgets: DashboardWidget[];
-  global_filters?: GlobalFilter[];
-  auto_refresh?: number; // seconds
-}
-
-export interface DashboardWidget {
-  id: string;
-  report_id: string;
-  position: WidgetPosition;
-  size: WidgetSize;
-  title?: string;
-}
-
-export interface WidgetPosition {
-  x: number;
-  y: number;
-}
-
-export interface WidgetSize {
-  width: number;
-  height: number;
-}
-
-export interface GlobalFilter {
-  field: string;
-  operator: string;
-  value: string;
-  applies_to: string[]; // widget IDs
-}
-
-export interface ReportResult {
-  data: any[];
-  total_count?: number;
-  error?: string;
-}
-
-// Additional types needed by components
-export interface ColumnDefinition {
-  name: string;
-  label: string;
-  type: string;
-  nullable?: boolean;
+  value: string | number | boolean | null | (string | number)[];
 }
 
 export interface TableInfo {
   name: string;
-  table_name: string; // Added this property
+  fields: string[];
+  description?: string;
+  relations?: TableRelation[];
+}
+
+export interface TableRelation {
+  referencedTable: string;
+  sourceColumn: string;
+  targetColumn: string;
+}
+
+export interface TableJoin {
+  table: string;
+  alias?: string;
+  sourceColumn: string;
+  targetColumn: string;
+  joinType: 'inner' | 'left' | 'right';
+}
+
+export interface ReportData {
+  columns: string[];
+  rows: Record<string, any>[];
+  total: number;
+}
+
+export interface ColumnDefinition {
+  key: string;
   label: string;
-  columns: ColumnDefinition[];
+  table?: string;
+  sourceTable?: string;
+}
+
+export interface SavedView {
+  id: string;
+  name: string;
+  description?: string;
+  baseReport: string;
+  columns: string[];
+  filters: ReportFilter[];
+  created_by: string;
+  created_at?: string;
+}
+
+// Added to ensure ReportFilter can be used as a JSON value
+export type ReportFilterJson = {
+  field: string;
+  operator: string;
+  value: string | number | boolean | null | (string | number)[];
+};
+
+// Type for the config stored in the report_configs table
+export interface ReportConfigJson {
+  baseReportId: string;
+  columns: string[];
+  filters: ReportFilterJson[];
+}
+
+// Enhanced chart configuration interface
+export interface ChartConfig {
+  type: 'table' | 'bar' | 'line' | 'pie';
+  xAxis?: string;
+  yAxis?: string;
+  aggregation?: 'count' | 'sum' | 'avg' | 'min' | 'max';
+  dateGrouping?: 'day' | 'week' | 'month' | 'quarter' | 'year';
 }

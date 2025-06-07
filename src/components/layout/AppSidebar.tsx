@@ -41,9 +41,9 @@ const navigation = [
 ];
 
 const reportNavigation = [
-  { name: 'Reports', href: '/reports' },
+  { name: 'Standard Reports', href: '/reports/standard' },
   { name: 'Report Builder', href: '/reports/builder' },
-  { name: 'Dashboards', href: '/reports/dashboards' },
+  { name: 'Table Builder', href: '/reports/table-builder' },
 ];
 
 const adminNavigation = [

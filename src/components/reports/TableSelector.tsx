@@ -10,10 +10,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Check, ChevronDown, Database } from "lucide-react";
-import { DataSource } from '@/types/reports';
+import { TableInfo } from '@/types/reports';
 
 interface TableSelectorProps {
-  tables: DataSource[];
+  tables: TableInfo[];
   selectedTable: string | null;
   onTableSelect: (tableName: string) => void;
   isLoading: boolean;
@@ -28,16 +28,16 @@ export const TableSelector = ({
   // Group tables by type/category for better organization
   const groupTables = () => {
     // This is a simple example - in a real app, you might want to have more sophisticated grouping
-    const groups: Record<string, DataSource[]> = {
+    const groups: Record<string, TableInfo[]> = {
       "Case Management": [],
       "User Management": [],
       "Other": []
     };
     
     tables.forEach(table => {
-      if (table.table_name.startsWith('case_') || table.table_name === 'cases') {
+      if (table.name.startsWith('case_') || table.name === 'cases') {
         groups["Case Management"].push(table);
-      } else if (table.table_name === 'users' || table.table_name === 'roles' || table.table_name === 'permissions') {
+      } else if (table.name === 'users' || table.name === 'roles' || table.name === 'permissions') {
         groups["User Management"].push(table);
       } else {
         groups["Other"].push(table);
@@ -50,7 +50,7 @@ export const TableSelector = ({
   const tableGroups = groupTables();
   
   // Find the selected table name for display
-  const selectedTableInfo = tables.find(t => t.table_name === selectedTable);
+  const selectedTableInfo = tables.find(t => t.name === selectedTable);
   const displayName = selectedTable ? 
     selectedTableInfo ? 
       selectedTable.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 
@@ -87,12 +87,12 @@ export const TableSelector = ({
                     </div>
                     {tables.map((table) => (
                       <DropdownMenuItem
-                        key={table.table_name}
+                        key={table.name}
                         className="flex items-center justify-between cursor-pointer"
-                        onClick={() => onTableSelect(table.table_name)}
+                        onClick={() => onTableSelect(table.name)}
                       >
-                        <span>{table.table_name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</span>
-                        {selectedTable === table.table_name && (
+                        <span>{table.name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</span>
+                        {selectedTable === table.name && (
                           <Check className="h-4 w-4" />
                         )}
                       </DropdownMenuItem>
