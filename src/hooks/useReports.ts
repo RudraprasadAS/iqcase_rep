@@ -36,7 +36,7 @@ export const useReports = () => {
       return (data || []).map(item => ({
         ...item,
         selected_fields: Array.isArray(item.selected_fields) ? item.selected_fields as string[] : [],
-        filters: Array.isArray(item.filters) ? item.filters as ReportFilter[] : []
+        filters: Array.isArray(item.filters) ? (item.filters as unknown as ReportFilter[]) : []
       })) as Report[];
     }
   });
@@ -151,8 +151,8 @@ export const useReports = () => {
         return { data: [], error: data.error as string };
       }
       
-      const resultArray = Array.isArray(data) ? data : (data ? [data] : []);
-      return { data: resultArray as Record<string, any>[] };
+      const resultArray = Array.isArray(data) ? data as Record<string, any>[] : (data ? [data as Record<string, any>] : []);
+      return { data: resultArray };
     }
   });
 
