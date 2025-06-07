@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -64,7 +63,8 @@ export const useReports = () => {
             selected_fields: report.selected_fields,
             base_table: report.base_table || report.module,
             module: report.module,
-            filters: processedFilters
+            filters: processedFilters,
+            date_grouping: report.date_grouping // Ensure date_grouping is included
           } as Report;
         });
       } catch (error) {
@@ -81,6 +81,7 @@ export const useReports = () => {
       const filtersForDb = report.filters as unknown as Json;
       
       console.log("Creating report with data:", report);
+      console.log("Date grouping being saved:", report.date_grouping);
       
       try {
         // Get the current user's ID from Auth
@@ -179,6 +180,7 @@ export const useReports = () => {
             aggregation: report.aggregation || null,
             chart_type: report.chart_type || 'table',
             group_by: report.group_by || null,
+            date_grouping: report.date_grouping || null, // CRITICAL: Save date_grouping
             is_public: report.is_public || false
           })
           .select()
@@ -189,7 +191,7 @@ export const useReports = () => {
           throw error;
         }
         
-        console.log("Created report:", data);
+        console.log("Created report with date_grouping:", data.date_grouping);
         
         // Map back to our interface
         return {
@@ -204,7 +206,8 @@ export const useReports = () => {
                 operator: filter.operator as FilterOperator,
                 value: filter.value
               }))
-            : []
+            : [],
+          date_grouping: data.date_grouping // Ensure date_grouping is returned
         } as Report;
       } catch (error) {
         console.error("Error in createReport mutation:", error);
@@ -233,6 +236,8 @@ export const useReports = () => {
       // Convert filters to the format expected by the database
       const filtersForDb = report.filters as unknown as Json;
       
+      console.log("Updating report with date_grouping:", report.date_grouping);
+      
       // Convert for Supabase DB structure
       const { data, error } = await supabase
         .from('reports')
@@ -246,6 +251,7 @@ export const useReports = () => {
           aggregation: report.aggregation || null,
           chart_type: report.chart_type || 'table',
           group_by: report.group_by || null,
+          date_grouping: report.date_grouping || null, // CRITICAL: Save date_grouping
           is_public: report.is_public
         })
         .eq('id', id)
@@ -253,6 +259,8 @@ export const useReports = () => {
         .single();
       
       if (error) throw error;
+      
+      console.log("Updated report with date_grouping:", data.date_grouping);
       
       // Map back to our interface
       return {
@@ -267,7 +275,8 @@ export const useReports = () => {
               operator: filter.operator as FilterOperator,
               value: filter.value
             })) as ReportFilter[]
-          : []
+          : [],
+        date_grouping: data.date_grouping // Ensure date_grouping is returned
       } as Report;
     },
     onSuccess: (_, variables) => {

@@ -61,6 +61,7 @@ const ReportBuilder = () => {
       const report = reports.find(r => r.id === reportId);
       if (report) {
         console.log('Loading existing report:', report);
+        console.log('Report date_grouping from database:', report.date_grouping);
         setCurrentReport(report);
         
         // Populate form
@@ -95,7 +96,7 @@ const ReportBuilder = () => {
         // CRITICAL: Load date_grouping field specifically from database
         if (report.date_grouping) {
           loadedChartConfig.dateGrouping = report.date_grouping as ChartConfig['dateGrouping'];
-          console.log('✅ Loaded date_grouping from database:', report.date_grouping);
+          console.log('✅ Successfully loaded date_grouping from database:', report.date_grouping);
         }
 
         console.log('Final loaded chart config with date grouping:', loadedChartConfig);

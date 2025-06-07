@@ -1028,6 +1028,7 @@ export type Database = {
           chart_type: string | null
           created_at: string
           created_by: string
+          date_grouping: string | null
           description: string | null
           filters: Json
           group_by: string | null
@@ -1044,6 +1045,7 @@ export type Database = {
           chart_type?: string | null
           created_at?: string
           created_by: string
+          date_grouping?: string | null
           description?: string | null
           filters?: Json
           group_by?: string | null
@@ -1060,6 +1062,7 @@ export type Database = {
           chart_type?: string | null
           created_at?: string
           created_by?: string
+          date_grouping?: string | null
           description?: string | null
           filters?: Json
           group_by?: string | null
