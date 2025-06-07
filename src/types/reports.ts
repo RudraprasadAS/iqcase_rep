@@ -56,7 +56,7 @@ export interface SelectedField {
   label: string;
 }
 
-export type FilterOperator = 'eq' | 'neq' | 'gt' | 'lt' | 'gte' | 'lte' | 'like' | 'in' | 'between';
+export type FilterOperator = 'eq' | 'neq' | 'gt' | 'lt' | 'gte' | 'lte' | 'like' | 'ilike' | 'in' | 'between' | 'is';
 
 export interface ReportFilter {
   field: string;
@@ -148,6 +148,7 @@ export interface ColumnDefinition {
 
 export interface TableInfo {
   name: string;
+  table_name: string; // Added this property
   label: string;
   columns: ColumnDefinition[];
 }

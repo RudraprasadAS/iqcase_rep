@@ -10,10 +10,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Check, ChevronDown, Database } from "lucide-react";
-import { TableInfo } from '@/types/reports';
+import { DataSource } from '@/types/reports';
 
 interface TableSelectorProps {
-  tables: TableInfo[];
+  tables: DataSource[];
   selectedTable: string | null;
   onTableSelect: (tableName: string) => void;
   isLoading: boolean;
@@ -28,7 +28,7 @@ export const TableSelector = ({
   // Group tables by type/category for better organization
   const groupTables = () => {
     // This is a simple example - in a real app, you might want to have more sophisticated grouping
-    const groups: Record<string, TableInfo[]> = {
+    const groups: Record<string, DataSource[]> = {
       "Case Management": [],
       "User Management": [],
       "Other": []
