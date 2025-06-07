@@ -13,7 +13,7 @@ export interface Report {
 
 export interface ReportFilter {
   field: string;
-  operator: 'eq' | 'like' | 'gt' | 'lt' | 'gte' | 'lte';
+  operator: 'eq' | 'neq' | 'like' | 'ilike' | 'gt' | 'lt' | 'gte' | 'lte' | 'is';
   value: string;
 }
 
@@ -30,8 +30,9 @@ export interface ReportData {
 // Add missing types for backward compatibility
 export interface ColumnDefinition {
   name: string;
+  key: string;
   type: string;
   label: string;
 }
 
-export type FilterOperator = 'eq' | 'like' | 'gt' | 'lt' | 'gte' | 'lte';
+export type FilterOperator = 'eq' | 'neq' | 'like' | 'ilike' | 'gt' | 'lt' | 'gte' | 'lte' | 'is';

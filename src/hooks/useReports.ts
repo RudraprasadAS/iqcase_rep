@@ -60,8 +60,8 @@ export const useReports = () => {
           name: report.name,
           description: report.description,
           table_name: report.table_name,
-          selected_fields: report.selected_fields as any,
-          filters: report.filters as any,
+          selected_fields: JSON.parse(JSON.stringify(report.selected_fields)),
+          filters: JSON.parse(JSON.stringify(report.filters)),
           created_by: userData.id
         })
         .select()
@@ -94,8 +94,8 @@ export const useReports = () => {
       if (report.name !== undefined) updateData.name = report.name;
       if (report.description !== undefined) updateData.description = report.description;
       if (report.table_name !== undefined) updateData.table_name = report.table_name;
-      if (report.selected_fields !== undefined) updateData.selected_fields = report.selected_fields;
-      if (report.filters !== undefined) updateData.filters = report.filters;
+      if (report.selected_fields !== undefined) updateData.selected_fields = JSON.parse(JSON.stringify(report.selected_fields));
+      if (report.filters !== undefined) updateData.filters = JSON.parse(JSON.stringify(report.filters));
       
       const { data, error } = await supabase
         .from('reports')
@@ -141,8 +141,8 @@ export const useReports = () => {
     mutationFn: async (report: Report): Promise<ReportData> => {
       const { data, error } = await supabase.rpc('execute_report', {
         p_table_name: report.table_name,
-        p_selected_fields: report.selected_fields as any,
-        p_filters: report.filters as any
+        p_selected_fields: JSON.parse(JSON.stringify(report.selected_fields)),
+        p_filters: JSON.parse(JSON.stringify(report.filters))
       });
       
       if (error) throw error;

@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -45,7 +46,7 @@ export const CalculationFields = ({
 
   const numericColumns = availableColumns.filter(col => 
     ['id', 'number', 'integer', 'decimal', 'float'].some(type => 
-      col.key.includes(type) || col.key.endsWith('_id') || col.key.includes('count') || col.key.includes('amount')
+      col.name.includes(type) || col.name.endsWith('_id') || col.name.includes('count') || col.name.includes('amount')
     )
   );
 
@@ -183,7 +184,7 @@ export const CalculationFields = ({
                   </SelectTrigger>
                   <SelectContent>
                     {(newCalculation.operation === 'count_distinct' ? availableColumns : numericColumns).map((col) => (
-                      <SelectItem key={col.key} value={col.key}>
+                      <SelectItem key={col.name} value={col.name}>
                         {col.label}
                       </SelectItem>
                     ))}

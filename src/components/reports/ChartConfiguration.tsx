@@ -53,18 +53,18 @@ export const ChartConfiguration = ({
 
   // Get columns that could be used for different purposes
   const categoricalColumns = availableColumns.filter(col => 
-    !['id', 'created_at', 'updated_at'].includes(col.key) &&
-    !col.key.includes('_id') &&
-    !isNumericField(col.key) &&
-    !isDateField(col.key)
+    !['id', 'created_at', 'updated_at'].includes(col.name) &&
+    !col.name.includes('_id') &&
+    !isNumericField(col.name) &&
+    !isDateField(col.name)
   );
 
   const numericColumns = availableColumns.filter(col => 
-    isNumericField(col.key) || col.key.includes('count') || col.key.includes('amount')
+    isNumericField(col.name) || col.name.includes('count') || col.name.includes('amount')
   );
 
   const timeColumns = availableColumns.filter(col => 
-    isDateField(col.key)
+    isDateField(col.name)
   );
 
   function isNumericField(fieldName: string): boolean {
@@ -140,12 +140,12 @@ export const ChartConfiguration = ({
                     </SelectTrigger>
                     <SelectContent>
                       {categoricalColumns.map((col) => (
-                        <SelectItem key={col.key} value={col.key}>
+                        <SelectItem key={col.name} value={col.name}>
                           {col.label}
                         </SelectItem>
                       ))}
                       {timeColumns.map((col) => (
-                        <SelectItem key={col.key} value={col.key}>
+                        <SelectItem key={col.name} value={col.name}>
                           {col.label} (Date/Time)
                         </SelectItem>
                       ))}
@@ -211,12 +211,12 @@ export const ChartConfiguration = ({
                       </SelectTrigger>
                       <SelectContent>
                         {numericColumns.map((col) => (
-                          <SelectItem key={col.key} value={col.key}>
+                          <SelectItem key={col.name} value={col.name}>
                             {col.label}
                           </SelectItem>
                         ))}
                         {availableColumns.map((col) => (
-                          <SelectItem key={`all-${col.key}`} value={col.key}>
+                          <SelectItem key={`all-${col.name}`} value={col.name}>
                             {col.label}
                           </SelectItem>
                         ))}
@@ -245,7 +245,7 @@ export const ChartConfiguration = ({
                     </SelectTrigger>
                     <SelectContent>
                       {categoricalColumns.map((col) => (
-                        <SelectItem key={col.key} value={col.key}>
+                        <SelectItem key={col.name} value={col.name}>
                           {col.label}
                         </SelectItem>
                       ))}
@@ -289,7 +289,7 @@ export const ChartConfiguration = ({
                   <span className="font-medium">{chartConfig.aggregation || 'count'}</span>
                   {chartConfig.xAxis && (
                     <>
-                      {' '}by <span className="font-medium">{availableColumns.find(col => col.key === chartConfig.xAxis)?.label}</span>
+                      {' '}by <span className="font-medium">{availableColumns.find(col => col.name === chartConfig.xAxis)?.label}</span>
                     </>
                   )}
                 </p>
@@ -297,7 +297,7 @@ export const ChartConfiguration = ({
                 <p>
                   {chartConfig.type === 'bar' ? 'Bar' : 'Line'} chart with{' '}
                   {chartConfig.xAxis && (
-                    <span className="font-medium">{availableColumns.find(col => col.key === chartConfig.xAxis)?.label}</span>
+                    <span className="font-medium">{availableColumns.find(col => col.name === chartConfig.xAxis)?.label}</span>
                   )}
                   {isSelectedFieldDate && chartConfig.dateGrouping && (
                     <span className="font-medium"> ({chartConfig.dateGrouping})</span>
@@ -306,7 +306,7 @@ export const ChartConfiguration = ({
                   <span className="font-medium">{chartConfig.aggregation || 'count'}</span>
                   {chartConfig.yAxis && chartConfig.aggregation !== 'count' && (
                     <>
-                      {' '}of <span className="font-medium">{availableColumns.find(col => col.key === chartConfig.yAxis)?.label}</span>
+                      {' '}of <span className="font-medium">{availableColumns.find(col => col.name === chartConfig.yAxis)?.label}</span>
                     </>
                   )}
                   {' '}on Y-axis

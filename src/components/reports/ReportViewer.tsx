@@ -42,30 +42,19 @@ const ReportViewer = ({ reportId, onClose }: ReportViewerProps) => {
 
       if (error) throw error;
       
-      // Helper function to validate chart_type
-      const validateChartType = (chartType: string | null): 'table' | 'bar' | 'line' | 'pie' => {
-        if (chartType === 'bar' || chartType === 'line' || chartType === 'pie') {
-          return chartType;
-        }
-        return 'table'; // Default fallback
-      };
-
       // Transform the database response to match the Report interface
       const transformedReport: Report = {
         ...reportData,
-        fields: Array.isArray(reportData.selected_fields) 
+        selected_fields: Array.isArray(reportData.selected_fields) 
           ? reportData.selected_fields as string[]
           : typeof reportData.selected_fields === 'string'
           ? [reportData.selected_fields]
           : [],
-        base_table: reportData.module,
-        chart_type: validateChartType(reportData.chart_type),
         filters: Array.isArray(reportData.filters) 
           ? reportData.filters as any[]
           : typeof reportData.filters === 'string'
           ? JSON.parse(reportData.filters)
-          : [],
-        joins: [] // Default empty array for joins
+          : []
       };
       
       setReport(transformedReport);
@@ -87,8 +76,8 @@ const ReportViewer = ({ reportId, onClose }: ReportViewerProps) => {
     
     setExecuting(true);
     try {
-      // For now, let's just fetch from the specified module/table
-      const tableName = reportData.module;
+      // Use the table_name from the report
+      const tableName = reportData.table_name;
       
       const { data: queryData, error } = await supabase
         .from(tableName as any)
@@ -153,7 +142,7 @@ const ReportViewer = ({ reportId, onClose }: ReportViewerProps) => {
         <div>
           <CardTitle className="flex items-center gap-2">
             {report.name}
-            <Badge variant="outline">{report.module}</Badge>
+            <Badge variant="outline">{report.table_name}</Badge>
           </CardTitle>
           {report.description && (
             <p className="text-sm text-muted-foreground mt-1">
