@@ -3,12 +3,19 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Edit, Trash2, Eye, Users, Lock } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, Users, Lock, Play, Download } from 'lucide-react';
 import { useReports } from '@/hooks/useReports';
 import { useNavigate } from 'react-router-dom';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { ReportPreview } from '@/components/reports/ReportPreview';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 const Reports = () => {
   const navigate = useNavigate();
@@ -53,7 +60,7 @@ const Reports = () => {
   const exportToCsv = () => {
     if (!reportData || !reportData.rows || reportData.rows.length === 0) return;
 
-    const headers = reportData.columns;
+    const headers = reportData.columns || Object.keys(reportData.rows[0]);
     const csvContent = [
       headers.join(','),
       ...reportData.rows.map((row: any) =>
@@ -90,7 +97,6 @@ const Reports = () => {
         </Button>
       </div>
 
-      {/* Custom Reports */}
       <div>
         <h2 className="text-xl font-semibold mb-4">My Reports</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -188,18 +194,74 @@ const Reports = () => {
       <Dialog open={showReportDialog} onOpenChange={setShowReportDialog}>
         <DialogContent className="max-w-6xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{selectedReport?.name} - Report View</DialogTitle>
+            <DialogTitle className="flex items-center justify-between">
+              <span>{selectedReport?.name} - Report View</span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={exportToCsv}
+                  disabled={!reportData || !reportData.rows || reportData.rows.length === 0}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Export CSV
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => handleViewReport(selectedReport)}
+                  disabled={isLoadingReportData}
+                >
+                  <Play className="mr-2 h-4 w-4" />
+                  Refresh
+                </Button>
+              </div>
+            </DialogTitle>
           </DialogHeader>
           <div className="mt-4">
-            {selectedReport && (
-              <ReportPreview
-                data={reportData?.rows || []}
-                columns={reportData?.columns || []}
-                chartType={selectedReport.chart_type || 'table'}
-                isLoading={isLoadingReportData}
-                onRunReport={() => handleViewReport(selectedReport)}
-                onExportCsv={exportToCsv}
-              />
+            {isLoadingReportData ? (
+              <div className="flex items-center justify-center p-8">
+                <div className="text-center">
+                  <div className="w-8 h-8 border-4 border-gray-300 border-t-primary rounded-full animate-spin mx-auto mb-2"></div>
+                  <p>Running report...</p>
+                </div>
+              </div>
+            ) : reportData && reportData.rows && reportData.rows.length > 0 ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-muted-foreground">
+                    {reportData.rows.length} {reportData.rows.length === 1 ? 'record' : 'records'} found
+                  </p>
+                </div>
+                
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        {(reportData.columns || Object.keys(reportData.rows[0])).map((key: string) => (
+                          <TableHead key={key}>
+                            {key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                          </TableHead>
+                        ))}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {reportData.rows.map((row: any, index: number) => (
+                        <TableRow key={index}>
+                          {(reportData.columns || Object.keys(row)).map((key: string, cellIndex: number) => (
+                            <TableCell key={cellIndex}>
+                              {row[key] === null || row[key] === undefined ? '-' : String(row[key])}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">No data found</p>
+              </div>
             )}
           </div>
         </DialogContent>

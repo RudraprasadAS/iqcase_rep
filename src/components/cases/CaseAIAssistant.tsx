@@ -37,6 +37,7 @@ const CaseAIAssistant = ({ caseId, caseContext, onCaseUpdate }: CaseAIAssistantP
       content: `Hi! I'm your Case Assistant. I can help you with this case: "${caseContext?.title || 'Current Case'}". Ask me questions or give me commands like:
       
       • "What is this case about?"
+      • "Who raised this case?"
       • "Mark as urgent"
       • "Assign to [user]"
       • "Close this case"
@@ -98,6 +99,32 @@ const CaseAIAssistant = ({ caseId, caseContext, onCaseUpdate }: CaseAIAssistantP
     }
   };
 
+  const getUserName = async (userId: string): Promise<string> => {
+    try {
+      console.log('Looking up user name for ID:', userId);
+      const { data: user, error } = await supabase
+        .from('users')
+        .select('name, email')
+        .eq('id', userId)
+        .maybeSingle();
+      
+      if (error) {
+        console.error('Error fetching user:', error);
+        return userId; // fallback to ID
+      }
+      
+      if (user) {
+        console.log('Found user:', user);
+        return user.name || user.email || userId;
+      }
+      
+      return userId; // fallback if no user found
+    } catch (error) {
+      console.error('Error in getUserName:', error);
+      return userId;
+    }
+  };
+
   const processMessage = async (message: string): Promise<{ content: string; action?: 'success' | 'error' } | null> => {
     const lower = message.toLowerCase();
 
@@ -107,35 +134,108 @@ const CaseAIAssistant = ({ caseId, caseContext, onCaseUpdate }: CaseAIAssistantP
       };
     }
 
-    if (lower.includes('close this case')) {
-      try {
-        await supabase.from('cases').update({ status: 'closed' }).eq('id', caseId);
-        await supabase.from('case_activities').insert({
-          case_id: caseId,
-          activity_type: 'status_changed',
-          description: 'Case closed via AI Assistant',
-          performed_by: caseContext?.submitted_by
-        });
-        if (onCaseUpdate) onCaseUpdate();
-        return { content: 'Case successfully closed.', action: 'success' };
-      } catch {
-        return { content: 'Error closing case.', action: 'error' };
+    if (lower.includes('who raised this case') || lower.includes('who submitted') || lower.includes('submitted by')) {
+      if (caseContext?.submitted_by) {
+        try {
+          const submitterName = await getUserName(caseContext.submitted_by);
+          return {
+            content: `This case was submitted by: ${submitterName}`
+          };
+        } catch (error) {
+          return {
+            content: `This case was submitted by user ID: ${caseContext.submitted_by}`
+          };
+        }
+      } else {
+        return {
+          content: 'No submitter information is available for this case.'
+        };
       }
     }
 
-    if (lower.includes('mark as urgent')) {
+    if (lower.includes('close this case') || lower.includes('close case')) {
       try {
-        await supabase.from('cases').update({ priority: 'urgent' }).eq('id', caseId);
-        await supabase.from('case_activities').insert({
-          case_id: caseId,
-          activity_type: 'priority_changed',
-          description: 'Priority set to urgent via AI Assistant',
-          performed_by: caseContext?.submitted_by
+        console.log('Attempting to close case:', caseId);
+        
+        const { error: updateError } = await supabase
+          .from('cases')
+          .update({ status: 'closed' })
+          .eq('id', caseId);
+
+        if (updateError) {
+          console.error('Error updating case status:', updateError);
+          throw updateError;
+        }
+
+        const { error: activityError } = await supabase
+          .from('case_activities')
+          .insert({
+            case_id: caseId,
+            activity_type: 'status_changed',
+            description: 'Case closed via AI Assistant',
+            performed_by: caseContext?.submitted_by
+          });
+
+        if (activityError) {
+          console.error('Error creating activity log:', activityError);
+        }
+
+        if (onCaseUpdate) {
+          onCaseUpdate();
+        }
+
+        toast({
+          title: 'Case Closed',
+          description: 'The case has been successfully closed.'
         });
-        if (onCaseUpdate) onCaseUpdate();
+
+        return { content: 'Case successfully closed.', action: 'success' };
+      } catch (error) {
+        console.error('Error closing case:', error);
+        return { content: 'Error closing case. Please try again.', action: 'error' };
+      }
+    }
+
+    if (lower.includes('mark as urgent') || lower.includes('set to urgent')) {
+      try {
+        console.log('Attempting to set case as urgent:', caseId);
+        
+        const { error: updateError } = await supabase
+          .from('cases')
+          .update({ priority: 'urgent' })
+          .eq('id', caseId);
+
+        if (updateError) {
+          console.error('Error updating case priority:', updateError);
+          throw updateError;
+        }
+
+        const { error: activityError } = await supabase
+          .from('case_activities')
+          .insert({
+            case_id: caseId,
+            activity_type: 'priority_changed',
+            description: 'Priority set to urgent via AI Assistant',
+            performed_by: caseContext?.submitted_by
+          });
+
+        if (activityError) {
+          console.error('Error creating activity log:', activityError);
+        }
+
+        if (onCaseUpdate) {
+          onCaseUpdate();
+        }
+
+        toast({
+          title: 'Priority Updated',
+          description: 'Case priority has been set to urgent.'
+        });
+
         return { content: 'Priority set to urgent.', action: 'success' };
-      } catch {
-        return { content: 'Error updating priority.', action: 'error' };
+      } catch (error) {
+        console.error('Error updating priority:', error);
+        return { content: 'Error updating priority. Please try again.', action: 'error' };
       }
     }
 
@@ -143,17 +243,56 @@ const CaseAIAssistant = ({ caseId, caseContext, onCaseUpdate }: CaseAIAssistantP
     if (assignMatch) {
       const assignee = assignMatch[1].trim();
       try {
-        await supabase.from('cases').update({ assigned_to: assignee }).eq('id', caseId);
-        await supabase.from('case_activities').insert({
-          case_id: caseId,
-          activity_type: 'assignment_changed',
-          description: `Assigned to ${assignee} via AI Assistant`,
-          performed_by: caseContext?.submitted_by
+        console.log('Attempting to assign case to:', assignee);
+        
+        // Try to find user by name first
+        const { data: users, error: userError } = await supabase
+          .from('users')
+          .select('id, name')
+          .ilike('name', `%${assignee}%`);
+
+        let assigneeId = assignee;
+        if (users && users.length > 0) {
+          assigneeId = users[0].id;
+          console.log('Found user ID:', assigneeId, 'for name:', assignee);
+        }
+
+        const { error: updateError } = await supabase
+          .from('cases')
+          .update({ assigned_to: assigneeId })
+          .eq('id', caseId);
+
+        if (updateError) {
+          console.error('Error updating case assignment:', updateError);
+          throw updateError;
+        }
+
+        const { error: activityError } = await supabase
+          .from('case_activities')
+          .insert({
+            case_id: caseId,
+            activity_type: 'assignment_changed',
+            description: `Assigned to ${assignee} via AI Assistant`,
+            performed_by: caseContext?.submitted_by
+          });
+
+        if (activityError) {
+          console.error('Error creating activity log:', activityError);
+        }
+
+        if (onCaseUpdate) {
+          onCaseUpdate();
+        }
+
+        toast({
+          title: 'Case Assigned',
+          description: `Case has been assigned to ${assignee}.`
         });
-        if (onCaseUpdate) onCaseUpdate();
+
         return { content: `Case successfully assigned to ${assignee}.`, action: 'success' };
-      } catch {
-        return { content: 'Error assigning case.', action: 'error' };
+      } catch (error) {
+        console.error('Error assigning case:', error);
+        return { content: 'Error assigning case. Please try again.', action: 'error' };
       }
     }
 
@@ -168,25 +307,32 @@ Priority: ${caseContext?.priority}
 Description: ${caseContext?.description}
 Category: ${caseContext?.category}
 Assigned To: ${caseContext?.assigned_to}
-Submitted By: ${caseContext?.submitted_by}`;
+Submitted By: ${caseContext?.submitted_by}
 
-    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: 'Bearer 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',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'deepseek/deepseek-chat:free',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: input }
-        ]
-      })
-    });
+Provide helpful, concise responses about this case. If asked about user IDs, explain that you can help with case information but suggest using specific commands for actions.`;
 
-    const data = await res.json();
-    return data?.choices?.[0]?.message?.content || 'No response.';
+    try {
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer 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',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: 'deepseek/deepseek-chat:free',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: input }
+          ]
+        })
+      });
+
+      const data = await res.json();
+      return data?.choices?.[0]?.message?.content || 'I\'m sorry, I couldn\'t process that request. Please try asking about the case details or use specific commands like "close this case" or "mark as urgent".';
+    } catch (error) {
+      console.error('Error calling OpenRouter AI:', error);
+      return 'I\'m sorry, I\'m having trouble connecting to my AI service. Please try asking about the case details or use specific commands.';
+    }
   };
 
   const formatTime = (date: Date) => date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
