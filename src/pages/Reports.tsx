@@ -4,13 +4,15 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Edit, Trash2, Eye, Users, Lock } from 'lucide-react';
-import { useReports } from '@/hooks/useReports';
+import { useSimpleReports } from '@/hooks/useSimpleReports';
 import { useNavigate } from 'react-router-dom';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import SimpleReportViewer from '@/components/reports/SimpleReportViewer';
 
 const Reports = () => {
   const navigate = useNavigate();
-  const { reports, isLoadingReports, deleteReport } = useReports();
+  const { reports, isLoadingReports, deleteReport } = useSimpleReports();
+  const [viewingReportId, setViewingReportId] = useState<string | null>(null);
 
   const handleCreateReport = () => {
     navigate('/reports/builder');
@@ -21,7 +23,7 @@ const Reports = () => {
   };
 
   const handleViewReport = (reportId: string) => {
-    navigate(`/reports/builder?id=${reportId}&view=true`);
+    setViewingReportId(reportId);
   };
 
   const handleDeleteReport = async (reportId: string) => {
@@ -31,6 +33,15 @@ const Reports = () => {
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString();
   };
+
+  if (viewingReportId) {
+    return (
+      <SimpleReportViewer 
+        reportId={viewingReportId} 
+        onClose={() => setViewingReportId(null)} 
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
