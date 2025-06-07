@@ -56,7 +56,7 @@ export const useDashboardLayout = (dashboardId: string) => {
         .upsert({
           user_id: user.id,
           dashboard_id: dashboardId,
-          layout_data: layout
+          layout_data: layout as any
         });
       
       if (error) throw error;

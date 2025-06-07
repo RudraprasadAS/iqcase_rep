@@ -213,7 +213,7 @@ export const ResizableDashboard: React.FC<ResizableDashboardProps> = ({
         ))}
       </ResponsiveGridLayout>
 
-      <style jsx>{`
+      <style>{`
         .layout {
           position: relative;
         }
