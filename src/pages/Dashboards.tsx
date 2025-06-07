@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
@@ -9,6 +8,7 @@ import { DashboardBuilder } from '@/components/dashboards/DashboardBuilder';
 import { useReports } from '@/hooks/useReports';
 import { useToast } from '@/hooks/use-toast';
 import { ReportPreview } from '@/components/reports/ReportPreview';
+import { supabase } from '@/integrations/supabase/client';
 
 interface DashboardItem {
   id: string;
@@ -42,6 +42,32 @@ const Dashboards = () => {
   const [dashboardData, setDashboardData] = useState<Record<string, any[]>>({});
   const [loadingItems, setLoadingItems] = useState<Set<string>>(new Set());
 
+  // Load dashboards from localStorage on component mount
+  useEffect(() => {
+    const loadDashboards = () => {
+      try {
+        const saved = localStorage.getItem('savedDashboards');
+        if (saved) {
+          const dashboards = JSON.parse(saved);
+          setSavedDashboards(dashboards);
+        }
+      } catch (error) {
+        console.error('Error loading dashboards from localStorage:', error);
+      }
+    };
+
+    loadDashboards();
+  }, []);
+
+  // Save dashboards to localStorage whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem('savedDashboards', JSON.stringify(savedDashboards));
+    } catch (error) {
+      console.error('Error saving dashboards to localStorage:', error);
+    }
+  }, [savedDashboards]);
+
   const handleSaveDashboard = (dashboardName: string, items: DashboardItem[]) => {
     if (editingDashboard) {
       // Update existing dashboard
@@ -61,7 +87,7 @@ const Dashboards = () => {
         items: items,
         createdAt: new Date().toISOString()
       };
-      setSavedDashboards([...savedDashboards, newDashboard]);
+      setSavedDashboards(prev => [...prev, newDashboard]);
     }
     
     setShowBuilder(false);
@@ -71,18 +97,65 @@ const Dashboards = () => {
     });
   };
 
+  const loadMetricData = async (item: DashboardItem): Promise<any[]> => {
+    if (!item.metric) return [];
+    
+    try {
+      const { table, field, aggregation } = item.metric;
+      
+      // Build SQL query for metric calculation
+      let query = '';
+      if (aggregation === 'count') {
+        query = `SELECT COUNT(*) as value FROM ${table}`;
+      } else if (field !== '*') {
+        switch (aggregation) {
+          case 'sum':
+            query = `SELECT SUM(${field}) as value FROM ${table}`;
+            break;
+          case 'avg':
+            query = `SELECT AVG(${field}) as value FROM ${table}`;
+            break;
+          case 'min':
+            query = `SELECT MIN(${field}) as value FROM ${table}`;
+            break;
+          case 'max':
+            query = `SELECT MAX(${field}) as value FROM ${table}`;
+            break;
+          default:
+            query = `SELECT COUNT(*) as value FROM ${table}`;
+        }
+      } else {
+        query = `SELECT COUNT(*) as value FROM ${table}`;
+      }
+
+      console.log('Executing metric query:', query);
+      
+      const { data, error } = await supabase.rpc('execute_query', { 
+        query_text: query 
+      });
+      
+      if (error) {
+        console.error('Error executing metric query:', error);
+        return [{ value: 0 }];
+      }
+      
+      return Array.isArray(data) && data.length > 0 ? data : [{ value: 0 }];
+    } catch (error) {
+      console.error('Error loading metric data:', error);
+      return [{ value: 0 }];
+    }
+  };
+
   const loadDashboardData = async (dashboard: SavedDashboard) => {
-    const newLoadingItems = new Set<string>();
     const newDashboardData: Record<string, any[]> = {};
 
     for (const item of dashboard.items) {
-      if (item.type === 'report' && item.reportId) {
-        const report = reports?.find(r => r.id === item.reportId);
-        if (report) {
-          newLoadingItems.add(item.id);
-          setLoadingItems(prev => new Set([...prev, item.id]));
+      setLoadingItems(prev => new Set([...prev, item.id]));
 
-          try {
+      try {
+        if (item.type === 'report' && item.reportId) {
+          const report = reports?.find(r => r.id === item.reportId);
+          if (report) {
             const result = await runReportWithJoins.mutateAsync({
               baseTable: report.base_table,
               selectedColumns: Array.isArray(report.selected_fields) ? report.selected_fields.map(f => String(f)) : [],
@@ -90,25 +163,26 @@ const Dashboards = () => {
             });
             
             newDashboardData[item.id] = result.rows || [];
-          } catch (error) {
-            console.error(`Error loading data for report ${item.reportId}:`, error);
-            newDashboardData[item.id] = [];
-            toast({
-              variant: "destructive",
-              title: "Error loading report data",
-              description: `Failed to load data for "${item.title}"`
-            });
-          } finally {
-            setLoadingItems(prev => {
-              const updated = new Set(prev);
-              updated.delete(item.id);
-              return updated;
-            });
           }
+        } else if (item.type === 'metric') {
+          // Load actual metric data from database
+          const metricData = await loadMetricData(item);
+          newDashboardData[item.id] = metricData;
         }
-      } else if (item.type === 'metric') {
-        // For metrics, we can create simple mock data or run a basic query
-        newDashboardData[item.id] = [{ value: Math.floor(Math.random() * 1000) }];
+      } catch (error) {
+        console.error(`Error loading data for item ${item.id}:`, error);
+        newDashboardData[item.id] = item.type === 'metric' ? [{ value: 0 }] : [];
+        toast({
+          variant: "destructive",
+          title: "Error loading data",
+          description: `Failed to load data for "${item.title}"`
+        });
+      } finally {
+        setLoadingItems(prev => {
+          const updated = new Set(prev);
+          updated.delete(item.id);
+          return updated;
+        });
       }
     }
 
@@ -196,10 +270,10 @@ const Dashboards = () => {
             <div className="flex items-center justify-center h-20">
               <div className="text-center">
                 <div className="text-2xl font-bold text-primary">
-                  {isLoading ? '...' : data[0]?.value || '0'}
+                  {isLoading ? '...' : (data[0]?.value || '0')}
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
-                  {item.metric?.aggregation.toUpperCase()} of {item.metric?.field}
+                  {item.metric?.aggregation.toUpperCase()} of {item.metric?.field === '*' ? 'records' : item.metric?.field}
                 </div>
               </div>
             </div>

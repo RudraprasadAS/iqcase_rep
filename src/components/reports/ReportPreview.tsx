@@ -122,7 +122,7 @@ export const ReportPreview = ({
     return Object.entries(grouped).map(([key, values]) => {
       let aggregatedValue: number;
       
-      // Ensure values is an array
+      // Ensure values is an array - this fixes the TypeScript errors
       if (!Array.isArray(values)) {
         console.warn('Values is not an array:', values);
         return {
@@ -135,9 +135,13 @@ export const ReportPreview = ({
       if (aggregation === 'count') {
         aggregatedValue = values.length;
       } else if (chartConfig.yAxis) {
-        const numericValues: number[] = values
-          .map((v: any) => parseFloat(v[chartConfig.yAxis!]))
-          .filter((v: number) => !isNaN(v));
+        // Properly type the values array to fix TypeScript errors
+        const numericValues = values
+          .map((v: any) => {
+            const numValue = parseFloat(v[chartConfig.yAxis!]);
+            return isNaN(numValue) ? 0 : numValue;
+          })
+          .filter((v: number) => !isNaN(v) && isFinite(v));
         
         switch (aggregation) {
           case 'sum':
