@@ -41,7 +41,7 @@ const navigation = [
 ];
 
 const reportNavigation = [
-  { name: 'Standard Reports', href: '/reports/standard' },
+  { name: 'Standard Reports', href: '/reports' },
   { name: 'Report Builder', href: '/reports/builder' },
   { name: 'Table Builder', href: '/reports/table-builder' },
 ];
