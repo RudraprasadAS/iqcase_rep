@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { ArrowLeft, Play, Save } from 'lucide-react';
+import { ArrowLeft, Save } from 'lucide-react';
 import { useSimpleReports } from '@/hooks/useSimpleReports';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -37,7 +37,7 @@ const ReportBuilder = () => {
 
   // Load existing report if in edit mode
   useEffect(() => {
-    if (reportId && reports && reports.length > 0) {
+    if (reportId && reports && Array.isArray(reports) && reports.length > 0) {
       const report = reports.find(r => r.id === reportId);
       if (report) {
         setFormData({
@@ -54,9 +54,9 @@ const ReportBuilder = () => {
 
   // Update available fields when base table changes
   useEffect(() => {
-    if (formData.base_table && tables) {
+    if (formData.base_table && tables && Array.isArray(tables)) {
       const tableInfo = tables.find(table => table.name === formData.base_table);
-      if (tableInfo && tableInfo.fields) {
+      if (tableInfo && Array.isArray(tableInfo.fields)) {
         setAvailableFields(tableInfo.fields);
       }
     }
@@ -95,7 +95,8 @@ const ReportBuilder = () => {
         selected_fields: formData.selected_fields,
         filters: [],
         chart_type: formData.chart_type,
-        is_public: formData.is_public
+        is_public: formData.is_public,
+        created_by: '' // This will be set by the hook
       };
 
       if (reportId && isEditMode) {
@@ -197,7 +198,7 @@ const ReportBuilder = () => {
                   <SelectValue placeholder="Select a table" />
                 </SelectTrigger>
                 <SelectContent>
-                  {tables?.map((table) => (
+                  {Array.isArray(tables) && tables.map((table) => (
                     <SelectItem key={table.name} value={table.name}>
                       {table.name}
                     </SelectItem>

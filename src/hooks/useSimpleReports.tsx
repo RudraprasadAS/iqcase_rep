@@ -34,7 +34,7 @@ export const useSimpleReports = () => {
         });
         
         if (error) throw error;
-        return data || [];
+        return Array.isArray(data) ? data : [];
       } catch (error) {
         console.error('Error fetching reports:', error);
         throw error;
@@ -50,7 +50,7 @@ export const useSimpleReports = () => {
         const { data, error } = await supabase.rpc('get_tables_info');
         
         if (error) throw error;
-        return data || [];
+        return Array.isArray(data) ? data : [];
       } catch (error) {
         console.error('Error fetching tables:', error);
         throw error;
@@ -90,7 +90,7 @@ export const useSimpleReports = () => {
         });
         
         if (error) throw error;
-        return data[0];
+        return Array.isArray(data) ? data[0] : data;
       } catch (error) {
         console.error("Error creating report:", error);
         throw error;
@@ -134,7 +134,7 @@ export const useSimpleReports = () => {
         });
         
         if (error) throw error;
-        return data[0];
+        return Array.isArray(data) ? data[0] : data;
       } catch (error) {
         console.error("Error updating report:", error);
         throw error;

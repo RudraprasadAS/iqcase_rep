@@ -53,7 +53,7 @@ const SimpleReportViewer = ({ reportId, onClose }: SimpleReportViewerProps) => {
 
       if (error) throw error;
       
-      if (reportData && reportData.length > 0) {
+      if (reportData && Array.isArray(reportData) && reportData.length > 0) {
         const reportRecord = reportData[0];
         setReport(reportRecord);
         await executeReport(reportRecord);
@@ -86,7 +86,11 @@ const SimpleReportViewer = ({ reportId, onClose }: SimpleReportViewerProps) => {
 
       if (error) throw error;
       
-      setData(queryData || []);
+      if (queryData && Array.isArray(queryData)) {
+        setData(queryData);
+      } else {
+        setData([]);
+      }
     } catch (error) {
       console.error('Error executing report:', error);
       toast({

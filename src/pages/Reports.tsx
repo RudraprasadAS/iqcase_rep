@@ -63,7 +63,7 @@ const Reports = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {isLoadingReports ? (
             <div className="col-span-full text-center py-8">Loading reports...</div>
-          ) : reports && reports.length > 0 ? (
+          ) : reports && Array.isArray(reports) && reports.length > 0 ? (
             reports.map((report) => (
               <Card key={report.id} className="hover:shadow-lg transition-shadow">
                 <CardHeader>
