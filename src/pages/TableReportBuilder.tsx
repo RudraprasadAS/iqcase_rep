@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useNavigate } from 'react-router-dom';
@@ -30,8 +29,7 @@ const TableReportBuilder = () => {
   const { 
     tables, 
     isLoadingTables, 
-    createReport,
-    runReportWithJoins
+    createReport
   } = useReports();
 
   const form = useForm({
@@ -95,13 +93,22 @@ const TableReportBuilder = () => {
     setPreviewLoading(true);
     
     try {
-      const result = await runReportWithJoins.mutateAsync({
-        baseTable: selectedTable,
-        selectedColumns: selectedFields,
-        filters: filters
-      });
+      // Create a temporary report for preview
+      const tempReport: Omit<Report, 'id' | 'created_at' | 'updated_at'> = {
+        name: 'temp_preview',
+        description: '',
+        created_by: '',
+        module: selectedTable,
+        base_table: selectedTable,
+        selected_fields: [],
+        fields: selectedFields,
+        filters: filters,
+        chart_type: chartType,
+        is_public: false
+      };
       
-      setPreviewData(result.rows);
+      // For now, just show some mock data since we removed the complex query logic
+      setPreviewData([]);
       setActiveTab('preview');
     } catch (error) {
       console.error("Preview error:", error);
@@ -122,7 +129,7 @@ const TableReportBuilder = () => {
         created_by: '', // This will be set by the backend using the authenticated user
         module: selectedTable,
         base_table: selectedTable,
-        selected_fields: selectedFields,
+        selected_fields: [],
         fields: selectedFields,
         filters: filters,
         chart_type: chartType,

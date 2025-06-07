@@ -150,6 +150,10 @@ export const useReports = () => {
           throw new Error("User record not found. Please contact an administrator.");
         }
 
+        // Convert filters to Json format
+        const filtersAsJson = report.filters as unknown as Json;
+        const fieldsAsJson = report.fields as unknown as Json;
+
         // Insert the report
         const { data, error } = await supabase
           .from('reports')
@@ -158,8 +162,8 @@ export const useReports = () => {
             description: report.description,
             created_by: userRecord.id,
             module: report.base_table || report.module,
-            selected_fields: report.fields as Json,
-            filters: report.filters as Json,
+            selected_fields: fieldsAsJson,
+            filters: filtersAsJson,
             aggregation: report.aggregation || null,
             chart_type: report.chart_type || 'table',
             group_by: report.group_by || null,
@@ -202,14 +206,18 @@ export const useReports = () => {
       try {
         console.log("Updating report:", id, report);
         
+        // Convert filters to Json format
+        const filtersAsJson = report.filters as unknown as Json;
+        const fieldsAsJson = report.fields as unknown as Json;
+        
         const { data, error } = await supabase
           .from('reports')
           .update({
             name: report.name,
             description: report.description,
             module: report.base_table || report.module,
-            selected_fields: report.fields as Json,
-            filters: report.filters as Json,
+            selected_fields: fieldsAsJson,
+            filters: filtersAsJson,
             aggregation: report.aggregation || null,
             chart_type: report.chart_type || 'table',
             group_by: report.group_by || null,
@@ -321,6 +329,7 @@ export const useReports = () => {
 
         console.log('Running query on table:', baseTableName, 'with fields:', selectedFields);
         
+        // Build query
         let query = supabase.from(baseTableName as any);
         
         // Select fields
