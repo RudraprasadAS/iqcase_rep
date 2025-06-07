@@ -696,6 +696,80 @@ export type Database = {
           },
         ]
       }
+      dashboard_templates: {
+        Row: {
+          created_at: string | null
+          created_by: string
+          description: string | null
+          id: string
+          is_active: boolean | null
+          layout: Json
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          layout?: Json
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          layout?: Json
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dashboard_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      data_sources: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          fields: Json
+          id: string
+          is_active: boolean | null
+          name: string
+          relationships: Json
+          table_name: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          fields?: Json
+          id?: string
+          is_active?: boolean | null
+          name: string
+          relationships?: Json
+          table_name: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          fields?: Json
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          relationships?: Json
+          table_name?: string
+        }
+        Relationships: []
+      }
       locations: {
         Row: {
           address: string | null
@@ -864,43 +938,46 @@ export type Database = {
           },
         ]
       }
-      reports: {
+      report_templates: {
         Row: {
+          base_table: string
+          config: Json
           created_at: string | null
           created_by: string
           description: string | null
-          filters: Json
           id: string
+          is_active: boolean | null
+          is_public: boolean | null
           name: string
-          selected_fields: Json
-          table_name: string
           updated_at: string | null
         }
         Insert: {
+          base_table: string
+          config?: Json
           created_at?: string | null
           created_by: string
           description?: string | null
-          filters?: Json
           id?: string
+          is_active?: boolean | null
+          is_public?: boolean | null
           name: string
-          selected_fields?: Json
-          table_name: string
           updated_at?: string | null
         }
         Update: {
+          base_table?: string
+          config?: Json
           created_at?: string | null
           created_by?: string
           description?: string | null
-          filters?: Json
           id?: string
+          is_active?: boolean | null
+          is_public?: boolean | null
           name?: string
-          selected_fields?: Json
-          table_name?: string
           updated_at?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "reports_created_by_fkey"
+            foreignKeyName: "report_templates_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "users"
@@ -1074,6 +1151,10 @@ export type Database = {
         Args: { role_name: string; role_description: string }
         Returns: string
       }
+      execute_dynamic_report: {
+        Args: { p_config: Json }
+        Returns: Json
+      }
       execute_insight_query: {
         Args: {
           data_source_name: string
@@ -1089,20 +1170,14 @@ export type Database = {
         Args: { query_text: string }
         Returns: Json
       }
-      execute_report: {
-        Args: {
-          p_table_name: string
-          p_selected_fields: Json
-          p_filters?: Json
-          p_limit?: number
-        }
-        Returns: Json
-      }
-      get_available_tables: {
+      get_table_metadata: {
         Args: Record<PropertyKey, never>
         Returns: {
           table_name: string
-          column_names: string[]
+          column_name: string
+          data_type: string
+          is_nullable: boolean
+          column_default: string
         }[]
       }
       get_tables_info: {

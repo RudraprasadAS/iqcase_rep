@@ -4,12 +4,9 @@ import { Helmet } from 'react-helmet-async';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Eye, Edit, Trash2, Play } from 'lucide-react';
-import { useReports } from '@/hooks/useReports';
-import { CreateReportDialog } from '@/components/reports/CreateReportDialog';
-import { ViewReportDialog } from '@/components/reports/ViewReportDialog';
-import { EditReportDialog } from '@/components/reports/EditReportDialog';
-import { Report } from '@/types/reports';
+import { Plus, Eye, Edit, Trash2, BarChart3, Table, PieChart, LineChart } from 'lucide-react';
+import { useReportBuilder } from '@/hooks/useReportBuilder';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,10 +20,22 @@ import {
 } from '@/components/ui/alert-dialog';
 
 const Reports = () => {
-  const { reports, isLoadingReports, deleteReport } = useReports();
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [viewingReport, setViewingReport] = useState<Report | null>(null);
-  const [editingReport, setEditingReport] = useState<Report | null>(null);
+  const { reportTemplates, isLoadingReports, deleteReport } = useReportBuilder();
+  const navigate = useNavigate();
+
+  const getChartIcon = (chartType?: string) => {
+    switch (chartType) {
+      case 'bar':
+        return <BarChart3 className="h-4 w-4" />;
+      case 'line':
+        return <LineChart className="h-4 w-4" />;
+      case 'pie':
+      case 'donut':
+        return <PieChart className="h-4 w-4" />;
+      default:
+        return <Table className="h-4 w-4" />;
+    }
+  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString();
@@ -51,35 +60,54 @@ const Reports = () => {
       <div className="container mx-auto py-6 space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Reports</h1>
-            <p className="text-muted-foreground">Create and manage custom reports</p>
+            <h1 className="text-3xl font-bold">Reports & Analytics</h1>
+            <p className="text-muted-foreground">Create and manage dynamic reports and dashboards</p>
           </div>
-          <Button onClick={() => setShowCreateDialog(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Create Report
-          </Button>
+          <div className="flex gap-2">
+            <Button asChild variant="outline">
+              <Link to="/reports/dashboards">
+                <BarChart3 className="h-4 w-4 mr-2" />
+                Dashboards
+              </Link>
+            </Button>
+            <Button asChild>
+              <Link to="/reports/builder">
+                <Plus className="h-4 w-4 mr-2" />
+                New Report
+              </Link>
+            </Button>
+          </div>
         </div>
 
-        {!reports || reports.length === 0 ? (
+        {!reportTemplates || reportTemplates.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
-              <div className="text-center space-y-2">
-                <h3 className="text-lg font-semibold">No reports found</h3>
-                <p className="text-muted-foreground">Create your first report to get started</p>
-                <Button onClick={() => setShowCreateDialog(true)} className="mt-4">
-                  Create Report
+              <div className="text-center space-y-4">
+                <BarChart3 className="h-16 w-16 text-muted-foreground mx-auto" />
+                <div>
+                  <h3 className="text-lg font-semibold">No reports found</h3>
+                  <p className="text-muted-foreground">Create your first report to get started with analytics</p>
+                </div>
+                <Button asChild>
+                  <Link to="/reports/builder">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Your First Report
+                  </Link>
                 </Button>
               </div>
             </CardContent>
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {reports.map((report) => (
+            {reportTemplates.map((report) => (
               <Card key={report.id} className="hover:shadow-md transition-shadow">
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <CardTitle className="text-lg">{report.name}</CardTitle>
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        {getChartIcon(report.config.chart_type)}
+                        {report.name}
+                      </CardTitle>
                       {report.description && (
                         <p className="text-sm text-muted-foreground mt-1">
                           {report.description}
@@ -90,13 +118,21 @@ const Reports = () => {
                 </CardHeader>
                 
                 <CardContent className="space-y-4">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <Badge variant="secondary">
-                      {report.table_name}
+                      {report.base_table}
                     </Badge>
                     <Badge variant="outline">
-                      {report.selected_fields.length} fields
+                      {report.config.selected_fields?.length || 0} fields
                     </Badge>
+                    {report.config.chart_type && (
+                      <Badge variant="outline">
+                        {report.config.chart_type}
+                      </Badge>
+                    )}
+                    {report.is_public && (
+                      <Badge>Public</Badge>
+                    )}
                   </div>
                   
                   <div className="text-sm text-muted-foreground">
@@ -107,7 +143,7 @@ const Reports = () => {
                     <Button
                       variant="default"
                       size="sm"
-                      onClick={() => setViewingReport(report)}
+                      onClick={() => navigate(`/reports/view/${report.id}`)}
                       className="flex-1"
                     >
                       <Eye className="h-4 w-4 mr-2" />
@@ -116,7 +152,7 @@ const Reports = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setEditingReport(report)}
+                      onClick={() => navigate(`/reports/builder?edit=${report.id}`)}
                     >
                       <Edit className="h-4 w-4" />
                     </Button>
@@ -146,27 +182,6 @@ const Reports = () => {
               </Card>
             ))}
           </div>
-        )}
-
-        <CreateReportDialog
-          open={showCreateDialog}
-          onOpenChange={setShowCreateDialog}
-        />
-        
-        {viewingReport && (
-          <ViewReportDialog
-            report={viewingReport}
-            open={!!viewingReport}
-            onOpenChange={() => setViewingReport(null)}
-          />
-        )}
-        
-        {editingReport && (
-          <EditReportDialog
-            report={editingReport}
-            open={!!editingReport}
-            onOpenChange={() => setEditingReport(null)}
-          />
         )}
       </div>
     </>
