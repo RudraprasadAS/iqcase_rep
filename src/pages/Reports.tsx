@@ -78,7 +78,7 @@ const Reports = () => {
           {isLoadingReports ? (
             <div className="col-span-full text-center py-8">Loading reports...</div>
           ) : reports && Array.isArray(reports) && reports.length > 0 ? (
-            (reports as SimpleReport[]).map((report) => (
+            (reports as unknown as SimpleReport[]).map((report) => (
               <Card key={report.id} className="hover:shadow-lg transition-shadow">
                 <CardHeader>
                   <div className="flex justify-between items-start">

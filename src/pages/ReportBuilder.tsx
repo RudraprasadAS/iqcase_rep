@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
@@ -52,7 +51,7 @@ const ReportBuilder = () => {
   // Load existing report if in edit mode
   useEffect(() => {
     if (reportId && reports && Array.isArray(reports) && reports.length > 0) {
-      const report = (reports as SimpleReport[]).find(r => r.id === reportId);
+      const report = (reports as unknown as SimpleReport[]).find(r => r.id === reportId);
       if (report) {
         setFormData({
           name: report.name,

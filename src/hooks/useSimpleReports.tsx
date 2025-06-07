@@ -34,7 +34,7 @@ export const useSimpleReports = () => {
         });
         
         if (error) throw error;
-        return Array.isArray(data) ? data as SimpleReport[] : [];
+        return Array.isArray(data) ? data as unknown as SimpleReport[] : [];
       } catch (error) {
         console.error('Error fetching reports:', error);
         throw error;
