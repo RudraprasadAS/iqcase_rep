@@ -4,29 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Edit, Trash2, Eye, Users, Lock } from 'lucide-react';
-import { useSimpleReports } from '@/hooks/useSimpleReports';
+import { useReports } from '@/hooks/useReports';
 import { useNavigate } from 'react-router-dom';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import SimpleReportViewer from '@/components/reports/SimpleReportViewer';
-
-interface SimpleReport {
-  id: string;
-  name: string;
-  description?: string;
-  module: string;
-  base_table: string;
-  selected_fields: any[];
-  filters: any[];
-  chart_type: string;
-  is_public: boolean;
-  created_at: string;
-  created_by: string;
-}
 
 const Reports = () => {
   const navigate = useNavigate();
-  const { reports, isLoadingReports, deleteReport } = useSimpleReports();
-  const [viewingReportId, setViewingReportId] = useState<string | null>(null);
+  const { reports, isLoadingReports, deleteReport } = useReports();
 
   const handleCreateReport = () => {
     navigate('/reports/builder');
@@ -37,7 +21,7 @@ const Reports = () => {
   };
 
   const handleViewReport = (reportId: string) => {
-    setViewingReportId(reportId);
+    navigate(`/reports/builder?id=${reportId}&view=true`);
   };
 
   const handleDeleteReport = async (reportId: string) => {
@@ -47,15 +31,6 @@ const Reports = () => {
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString();
   };
-
-  if (viewingReportId) {
-    return (
-      <SimpleReportViewer 
-        reportId={viewingReportId} 
-        onClose={() => setViewingReportId(null)} 
-      />
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -77,8 +52,8 @@ const Reports = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {isLoadingReports ? (
             <div className="col-span-full text-center py-8">Loading reports...</div>
-          ) : reports && Array.isArray(reports) && reports.length > 0 ? (
-            (reports as unknown as SimpleReport[]).map((report) => (
+          ) : reports && reports.length > 0 ? (
+            reports.map((report) => (
               <Card key={report.id} className="hover:shadow-lg transition-shadow">
                 <CardHeader>
                   <div className="flex justify-between items-start">

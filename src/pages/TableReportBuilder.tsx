@@ -10,12 +10,12 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { TableSelector } from '@/components/reports/TableSelector';
 import { FieldSelector } from '@/components/reports/FieldSelector';
 import { FilterBuilder } from '@/components/reports/FilterBuilder';
-import { ChartConfiguration } from '@/components/reports/ChartConfiguration';
+import { VisualizationSelector } from '@/components/reports/VisualizationSelector';
 import { ReportPreview } from '@/components/reports/ReportPreview';
 import { useReports } from '@/hooks/useReports';
-import { Report, ReportFilter, ChartConfig, ColumnDefinition } from '@/types/reports';
+import { Report, ReportFilter } from '@/types/reports';
 import { useForm } from 'react-hook-form';
-import { Loader2, Save, Eye } from 'lucide-react';
+import { Loader2, Save } from 'lucide-react';
 
 const TableReportBuilder = () => {
   const navigate = useNavigate();
@@ -23,9 +23,7 @@ const TableReportBuilder = () => {
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [selectedFields, setSelectedFields] = useState<string[]>([]);
   const [filters, setFilters] = useState<ReportFilter[]>([]);
-  const [chartConfig, setChartConfig] = useState<ChartConfig>({
-    type: 'table'
-  });
+  const [chartType, setChartType] = useState<Report['chart_type']>('table');
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewData, setPreviewData] = useState<any[]>([]);
 
@@ -48,7 +46,6 @@ const TableReportBuilder = () => {
   useEffect(() => {
     setSelectedFields([]);
     setFilters([]);
-    setChartConfig({ type: 'table' });
   }, [selectedTable]);
 
   // Get available fields for the selected table
@@ -57,16 +54,6 @@ const TableReportBuilder = () => {
     
     const tableInfo = tables.find(t => t.name === selectedTable);
     return tableInfo?.fields || [];
-  };
-
-  // Get column definitions for chart configuration
-  const getColumnDefinitions = (): ColumnDefinition[] => {
-    const availableFields = getAvailableFields();
-    return availableFields.map(field => ({
-      key: field,
-      label: field.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-      table: selectedTable || ''
-    }));
   };
 
   const handleAddFilter = () => {
@@ -111,8 +98,7 @@ const TableReportBuilder = () => {
       const result = await runReportWithJoins.mutateAsync({
         baseTable: selectedTable,
         selectedColumns: selectedFields,
-        filters: filters,
-        chartConfig: chartConfig
+        filters: filters
       });
       
       setPreviewData(result.rows);
@@ -133,15 +119,13 @@ const TableReportBuilder = () => {
       await createReport.mutateAsync({
         name: values.name,
         description: values.description,
-        created_by: '',
+        created_by: '', // This will be set by the backend using the authenticated user
         module: selectedTable,
         base_table: selectedTable,
         selected_fields: selectedFields,
         fields: selectedFields,
         filters: filters,
-        chart_type: chartConfig.type,
-        aggregation: chartConfig.aggregation,
-        group_by: chartConfig.xAxis,
+        chart_type: chartType,
         is_public: values.is_public
       });
       
@@ -152,19 +136,18 @@ const TableReportBuilder = () => {
   };
 
   const availableFields = getAvailableFields();
-  const columnDefinitions = getColumnDefinitions();
 
   return (
     <>
       <Helmet>
-        <title>Report Builder | Case Management</title>
+        <title>Table Report Builder | Case Management</title>
       </Helmet>
       
       <div className="container mx-auto py-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Report Builder</h1>
-            <p className="text-muted-foreground">Create custom reports with charts and visualizations</p>
+            <h1 className="text-3xl font-bold tracking-tight">Table Report Builder</h1>
+            <p className="text-muted-foreground">Create a report from any table in your database</p>
           </div>
           
           <div className="flex gap-2">
@@ -179,21 +162,20 @@ const TableReportBuilder = () => {
               disabled={!selectedTable || selectedFields.length === 0 || previewLoading}
             >
               {previewLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              <Eye className="h-4 w-4 mr-2" />
-              Preview
+              Preview Report
             </Button>
           </div>
         </div>
         
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <Card className="lg:col-span-1">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Card className="md:col-span-1">
             <CardHeader>
-              <CardTitle>Report Configuration</CardTitle>
-              <CardDescription>Set up your report details</CardDescription>
+              <CardTitle>Report Details</CardTitle>
+              <CardDescription>Provide basic information about your report</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Report Name *</label>
+                <label className="text-sm font-medium">Report Name</label>
                 <Input
                   placeholder="My Custom Report"
                   {...form.register('name', { required: true })}
@@ -201,7 +183,7 @@ const TableReportBuilder = () => {
               </div>
               
               <div className="space-y-2">
-                <label className="text-sm font-medium">Description</label>
+                <label className="text-sm font-medium">Description (Optional)</label>
                 <Textarea
                   placeholder="Describe what this report shows..."
                   className="resize-none"
@@ -224,20 +206,20 @@ const TableReportBuilder = () => {
                   {...form.register('is_public')}
                 />
                 <label htmlFor="is_public" className="text-sm font-medium">
-                  Make public
+                  Make this report public
                 </label>
               </div>
             </CardContent>
           </Card>
           
-          <Card className="lg:col-span-3">
+          <Card className="md:col-span-2">
             <CardHeader>
+              <CardTitle>Report Configuration</CardTitle>
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid grid-cols-4">
-                  <TabsTrigger value="data">Data</TabsTrigger>
-                  <TabsTrigger value="chart">Chart</TabsTrigger>
+                <TabsList className="grid grid-cols-3">
+                  <TabsTrigger value="data">Select Data</TabsTrigger>
+                  <TabsTrigger value="visualization">Visualization</TabsTrigger>
                   <TabsTrigger value="preview">Preview</TabsTrigger>
-                  <TabsTrigger value="save">Save</TabsTrigger>
                 </TabsList>
               </Tabs>
             </CardHeader>
@@ -245,7 +227,7 @@ const TableReportBuilder = () => {
             <CardContent>
               <TabsContent value="data" className="space-y-6 mt-0">
                 <div className="space-y-4">
-                  <h3 className="text-lg font-medium">Select Fields & Filters</h3>
+                  <h3 className="text-lg font-medium">Fields & Filters</h3>
                   
                   <FieldSelector
                     availableFields={availableFields}
@@ -265,12 +247,11 @@ const TableReportBuilder = () => {
                 </div>
               </TabsContent>
               
-              <TabsContent value="chart" className="mt-0">
-                <ChartConfiguration
-                  availableColumns={columnDefinitions}
+              <TabsContent value="visualization" className="mt-0">
+                <VisualizationSelector
+                  selectedType={chartType}
+                  onTypeChange={(type) => setChartType(type)}
                   selectedFields={selectedFields}
-                  chartConfig={chartConfig}
-                  onChartConfigChange={setChartConfig}
                 />
               </TabsContent>
               
@@ -278,11 +259,11 @@ const TableReportBuilder = () => {
                 <ReportPreview
                   data={previewData}
                   columns={selectedFields}
-                  chartType={chartConfig.type}
-                  chartConfig={chartConfig}
+                  chartType={chartType}
                   isLoading={previewLoading}
                   onRunReport={handlePreview}
                   onExportCsv={() => {
+                    // Simple CSV export function
                     if (previewData.length === 0) return;
                     
                     const csvContent = [
@@ -304,24 +285,6 @@ const TableReportBuilder = () => {
                     document.body.removeChild(link);
                   }}
                 />
-              </TabsContent>
-
-              <TabsContent value="save" className="mt-0">
-                <div className="space-y-4">
-                  <h3 className="text-lg font-medium">Ready to Save</h3>
-                  <div className="bg-muted p-4 rounded-lg">
-                    <h4 className="font-medium mb-2">Report Summary:</h4>
-                    <ul className="space-y-1 text-sm">
-                      <li><strong>Table:</strong> {selectedTable}</li>
-                      <li><strong>Fields:</strong> {selectedFields.length} selected</li>
-                      <li><strong>Filters:</strong> {filters.length} applied</li>
-                      <li><strong>Chart Type:</strong> {chartConfig.type}</li>
-                      {chartConfig.xAxis && <li><strong>X-Axis:</strong> {chartConfig.xAxis}</li>}
-                      {chartConfig.yAxis && <li><strong>Y-Axis:</strong> {chartConfig.yAxis}</li>}
-                      {chartConfig.aggregation && <li><strong>Aggregation:</strong> {chartConfig.aggregation}</li>}
-                    </ul>
-                  </div>
-                </div>
               </TabsContent>
             </CardContent>
             

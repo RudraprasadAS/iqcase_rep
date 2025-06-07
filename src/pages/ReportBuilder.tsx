@@ -1,96 +1,175 @@
+
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
-import { ArrowLeft, Save } from 'lucide-react';
-import { useSimpleReports } from '@/hooks/useSimpleReports';
+import { ArrowLeft, Play, Save, Download, Settings, Eye, Edit } from 'lucide-react';
+import { ReportSettings } from '@/components/reports/ReportSettings';
+import { ColumnSelector } from '@/components/reports/ColumnSelector';
+import { FilterBuilder } from '@/components/reports/FilterBuilder';
+import { ChartConfiguration } from '@/components/reports/ChartConfiguration';
+import { ReportPreview } from '@/components/reports/ReportPreview';
+import { useReports } from '@/hooks/useReports';
+import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
-
-interface SimpleReport {
-  id: string;
-  name: string;
-  description?: string;
-  module: string;
-  base_table: string;
-  selected_fields: any[];
-  filters: any[];
-  chart_type: string;
-  is_public: boolean;
-  created_at: string;
-  created_by: string;
-}
+import { useForm } from 'react-hook-form';
+import { ReportFilter, ColumnDefinition, ChartConfig } from '@/types/reports';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 const ReportBuilder = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
   
   const reportId = searchParams.get('id');
   const isEditMode = searchParams.get('edit') === 'true';
+  const isViewMode = searchParams.get('view') === 'true';
   
-  const { reports, tables, isLoadingTables, createReport, updateReport } = useSimpleReports();
+  const {
+    tables,
+    isLoadingTables,
+    createReport,
+    updateReport,
+    runReport,
+    reports,
+    isLoadingReports
+  } = useReports();
 
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    base_table: '',
-    selected_fields: [] as string[],
-    chart_type: 'table',
-    is_public: false
+  const form = useForm({
+    defaultValues: {
+      name: '',
+      description: '',
+      base_table: '',
+      fields: [] as string[],
+      is_public: false
+    }
   });
 
-  const [availableFields, setAvailableFields] = useState<string[]>([]);
+  const [selectedFields, setSelectedFields] = useState<string[]>([]);
+  const [filters, setFilters] = useState<ReportFilter[]>([]);
+  const [chartConfig, setChartConfig] = useState<ChartConfig>({ type: 'table' });
+  const [availableColumns, setAvailableColumns] = useState<ColumnDefinition[]>([]);
+  const [reportData, setReportData] = useState<any[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(false);
+  const [currentReport, setCurrentReport] = useState<any>(null);
+  const [showConfiguration, setShowConfiguration] = useState(false);
 
-  // Load existing report if in edit mode
+  // Load existing report if reportId is provided
   useEffect(() => {
-    if (reportId && reports && Array.isArray(reports) && reports.length > 0) {
-      const report = (reports as unknown as SimpleReport[]).find(r => r.id === reportId);
+    if (reportId && reports && reports.length > 0) {
+      const report = reports.find(r => r.id === reportId);
       if (report) {
-        setFormData({
-          name: report.name,
-          description: report.description || '',
-          base_table: report.base_table,
-          selected_fields: Array.isArray(report.selected_fields) ? report.selected_fields : [],
-          chart_type: report.chart_type || 'table',
-          is_public: report.is_public
-        });
+        console.log('Loading existing report:', report);
+        setCurrentReport(report);
+        
+        // Populate form
+        form.setValue('name', report.name);
+        form.setValue('description', report.description || '');
+        form.setValue('base_table', report.base_table);
+        form.setValue('is_public', report.is_public);
+        
+        // Set other fields
+        const fieldsArray = Array.isArray(report.selected_fields) 
+          ? report.selected_fields.map(field => String(field))
+          : [];
+        setSelectedFields(fieldsArray);
+        form.setValue('fields', fieldsArray);
+        setFilters(Array.isArray(report.filters) ? report.filters : []);
+        
+        // Chart config
+        let loadedChartConfig: ChartConfig = {
+          type: report.chart_type || 'table'
+        };
+
+        if (report.aggregation) {
+          loadedChartConfig.aggregation = report.aggregation as ChartConfig['aggregation'];
+        }
+        
+        if (report.group_by) {
+          loadedChartConfig.xAxis = report.group_by;
+        }
+
+        setChartConfig(loadedChartConfig);
       }
     }
-  }, [reportId, reports]);
+  }, [reportId, reports, form]);
 
-  // Update available fields when base table changes
+  // Update available columns when base table changes
   useEffect(() => {
-    if (formData.base_table && tables && Array.isArray(tables)) {
-      const tableInfo = tables.find(table => table.name === formData.base_table);
-      if (tableInfo && Array.isArray(tableInfo.fields)) {
-        setAvailableFields(tableInfo.fields);
+    const baseTable = form.watch('base_table');
+    if (baseTable && tables) {
+      const tableInfo = tables.find(table => table.name === baseTable);
+      if (tableInfo && tableInfo.fields) {
+        const columns: ColumnDefinition[] = tableInfo.fields.map(field => ({
+          key: field,
+          label: formatFieldName(field),
+          table: baseTable
+        }));
+        setAvailableColumns(columns);
       }
     }
-  }, [formData.base_table, tables]);
+  }, [form.watch('base_table'), tables]);
 
-  const handleFieldToggle = (field: string, checked: boolean) => {
-    if (checked) {
-      setFormData(prev => ({
-        ...prev,
-        selected_fields: [...prev.selected_fields, field]
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        selected_fields: prev.selected_fields.filter(f => f !== field)
-      }));
+  const formatFieldName = (fieldName: string): string => {
+    return fieldName
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, c => c.toUpperCase());
+  };
+
+  const handleRunReport = async () => {
+    const baseTable = form.getValues('base_table');
+    
+    if (!baseTable || selectedFields.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "Cannot run report",
+        description: "Please select a table and at least one field"
+      });
+      return;
+    }
+
+    setIsLoadingData(true);
+    try {
+      // For now, let's simulate report execution
+      const mockData = [
+        { id: '1', title: 'Sample Case 1', status: 'open', priority: 'high' },
+        { id: '2', title: 'Sample Case 2', status: 'closed', priority: 'medium' },
+        { id: '3', title: 'Sample Case 3', status: 'in_progress', priority: 'low' }
+      ];
+      
+      setReportData(mockData);
+      
+      toast({
+        title: "Report executed successfully",
+        description: `Found ${mockData.length} records`
+      });
+    } catch (error) {
+      console.error('Error running report:', error);
+      toast({
+        variant: "destructive",
+        title: "Error running report",
+        description: "Failed to execute report. Please try again."
+      });
+    } finally {
+      setIsLoadingData(false);
     }
   };
 
   const handleSaveReport = async () => {
-    if (!formData.name || !formData.base_table || formData.selected_fields.length === 0) {
+    if (!user) {
+      toast({
+        variant: "destructive",
+        title: "Authentication required",
+        description: "Please sign in to save reports"
+      });
+      return;
+    }
+
+    const formValues = form.getValues();
+    
+    if (!formValues.name || !formValues.base_table || selectedFields.length === 0) {
       toast({
         variant: "destructive",
         title: "Missing required fields",
@@ -101,15 +180,16 @@ const ReportBuilder = () => {
     
     try {
       const reportData = {
-        name: formData.name,
-        description: formData.description,
-        module: formData.base_table,
-        base_table: formData.base_table,
-        selected_fields: formData.selected_fields,
-        filters: [],
-        chart_type: formData.chart_type,
-        is_public: formData.is_public,
-        created_by: '' // This will be set by the hook
+        name: formValues.name,
+        description: formValues.description,
+        module: formValues.base_table,
+        base_table: formValues.base_table,
+        selected_fields: selectedFields,
+        filters: filters,
+        chart_type: chartConfig.type,
+        aggregation: chartConfig.aggregation,
+        group_by: chartConfig.xAxis,
+        is_public: formValues.is_public
       };
 
       if (reportId && isEditMode) {
@@ -117,17 +197,32 @@ const ReportBuilder = () => {
           id: reportId,
           ...reportData
         });
+        
+        setCurrentReport({
+          ...currentReport,
+          ...reportData,
+          id: reportId
+        });
+        
         toast({
           title: "Report updated successfully"
         });
       } else {
-        await createReport.mutateAsync(reportData);
+        const newReport = await createReport.mutateAsync({
+          ...reportData,
+          created_by: user.id,
+          fields: selectedFields
+        });
+        
+        setCurrentReport(newReport);
+        
         toast({
           title: "Report created successfully"
         });
+        
+        // Navigate to view the new report
+        navigate(`/reports/builder?id=${newReport.id}&view=true`);
       }
-      
-      navigate('/reports');
     } catch (error) {
       console.error('Error saving report:', error);
       toast({
@@ -138,7 +233,55 @@ const ReportBuilder = () => {
     }
   };
 
-  if (isLoadingTables) {
+  const exportToCsv = () => {
+    if (!reportData || reportData.length === 0) return;
+    
+    const headers = selectedFields.length > 0 ? selectedFields : Object.keys(reportData[0]);
+    let csvContent = headers.join(',') + '\n';
+    
+    reportData.forEach((row) => {
+      const values = headers.map(header => {
+        const value = row[header];
+        if (value === null || value === undefined) return '';
+        if (typeof value === 'object') return JSON.stringify(value).replace(/,/g, ';');
+        return String(value).replace(/,/g, ';');
+      });
+      csvContent += values.join(',') + '\n';
+    });
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${form.getValues('name') || 'report'}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const addFilter = () => {
+    const newFilter: ReportFilter = {
+      field: availableColumns[0]?.key || '',
+      operator: 'eq',
+      value: ''
+    };
+    setFilters([...filters, newFilter]);
+  };
+
+  const removeFilter = (index: number) => {
+    const updatedFilters = [...filters];
+    updatedFilters.splice(index, 1);
+    setFilters(updatedFilters);
+  };
+
+  const updateFilter = (index: number, key: keyof ReportFilter, value: any) => {
+    const updatedFilters = [...filters];
+    updatedFilters[index] = { ...updatedFilters[index], [key]: value };
+    setFilters(updatedFilters);
+  };
+
+  if (isLoadingTables || isLoadingReports) {
     return (
       <div className="container mx-auto py-6">
         <div className="flex items-center justify-center p-8">
@@ -151,7 +294,7 @@ const ReportBuilder = () => {
   return (
     <>
       <Helmet>
-        <title>{reportId ? 'Edit Report' : 'Create Report'} | Case Management</title>
+        <title>{reportId ? (isEditMode ? 'Edit Report' : currentReport?.name || 'View Report') : 'Create Report'} | Case Management</title>
       </Helmet>
       
       <div className="container mx-auto py-6">
@@ -167,121 +310,222 @@ const ReportBuilder = () => {
           
           <div className="flex-1">
             <h1 className="text-2xl font-bold">
-              {reportId ? 'Edit Report' : 'Create New Report'}
+              {currentReport?.name || (reportId ? 'Report' : 'Create New Report')}
             </h1>
-          </div>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Report Configuration</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Basic Information */}
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="name">Report Name *</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="Enter report name"
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                  placeholder="Enter report description"
-                />
-              </div>
-            </div>
-
-            {/* Table Selection */}
-            <div>
-              <Label>Data Source *</Label>
-              <Select 
-                value={formData.base_table} 
-                onValueChange={(value) => setFormData(prev => ({ ...prev, base_table: value, selected_fields: [] }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a table" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Array.isArray(tables) && tables.map((table) => (
-                    <SelectItem key={table.name} value={table.name}>
-                      {table.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Field Selection */}
-            {availableFields.length > 0 && (
-              <div>
-                <Label>Fields to Include *</Label>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2 max-h-60 overflow-y-auto border rounded p-4">
-                  {availableFields.map((field) => (
-                    <div key={field} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={field}
-                        checked={formData.selected_fields.includes(field)}
-                        onCheckedChange={(checked) => handleFieldToggle(field, checked as boolean)}
-                      />
-                      <Label htmlFor={field} className="text-sm">
-                        {field.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
-                      </Label>
-                    </div>
-                  ))}
-                </div>
-              </div>
+            {currentReport?.description && (
+              <p className="text-muted-foreground">{currentReport.description}</p>
             )}
+          </div>
 
-            {/* Chart Type */}
-            <div>
-              <Label>Chart Type</Label>
-              <Select 
-                value={formData.chart_type} 
-                onValueChange={(value) => setFormData(prev => ({ ...prev, chart_type: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="table">Table</SelectItem>
-                  <SelectItem value="bar">Bar Chart</SelectItem>
-                  <SelectItem value="line">Line Chart</SelectItem>
-                  <SelectItem value="pie">Pie Chart</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Public/Private */}
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="is_public"
-                checked={formData.is_public}
-                onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_public: checked }))}
-              />
-              <Label htmlFor="is_public">Make this report public</Label>
-            </div>
-
-            {/* Actions */}
+          {isViewMode && (
             <div className="flex gap-2">
-              <Button 
-                onClick={handleSaveReport}
-                disabled={!formData.name || !formData.base_table || formData.selected_fields.length === 0}
+              <Button
+                onClick={() => navigate(`/reports/builder?id=${reportId}&edit=true`)}
+                className="gap-2"
               >
-                <Save className="h-4 w-4 mr-2" />
-                {reportId && isEditMode ? 'Update Report' : 'Save Report'}
+                <Edit className="h-4 w-4" />
+                Edit Report
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowConfiguration(!showConfiguration)}
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                {showConfiguration ? 'Hide' : 'Show'} Configuration
               </Button>
             </div>
-          </CardContent>
-        </Card>
+          )}
+        </div>
+
+        {isViewMode ? (
+          // View Mode: Report Display First
+          <div className="space-y-6">
+            {/* Main Report Display */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span>Report Results</span>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={exportToCsv}
+                      disabled={!reportData || reportData.length === 0}
+                    >
+                      <Download className="mr-2 h-4 w-4" />
+                      Export CSV
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={handleRunReport}
+                      disabled={isLoadingData}
+                    >
+                      <Play className="mr-2 h-4 w-4" />
+                      Refresh
+                    </Button>
+                  </div>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ReportPreview
+                  data={reportData}
+                  columns={selectedFields}
+                  chartType={chartConfig.type}
+                  isLoading={isLoadingData}
+                  onRunReport={handleRunReport}
+                  onExportCsv={exportToCsv}
+                  chartConfig={chartConfig}
+                  hideActions={true}
+                />
+              </CardContent>
+            </Card>
+
+            {/* Configuration - Collapsible */}
+            <Collapsible open={showConfiguration} onOpenChange={setShowConfiguration}>
+              <CollapsibleContent>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Report Configuration</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <ReportSettings
+                      form={form}
+                      tables={tables}
+                      isLoadingTables={isLoadingTables}
+                      isEditMode={!!reportId}
+                      onBaseTableChange={(value) => {
+                        form.setValue('base_table', value);
+                        setSelectedFields([]);
+                        setChartConfig({ type: 'table' });
+                      }}
+                    />
+
+                    <ColumnSelector
+                      availableColumns={availableColumns}
+                      selectedColumns={selectedFields}
+                      onColumnChange={(fields) => {
+                        setSelectedFields(fields);
+                        form.setValue('fields', fields);
+                      }}
+                      relatedTables={[]}
+                    />
+
+                    <ChartConfiguration
+                      availableColumns={availableColumns}
+                      selectedFields={selectedFields}
+                      chartConfig={chartConfig}
+                      onChartConfigChange={setChartConfig}
+                    />
+
+                    <div className="space-y-4">
+                      <h3 className="text-sm font-medium">Filters</h3>
+                      <FilterBuilder
+                        selectedFields={availableColumns.map(col => col.key)}
+                        filters={filters}
+                        onAddFilter={addFilter}
+                        onRemoveFilter={removeFilter}
+                        onUpdateFilter={updateFilter}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
+        ) : (
+          // Edit/Create Mode: Side by side layout
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Configuration Panel */}
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Report Configuration</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <ReportSettings
+                    form={form}
+                    tables={tables}
+                    isLoadingTables={isLoadingTables}
+                    isEditMode={!!reportId}
+                    onBaseTableChange={(value) => {
+                      form.setValue('base_table', value);
+                      setSelectedFields([]);
+                      setChartConfig({ type: 'table' });
+                    }}
+                  />
+
+                  <ColumnSelector
+                    availableColumns={availableColumns}
+                    selectedColumns={selectedFields}
+                    onColumnChange={(fields) => {
+                      setSelectedFields(fields);
+                      form.setValue('fields', fields);
+                    }}
+                    relatedTables={[]}
+                  />
+
+                  <ChartConfiguration
+                    availableColumns={availableColumns}
+                    selectedFields={selectedFields}
+                    chartConfig={chartConfig}
+                    onChartConfigChange={setChartConfig}
+                  />
+
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-medium">Filters</h3>
+                    <FilterBuilder
+                      selectedFields={availableColumns.map(col => col.key)}
+                      filters={filters}
+                      onAddFilter={addFilter}
+                      onRemoveFilter={removeFilter}
+                      onUpdateFilter={updateFilter}
+                    />
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button 
+                      onClick={handleSaveReport}
+                      disabled={!form.watch('name') || !form.watch('base_table') || selectedFields.length === 0}
+                    >
+                      <Save className="h-4 w-4 mr-2" />
+                      {reportId && isEditMode ? 'Update Report' : 'Save Report'}
+                    </Button>
+                    
+                    <Button 
+                      variant="outline"
+                      onClick={handleRunReport}
+                      disabled={!form.watch('base_table') || selectedFields.length === 0}
+                    >
+                      <Play className="h-4 w-4 mr-2" />
+                      Run Report
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Preview Panel */}
+            <div>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Report Preview</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ReportPreview
+                    data={reportData}
+                    columns={selectedFields}
+                    chartType={chartConfig.type}
+                    isLoading={isLoadingData}
+                    onRunReport={handleRunReport}
+                    onExportCsv={exportToCsv}
+                    chartConfig={chartConfig}
+                  />
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );

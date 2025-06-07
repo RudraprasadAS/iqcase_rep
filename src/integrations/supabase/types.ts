@@ -938,42 +938,6 @@ export type Database = {
           },
         ]
       }
-      report_configs: {
-        Row: {
-          config: Json
-          created_at: string
-          created_by: string
-          description: string | null
-          id: string
-          is_public: boolean
-          name: string
-          target_module: string
-          updated_at: string
-        }
-        Insert: {
-          config?: Json
-          created_at?: string
-          created_by: string
-          description?: string | null
-          id?: string
-          is_public?: boolean
-          name: string
-          target_module: string
-          updated_at?: string
-        }
-        Update: {
-          config?: Json
-          created_at?: string
-          created_by?: string
-          description?: string | null
-          id?: string
-          is_public?: boolean
-          name?: string
-          target_module?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       report_templates: {
         Row: {
           base_table: string
@@ -1020,57 +984,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      reports: {
-        Row: {
-          aggregation: string | null
-          base_table: string
-          chart_type: string | null
-          created_at: string
-          created_by: string
-          description: string | null
-          filters: Json
-          group_by: string | null
-          id: string
-          is_public: boolean
-          module: string
-          name: string
-          selected_fields: Json
-          updated_at: string
-        }
-        Insert: {
-          aggregation?: string | null
-          base_table: string
-          chart_type?: string | null
-          created_at?: string
-          created_by: string
-          description?: string | null
-          filters?: Json
-          group_by?: string | null
-          id?: string
-          is_public?: boolean
-          module: string
-          name: string
-          selected_fields?: Json
-          updated_at?: string
-        }
-        Update: {
-          aggregation?: string | null
-          base_table?: string
-          chart_type?: string | null
-          created_at?: string
-          created_by?: string
-          description?: string | null
-          filters?: Json
-          group_by?: string | null
-          id?: string
-          is_public?: boolean
-          module?: string
-          name?: string
-          selected_fields?: Json
-          updated_at?: string
-        }
-        Relationships: []
       }
       roles: {
         Row: {
