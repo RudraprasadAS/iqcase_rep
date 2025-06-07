@@ -143,7 +143,12 @@ const ReportBuilder = () => {
     try {
       const config: ReportConfig = {
         selected_fields: selectedFields,
-        filters: filters.filter(f => f.value.trim() !== ''),
+        filters: filters.filter(f => {
+          if (Array.isArray(f.value)) {
+            return f.value.length > 0;
+          }
+          return f.value.toString().trim() !== '';
+        }),
         grouping: [],
         aggregations,
         joins: [],
@@ -171,7 +176,12 @@ const ReportBuilder = () => {
 
     const config: ReportConfig = {
       selected_fields: selectedFields,
-      filters: filters.filter(f => f.value.trim() !== ''),
+      filters: filters.filter(f => {
+        if (Array.isArray(f.value)) {
+          return f.value.length > 0;
+        }
+        return f.value.toString().trim() !== '';
+      }),
       grouping: [],
       aggregations,
       joins: [],

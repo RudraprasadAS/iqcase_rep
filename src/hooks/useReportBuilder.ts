@@ -28,7 +28,7 @@ export const useReportBuilder = () => {
         .order('name');
 
       if (error) throw error;
-      return data as DataSource[];
+      return data as unknown as DataSource[];
     }
   });
 
@@ -53,7 +53,7 @@ export const useReportBuilder = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as ReportTemplate[];
+      return data as unknown as ReportTemplate[];
     }
   });
 
@@ -74,6 +74,7 @@ export const useReportBuilder = () => {
         .from('report_templates')
         .insert({
           ...reportData,
+          config: reportData.config as any,
           created_by: userRecord.data.id
         })
         .select()
@@ -101,9 +102,14 @@ export const useReportBuilder = () => {
   // Update report template
   const updateReport = useMutation({
     mutationFn: async ({ id, ...updates }: Partial<ReportTemplate> & { id: string }) => {
+      const updateData = {
+        ...updates,
+        ...(updates.config && { config: updates.config as any })
+      };
+      
       const { data, error } = await supabase
         .from('report_templates')
-        .update(updates)
+        .update(updateData)
         .eq('id', id)
         .select()
         .single();
@@ -157,7 +163,7 @@ export const useReportBuilder = () => {
   const executeReport = useMutation({
     mutationFn: async (config: ReportConfig): Promise<ReportResult> => {
       const { data, error } = await supabase.rpc('execute_dynamic_report', {
-        p_config: config
+        p_config: config as any
       });
 
       if (error) throw error;

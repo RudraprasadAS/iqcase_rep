@@ -21,7 +21,7 @@ export const useDashboards = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as DashboardTemplate[];
+      return data as unknown as DashboardTemplate[];
     }
   });
 
@@ -42,6 +42,7 @@ export const useDashboards = () => {
         .from('dashboard_templates')
         .insert({
           ...dashboardData,
+          layout: dashboardData.layout as any,
           created_by: userRecord.data.id
         })
         .select()
@@ -69,9 +70,14 @@ export const useDashboards = () => {
   // Update dashboard
   const updateDashboard = useMutation({
     mutationFn: async ({ id, ...updates }: Partial<DashboardTemplate> & { id: string }) => {
+      const updateData = {
+        ...updates,
+        ...(updates.layout && { layout: updates.layout as any })
+      };
+      
       const { data, error } = await supabase
         .from('dashboard_templates')
-        .update(updates)
+        .update(updateData)
         .eq('id', id)
         .select()
         .single();

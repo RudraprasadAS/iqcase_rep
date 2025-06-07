@@ -56,9 +56,11 @@ export interface SelectedField {
   label: string;
 }
 
+export type FilterOperator = 'eq' | 'neq' | 'gt' | 'lt' | 'gte' | 'lte' | 'like' | 'in' | 'between';
+
 export interface ReportFilter {
   field: string;
-  operator: 'eq' | 'neq' | 'gt' | 'lt' | 'gte' | 'lte' | 'like' | 'in' | 'between';
+  operator: FilterOperator;
   value: string | string[];
   table?: string;
 }
@@ -134,4 +136,18 @@ export interface ReportResult {
   data: any[];
   total_count?: number;
   error?: string;
+}
+
+// Additional types needed by components
+export interface ColumnDefinition {
+  name: string;
+  label: string;
+  type: string;
+  nullable?: boolean;
+}
+
+export interface TableInfo {
+  name: string;
+  label: string;
+  columns: ColumnDefinition[];
 }
