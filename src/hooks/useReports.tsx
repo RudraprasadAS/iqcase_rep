@@ -190,7 +190,7 @@ export const useReports = () => {
         
         console.log("Using user ID for report creation:", actualUserId);
         
-        // Convert for Supabase DB structure
+        // Convert for Supabase DB structure - ensure base_table is provided
         const { data, error } = await supabase
           .from('reports')
           .insert({
@@ -198,6 +198,7 @@ export const useReports = () => {
             description: report.description,
             created_by: actualUserId, // Use the actual users table ID
             module: report.base_table || report.module, // Support both field names
+            base_table: report.base_table || report.module, // Add the required base_table field
             selected_fields: report.fields || report.selected_fields, // Support both field names
             filters: filtersForDb,
             aggregation: report.aggregation || null,
