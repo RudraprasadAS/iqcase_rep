@@ -73,14 +73,12 @@ export interface SavedView {
   created_at?: string;
 }
 
-// Added to ensure ReportFilter can be used as a JSON value
 export type ReportFilterJson = {
   field: string;
   operator: string;
   value: string | number | boolean | null | (string | number)[];
 };
 
-// Type for the config stored in the report_configs table
 export interface ReportConfigJson {
   baseReportId: string;
   columns: string[];
