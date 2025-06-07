@@ -696,6 +696,33 @@ export type Database = {
           },
         ]
       }
+      dashboard_layouts: {
+        Row: {
+          created_at: string
+          dashboard_id: string
+          id: string
+          layout_data: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          dashboard_id: string
+          id?: string
+          layout_data?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          dashboard_id?: string
+          id?: string
+          layout_data?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       dashboard_templates: {
         Row: {
           created_at: string | null

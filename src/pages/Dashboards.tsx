@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
@@ -5,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Plus, Eye, Edit, Trash2, Settings, BarChart3, Calculator, PieChart, TrendingUp } from 'lucide-react';
 import { DashboardBuilder } from '@/components/dashboards/DashboardBuilder';
+import { ResizableDashboard } from '@/components/dashboards/ResizableDashboard';
 import { useReports } from '@/hooks/useReports';
 import { useToast } from '@/hooks/use-toast';
 import { ReportPreview } from '@/components/reports/ReportPreview';
