@@ -273,8 +273,8 @@ export const DashboardBuilder = ({ onSave }: DashboardLayoutProps) => {
                       <SelectValue placeholder="Select field" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Count all records</SelectItem>
-                      {getAvailableFields().map((field) => (
+                      <SelectItem value="all_records">Count all records</SelectItem>
+                      {getAvailableFields().filter(field => field && field.trim() !== '').map((field) => (
                         <SelectItem key={field} value={field}>
                           {field}
                         </SelectItem>

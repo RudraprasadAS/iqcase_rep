@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
@@ -77,7 +78,7 @@ const ReportBuilder = () => {
         form.setValue('fields', fieldsArray);
         setFilters(Array.isArray(report.filters) ? report.filters : []);
         
-        // Chart config
+        // Chart config - properly handle date grouping
         let loadedChartConfig: ChartConfig = {
           type: report.chart_type || 'table'
         };
@@ -90,6 +91,15 @@ const ReportBuilder = () => {
           loadedChartConfig.xAxis = report.group_by;
         }
 
+        // Handle date_grouping specifically - check both fields
+        if (report.date_grouping) {
+          loadedChartConfig.dateGrouping = report.date_grouping as ChartConfig['dateGrouping'];
+        } else if (report.group_by && ['day', 'week', 'month', 'quarter', 'year'].includes(report.group_by)) {
+          // Fallback: if group_by contains a date grouping value
+          loadedChartConfig.dateGrouping = report.group_by as ChartConfig['dateGrouping'];
+        }
+
+        console.log('Loaded chart config:', loadedChartConfig);
         setChartConfig(loadedChartConfig);
       }
     }
@@ -189,9 +199,12 @@ const ReportBuilder = () => {
         aggregation: chartConfig.aggregation,
         group_by: chartConfig.xAxis,
         is_public: formValues.is_public,
-        // Preserve the date grouping when saving
+        // IMPORTANT: Save the date_grouping separately from group_by
         date_grouping: chartConfig.dateGrouping
       };
+
+      console.log('Saving report with chart config:', chartConfig);
+      console.log('Report data being saved:', reportData);
 
       if (reportId && isEditMode) {
         await updateReport.mutateAsync({

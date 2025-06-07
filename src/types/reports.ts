@@ -16,6 +16,7 @@ export interface Report {
   aggregation?: string;
   chart_type?: 'table' | 'bar' | 'line' | 'pie';
   group_by?: string;
+  date_grouping?: 'day' | 'week' | 'month' | 'quarter' | 'year'; // Add this field
   is_public: boolean;
   joins?: TableJoin[];
 }
