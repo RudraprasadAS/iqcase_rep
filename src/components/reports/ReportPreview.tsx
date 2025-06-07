@@ -1,3 +1,4 @@
+
 import React from 'react';
 import {
   Table,
@@ -250,63 +251,77 @@ export const ReportPreview = ({
     switch (chartType) {
       case 'bar':
         return (
-          <ResponsiveContainer width="100%" height={400}>
-            <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis 
-                dataKey="name" 
-                angle={chartData.length > 5 ? -45 : 0}
-                textAnchor={chartData.length > 5 ? 'end' : 'middle'}
-                height={chartData.length > 5 ? 80 : 60}
-              />
-              <YAxis />
-              <Tooltip formatter={(value, name) => [value, chartTitle]} />
-              <Bar dataKey="value" fill={COLORS[0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          <div className="w-full" style={{ height: '500px', paddingBottom: '20px' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 80 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis 
+                  dataKey="name" 
+                  angle={chartData.length > 5 ? -45 : 0}
+                  textAnchor={chartData.length > 5 ? 'end' : 'middle'}
+                  height={chartData.length > 5 ? 100 : 60}
+                  interval={0}
+                />
+                <YAxis />
+                <Tooltip formatter={(value, name) => [value, chartTitle]} />
+                <Bar dataKey="value" fill={COLORS[0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         );
         
       case 'line':
         return (
-          <ResponsiveContainer width="100%" height={400}>
-            <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis 
-                dataKey="name"
-                angle={chartData.length > 5 ? -45 : 0}
-                textAnchor={chartData.length > 5 ? 'end' : 'middle'}
-                height={chartData.length > 5 ? 80 : 60}
-              />
-              <YAxis />
-              <Tooltip formatter={(value, name) => [value, chartTitle]} />
-              <Line type="monotone" dataKey="value" stroke={COLORS[0]} />
-            </LineChart>
-          </ResponsiveContainer>
+          <div className="w-full" style={{ height: '500px', paddingBottom: '20px' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 80 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis 
+                  dataKey="name"
+                  angle={chartData.length > 5 ? -45 : 0}
+                  textAnchor={chartData.length > 5 ? 'end' : 'middle'}
+                  height={chartData.length > 5 ? 100 : 60}
+                  interval={0}
+                />
+                <YAxis />
+                <Tooltip formatter={(value, name) => [value, chartTitle]} />
+                <Line type="monotone" dataKey="value" stroke={COLORS[0]} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         );
         
       case 'pie':
         return (
-          <ResponsiveContainer width="100%" height={400}>
-            <PieChart>
-              <Pie
-                data={chartData}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                outerRadius={150}
-                fill="#8884d8"
-                label={({ name, percent }) => 
-                  `${name}: ${(percent * 100).toFixed(0)}%`
-                }
-              >
-                {chartData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip formatter={(value) => [value, chartTitle]} />
-            </PieChart>
-          </ResponsiveContainer>
+          <div className="w-full" style={{ height: '500px', paddingBottom: '20px' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                <Pie
+                  data={chartData}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={120}
+                  fill="#8884d8"
+                  label={({ name, percent }) => 
+                    `${name}: ${(percent * 100).toFixed(0)}%`
+                  }
+                  labelLine={false}
+                >
+                  {chartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value) => [value, chartTitle]} />
+                <Legend 
+                  verticalAlign="bottom" 
+                  height={50}
+                  wrapperStyle={{ paddingTop: '20px' }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
         );
         
       default:

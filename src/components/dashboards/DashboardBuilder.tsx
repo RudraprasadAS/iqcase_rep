@@ -22,11 +22,19 @@ interface DashboardItem {
   position: { x: number; y: number; width: number; height: number };
 }
 
-interface DashboardLayoutProps {
-  onSave?: (dashboardName: string, items: DashboardItem[]) => void;
+interface SavedDashboard {
+  id: string;
+  name: string;
+  items: DashboardItem[];
+  createdAt: string;
 }
 
-export const DashboardBuilder = ({ onSave }: DashboardLayoutProps) => {
+interface DashboardLayoutProps {
+  onSave?: (dashboardName: string, items: DashboardItem[]) => void;
+  initialDashboard?: SavedDashboard | null;
+}
+
+export const DashboardBuilder = ({ onSave, initialDashboard }: DashboardLayoutProps) => {
   const { reports, tables, isLoadingReports, isLoadingTables } = useReports();
   const { toast } = useToast();
   const [dashboardItems, setDashboardItems] = useState<DashboardItem[]>([]);
@@ -37,6 +45,18 @@ export const DashboardBuilder = ({ onSave }: DashboardLayoutProps) => {
   const [selectedTable, setSelectedTable] = useState('');
   const [selectedField, setSelectedField] = useState('');
   const [selectedAggregation, setSelectedAggregation] = useState<'count' | 'sum' | 'avg' | 'min' | 'max'>('count');
+
+  // Load initial dashboard data if editing
+  useEffect(() => {
+    if (initialDashboard) {
+      setDashboardName(initialDashboard.name);
+      setDashboardItems(initialDashboard.items);
+    } else {
+      // Reset for new dashboard
+      setDashboardName('');
+      setDashboardItems([]);
+    }
+  }, [initialDashboard]);
 
   const addReport = (reportId: string) => {
     const report = reports?.find(r => r.id === reportId);
@@ -69,7 +89,7 @@ export const DashboardBuilder = ({ onSave }: DashboardLayoutProps) => {
     }
 
     const tableInfo = tables?.find(t => t.name === selectedTable);
-    const fieldLabel = selectedField || 'records';
+    const fieldLabel = selectedField && selectedField !== 'all_records' ? selectedField : 'records';
     const metricTitle = `${selectedAggregation.toUpperCase()} of ${fieldLabel} from ${tableInfo?.name || selectedTable}`;
 
     const newItem: DashboardItem = {
@@ -78,7 +98,7 @@ export const DashboardBuilder = ({ onSave }: DashboardLayoutProps) => {
       title: metricTitle,
       metric: {
         table: selectedTable,
-        field: selectedField || '*',
+        field: selectedField === 'all_records' ? '*' : selectedField || '*',
         aggregation: selectedAggregation
       },
       position: { x: 0, y: dashboardItems.length * 150, width: 300, height: 150 }
@@ -130,8 +150,8 @@ export const DashboardBuilder = ({ onSave }: DashboardLayoutProps) => {
     }
 
     toast({
-      title: 'Dashboard saved',
-      description: `Dashboard "${dashboardName}" has been saved successfully`
+      title: initialDashboard ? 'Dashboard updated' : 'Dashboard saved',
+      description: `Dashboard "${dashboardName}" has been ${initialDashboard ? 'updated' : 'saved'} successfully`
     });
   };
 
@@ -204,7 +224,7 @@ export const DashboardBuilder = ({ onSave }: DashboardLayoutProps) => {
               onClick={handleSave}
               disabled={!dashboardName.trim() || dashboardItems.length === 0}
             >
-              Save Dashboard
+              {initialDashboard ? 'Update Dashboard' : 'Save Dashboard'}
             </Button>
           </div>
         </CardContent>

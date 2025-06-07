@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
@@ -78,28 +77,28 @@ const ReportBuilder = () => {
         form.setValue('fields', fieldsArray);
         setFilters(Array.isArray(report.filters) ? report.filters : []);
         
-        // Chart config - properly handle date grouping
+        // Chart config - properly handle ALL chart configuration fields
         let loadedChartConfig: ChartConfig = {
           type: report.chart_type || 'table'
         };
 
+        // Load aggregation
         if (report.aggregation) {
           loadedChartConfig.aggregation = report.aggregation as ChartConfig['aggregation'];
         }
         
+        // Load X-axis (group_by)
         if (report.group_by) {
           loadedChartConfig.xAxis = report.group_by;
         }
 
-        // Handle date_grouping specifically - check both fields
+        // CRITICAL: Load date_grouping field specifically
         if (report.date_grouping) {
           loadedChartConfig.dateGrouping = report.date_grouping as ChartConfig['dateGrouping'];
-        } else if (report.group_by && ['day', 'week', 'month', 'quarter', 'year'].includes(report.group_by)) {
-          // Fallback: if group_by contains a date grouping value
-          loadedChartConfig.dateGrouping = report.group_by as ChartConfig['dateGrouping'];
+          console.log('Loaded date_grouping from report:', report.date_grouping);
         }
 
-        console.log('Loaded chart config:', loadedChartConfig);
+        console.log('Final loaded chart config:', loadedChartConfig);
         setChartConfig(loadedChartConfig);
       }
     }
@@ -198,13 +197,12 @@ const ReportBuilder = () => {
         chart_type: chartConfig.type,
         aggregation: chartConfig.aggregation,
         group_by: chartConfig.xAxis,
-        is_public: formValues.is_public,
-        // IMPORTANT: Save the date_grouping separately from group_by
-        date_grouping: chartConfig.dateGrouping
+        date_grouping: chartConfig.dateGrouping, // CRITICAL: Save date_grouping separately
+        is_public: formValues.is_public
       };
 
-      console.log('Saving report with chart config:', chartConfig);
-      console.log('Report data being saved:', reportData);
+      console.log('Saving report with complete chart config:', chartConfig);
+      console.log('Report data being saved (with date_grouping):', reportData);
 
       if (reportId && isEditMode) {
         await updateReport.mutateAsync({
