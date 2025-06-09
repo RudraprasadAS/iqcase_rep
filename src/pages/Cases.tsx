@@ -31,10 +31,15 @@ const Cases = () => {
   const [priorityFilter, setPriorityFilter] = useState("all");
   const { userInfo } = useRoleAccess();
 
+  console.log("🔍 [Cases] Current user info:", userInfo);
+  console.log("🔍 [Cases] User role:", userInfo?.role?.name);
+
   // Fetch cases data with role-based filtering
   const { data: cases, isLoading } = useQuery({
     queryKey: ["cases", searchQuery, statusFilter, priorityFilter, userInfo?.id],
     queryFn: async () => {
+      console.log("🔍 [Cases] Fetching cases for user:", userInfo?.id, "role:", userInfo?.role?.name);
+      
       let query = supabase
         .from("cases")
         .select(`
@@ -47,8 +52,11 @@ const Cases = () => {
 
       // Filter cases based on user role
       if (userInfo && userInfo.role.name !== 'super_admin' && userInfo.role.name !== 'admin') {
+        console.log("🔍 [Cases] Applying role-based filtering for non-admin user");
         // For non-admin users, only show cases they're assigned to or submitted by them
         query = query.or(`assigned_to.eq.${userInfo.id},submitted_by.eq.${userInfo.id}`);
+      } else {
+        console.log("🔍 [Cases] Admin user - showing all cases");
       }
 
       if (searchQuery) {
@@ -64,7 +72,12 @@ const Cases = () => {
       }
 
       const { data, error } = await query;
-      if (error) throw error;
+      if (error) {
+        console.error("🔍 [Cases] Error fetching cases:", error);
+        throw error;
+      }
+      
+      console.log("🔍 [Cases] Fetched cases:", data?.length, "cases");
       return data;
     },
     enabled: !!userInfo,

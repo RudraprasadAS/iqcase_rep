@@ -29,13 +29,18 @@ export const usePermissionCheck = (
       }
 
       console.log(`🔍 [Permission Check] RPC result for ${elementKey}:`, data);
-      return data as boolean;
+      
+      // Ensure we return a boolean, defaulting to false for safety
+      return Boolean(data);
     },
     enabled: !!elementKey,
+    // Add these options to prevent caching issues
+    staleTime: 0,
+    refetchOnWindowFocus: false,
   });
 
   return {
-    hasPermission,
+    hasPermission: Boolean(hasPermission),
     isLoading,
     error: error as Error | null
   };
@@ -63,13 +68,15 @@ export const useBulkPermissionCheck = (permissions: Array<{
           console.error(`Permission check error for ${key}:`, error);
           results[key] = false;
         } else {
-          results[key] = data as boolean;
+          results[key] = Boolean(data);
         }
       }
 
       return results;
     },
     enabled: permissions.length > 0,
+    staleTime: 0,
+    refetchOnWindowFocus: false,
   });
 
   return {
