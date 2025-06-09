@@ -7,13 +7,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, FileText, Filter } from "lucide-react";
+import { Plus, Search, FileText, Filter, Edit } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { 
   PermissionGuard, 
-  FieldPermissionWrapper, 
   ButtonPermissionWrapper 
 } from "@/components/auth";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 const Cases = () => {
   const navigate = useNavigate();
@@ -145,108 +152,109 @@ const Cases = () => {
           </CardContent>
         </Card>
 
-        {/* Cases List */}
-        <div className="grid gap-6">
-          {isLoading ? (
-            <div className="grid gap-4">
-              {[...Array(5)].map((_, i) => (
-                <Card key={i} className="animate-pulse">
-                  <CardContent className="pt-6">
-                    <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                    <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : cases?.length === 0 ? (
-            <Card>
-              <CardContent className="flex items-center justify-center py-12">
-                <div className="text-center">
-                  <h2 className="text-2xl font-semibold mb-2">No cases found</h2>
-                  <p className="text-muted-foreground mb-4">
-                    {searchQuery || statusFilter !== "all" || priorityFilter !== "all"
-                      ? "Try adjusting your search or filters"
-                      : "Get started by creating your first case"}
-                  </p>
-                  <ButtonPermissionWrapper elementKey="cases.create_case">
-                    <Button onClick={() => navigate("/cases/new")}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Create Case
-                    </Button>
-                  </ButtonPermissionWrapper>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            cases?.map((caseItem) => (
-              <Card key={caseItem.id} className="hover:shadow-md transition-shadow cursor-pointer">
-                <CardHeader 
-                  className="pb-4"
-                  onClick={() => navigate(`/cases/${caseItem.id}`)}
-                >
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <CardTitle className="text-lg mb-2">{caseItem.title}</CardTitle>
-                      <CardDescription className="line-clamp-2">
-                        {caseItem.description}
-                      </CardDescription>
-                    </div>
-                    <div className="flex flex-col gap-2 ml-4">
-                      <Badge variant={getPriorityColor(caseItem.priority)}>
-                        {caseItem.priority}
-                      </Badge>
-                      <Badge variant={getStatusColor(caseItem.status)}>
-                        {caseItem.status.replace('_', ' ')}
-                      </Badge>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-muted-foreground">
-                    <div>
-                      <span className="font-medium">Category:</span>
-                      <p>{caseItem.category?.name || 'Uncategorized'}</p>
-                    </div>
-                    
-                    <div>
-                      <span className="font-medium">Submitted by:</span>
-                      <p>{caseItem.submitted_by_user?.name || 'Unknown'}</p>
-                    </div>
-                    
-                    <div>
-                      <span className="font-medium">Assigned to:</span>
-                      <p>{caseItem.assigned_to_user?.name || 'Unassigned'}</p>
-                    </div>
-                    
-                    <div>
-                      <span className="font-medium">Location:</span>
-                      <p>{caseItem.location || 'Not specified'}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-4 flex justify-between items-center">
-                    <div className="text-xs text-muted-foreground">
-                      Created: {new Date(caseItem.created_at).toLocaleDateString()}
-                    </div>
-                    
-                    <div className="flex gap-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/cases/${caseItem.id}`);
-                        }}
-                      >
-                        Edit
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
-        </div>
+        {/* Cases Table */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Cases List</CardTitle>
+            <CardDescription>
+              A comprehensive list of all cases in the system
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="text-center py-8">
+                <div className="animate-spin h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
+                <p>Loading cases...</p>
+              </div>
+            ) : cases?.length === 0 ? (
+              <div className="text-center py-8">
+                <h3 className="text-lg font-medium mb-2">No cases found</h3>
+                <p className="text-muted-foreground mb-4">
+                  {searchQuery || statusFilter !== "all" || priorityFilter !== "all"
+                    ? "Try adjusting your search or filters"
+                    : "Get started by creating your first case"}
+                </p>
+                <ButtonPermissionWrapper elementKey="cases.create_case">
+                  <Button onClick={() => navigate("/cases/new")}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Case
+                  </Button>
+                </ButtonPermissionWrapper>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Title</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Priority</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead>Submitted By</TableHead>
+                    <TableHead>Assigned To</TableHead>
+                    <TableHead>Location</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {cases?.map((caseItem) => (
+                    <TableRow 
+                      key={caseItem.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => navigate(`/cases/${caseItem.id}`)}
+                    >
+                      <TableCell className="font-medium">
+                        <div>
+                          <div className="font-semibold">{caseItem.title}</div>
+                          <div className="text-sm text-muted-foreground truncate max-w-xs">
+                            {caseItem.description}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={getStatusColor(caseItem.status)}>
+                          {caseItem.status.replace('_', ' ')}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={getPriorityColor(caseItem.priority)}>
+                          {caseItem.priority}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {caseItem.category?.name || 'Uncategorized'}
+                      </TableCell>
+                      <TableCell>
+                        {caseItem.submitted_by_user?.name || 'Unknown'}
+                      </TableCell>
+                      <TableCell>
+                        {caseItem.assigned_to_user?.name || 'Unassigned'}
+                      </TableCell>
+                      <TableCell className="max-w-xs truncate">
+                        {caseItem.location || 'Not specified'}
+                      </TableCell>
+                      <TableCell>
+                        {new Date(caseItem.created_at).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/cases/${caseItem.id}`);
+                          }}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </PermissionGuard>
   );
