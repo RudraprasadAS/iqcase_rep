@@ -17,11 +17,10 @@ import {
   FileText, 
   Users, 
   BarChart3, 
-  Settings, 
   BookOpen,
   Bell,
   Shield,
-  PieChart,
+  TrendingUp,
   Calendar
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
@@ -38,7 +37,7 @@ export function AppSidebar() {
     roleName 
   } = useRoleAccess();
 
-  // Main navigation items based on role
+  // Main navigation items based on module registry
   const navigationItems = [
     {
       title: "Dashboard",
@@ -67,7 +66,7 @@ export function AppSidebar() {
     {
       title: "Insights",
       url: "/insights",
-      icon: PieChart,
+      icon: TrendingUp,
       show: true // All internal users can access
     },
     {
@@ -81,8 +80,8 @@ export function AppSidebar() {
   // Reports submenu - Only Admin and Manager can access
   const reportsItems = [
     {
-      title: "Standard Reports",
-      url: "/reports/standard",
+      title: "Reports",
+      url: "/reports",
     },
     {
       title: "Report Builder",
