@@ -10,7 +10,15 @@ import {
   Bell,
   Shield,
   ChevronDown,
-  TrendingUp
+  TrendingUp,
+  Database,
+  Users,
+  MapPin,
+  Calendar,
+  MessageSquare,
+  Tag,
+  Archive,
+  Activity
 } from 'lucide-react';
 import {
   Sidebar,
@@ -31,32 +39,84 @@ import {
 } from "@/components/ui/sidebar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useState } from 'react';
-import { useMenuPermissions } from '@/hooks/usePermissionCheck';
+import { useMenuPermissions, useBulkPermissionCheck } from '@/hooks/usePermissionCheck';
 
-const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Cases', href: '/cases', icon: FileText },
-  { name: 'Knowledge Base', href: '/knowledge', icon: BookOpen },
-  { name: 'Notifications', href: '/notifications', icon: Bell },
-  { name: 'Insights', href: '/insights', icon: TrendingUp },
+// Core navigation items that should always be available
+const coreNavigation = [
+  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, moduleName: 'dashboard' },
+  { name: 'Cases', href: '/cases', icon: FileText, moduleName: 'cases' },
+  { name: 'Knowledge Base', href: '/knowledge', icon: BookOpen, moduleName: 'knowledge' },
+  { name: 'Notifications', href: '/notifications', icon: Bell, moduleName: 'notifications' },
 ];
 
-const reportNavigation = [
-  { name: 'Reports', href: '/reports' },
-  { name: 'Report Builder', href: '/reports/builder' },
-  { name: 'Dashboards', href: '/dashboards' },
-];
+// Icon mapping for different modules
+const moduleIcons: Record<string, any> = {
+  dashboard: LayoutDashboard,
+  cases: FileText,
+  knowledge: BookOpen,
+  notifications: Bell,
+  insights: TrendingUp,
+  analytics: BarChart3,
+  reports: BarChart3,
+  dashboards: BarChart3,
+  admin: Shield,
+  users: Users,
+  permissions: Shield,
+  roles: Shield,
+  locations: MapPin,
+  case_categories: Tag,
+  case_messages: MessageSquare,
+  case_notes: FileText,
+  case_attachments: Archive,
+  case_activities: Activity,
+  case_tasks: FileText,
+  case_watchers: Users,
+  case_feedback: MessageSquare,
+  notifications: Bell,
+  report_templates: BarChart3,
+  report_configs: BarChart3,
+  dashboard_templates: BarChart3,
+  dashboard_layouts: BarChart3,
+  data_sources: Database,
+};
 
-const adminNavigation = [
-  { name: 'Users', href: '/admin/users' },
-  { name: 'Permissions', href: '/admin/permissions' },
-  { name: 'Roles', href: '/admin/roles' },
-];
+// Get icon for module
+const getModuleIcon = (moduleName: string) => {
+  return moduleIcons[moduleName] || Database;
+};
+
+// Generate route for module
+const getModuleRoute = (moduleName: string) => {
+  const routeMap: Record<string, string> = {
+    dashboard: '/dashboard',
+    cases: '/cases',
+    knowledge: '/knowledge',
+    notifications: '/notifications',
+    insights: '/insights',
+    reports: '/reports',
+    dashboards: '/dashboards',
+    users: '/admin/users',
+    permissions: '/admin/permissions',
+    roles: '/admin/roles',
+    // Add more route mappings as needed
+  };
+  
+  return routeMap[moduleName] || `/${moduleName}`;
+};
+
+// Format display name for module
+const formatModuleName = (moduleName: string) => {
+  return moduleName
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
 
 export function AppSidebar() {
   const { state } = useSidebar();
-  const [isReportsOpen, setIsReportsOpen] = useState(false);
+  const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const [isDataOpen, setIsDataOpen] = useState(false);
   
   const {
     canViewAnalytics,
@@ -67,34 +127,27 @@ export function AppSidebar() {
     canViewRoles,
     canViewDashboards,
     canViewInsights,
-    isLoading
+    isLoading: menuPermissionsLoading
   } = useMenuPermissions();
 
-  // Filter navigation items based on permissions
-  const filteredNavigation = navigation.filter(item => {
-    if (item.name === 'Insights') return canViewInsights;
-    return true; // Allow dashboard, cases, knowledge base, and notifications for all authenticated users
-  });
+  // Get ALL modules that the user has view permissions for
+  const allPossibleModules = [
+    'cases', 'users', 'roles', 'permissions', 'locations', 'case_categories',
+    'case_messages', 'case_notes', 'case_attachments', 'case_activities',
+    'case_tasks', 'case_watchers', 'case_feedback', 'notifications',
+    'report_templates', 'report_configs', 'dashboard_templates', 
+    'dashboard_layouts', 'data_sources', 'insights', 'analytics',
+    'reports', 'dashboards'
+  ];
 
-  // Filter admin navigation based on specific permissions
-  const filteredAdminNavigation = adminNavigation.filter(item => {
-    switch (item.name) {
-      case 'Users':
-        return canViewUsers;
-      case 'Permissions':
-        return canViewPermissions;
-      case 'Roles':
-        return canViewRoles;
-      default:
-        return false;
-    }
-  });
+  const modulePermissions = allPossibleModules.map(module => ({
+    moduleName: module,
+    permissionType: 'view' as const
+  }));
 
-  // Filter reports navigation based on specific permissions
-  const filteredReportNavigation = reportNavigation.filter(item => {
-    if (item.name === 'Dashboards') return canViewDashboards;
-    return canViewReports; // Reports and Report Builder both need reports permission
-  });
+  const { permissionResults, isLoading: bulkPermissionsLoading } = useBulkPermissionCheck(modulePermissions);
+
+  const isLoading = menuPermissionsLoading || bulkPermissionsLoading;
 
   // Show loading state
   if (isLoading) {
@@ -121,7 +174,31 @@ export function AppSidebar() {
       </Sidebar>
     );
   }
-  
+
+  // Core application items (always show these)
+  const coreItems = coreNavigation.filter(item => {
+    if (item.moduleName === 'insights') return canViewInsights;
+    return true; // Show dashboard, cases, knowledge base, notifications for all authenticated users
+  });
+
+  // Analytics/Reporting modules
+  const analyticsModules = ['analytics', 'reports', 'dashboards', 'report_templates', 'report_configs', 'dashboard_templates', 'dashboard_layouts'];
+  const availableAnalyticsModules = analyticsModules.filter(module => 
+    permissionResults[`${module}.view`] === true
+  );
+
+  // Admin modules
+  const adminModules = ['users', 'permissions', 'roles'];
+  const availableAdminModules = adminModules.filter(module => 
+    permissionResults[`${module}.view`] === true
+  );
+
+  // Data/Case Management modules
+  const dataModules = ['case_categories', 'locations', 'case_messages', 'case_notes', 'case_attachments', 'case_activities', 'case_tasks', 'case_watchers', 'case_feedback', 'data_sources'];
+  const availableDataModules = dataModules.filter(module => 
+    permissionResults[`${module}.view`] === true
+  );
+
   return (
     <Sidebar collapsible="icon" className="font-inter">
       <SidebarHeader>
@@ -149,11 +226,12 @@ export function AppSidebar() {
       </SidebarHeader>
       
       <SidebarContent>
+        {/* Core Application */}
         <SidebarGroup>
           <SidebarGroupLabel>Application</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {filteredNavigation.map((item) => (
+              {coreItems.map((item) => (
                 <SidebarMenuItem key={item.name}>
                   <SidebarMenuButton asChild tooltip={item.name}>
                     <NavLink
@@ -172,28 +250,28 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Analytics section - only show if user has permission */}
-        {(canViewAnalytics || canViewReports || canViewDashboards) && filteredReportNavigation.length > 0 && (
+        {/* Analytics section */}
+        {availableAnalyticsModules.length > 0 && (
           <SidebarGroup>
-            <SidebarGroupLabel>Analytics</SidebarGroupLabel>
+            <SidebarGroupLabel>Analytics & Reports</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                <Collapsible open={isReportsOpen} onOpenChange={setIsReportsOpen}>
+                <Collapsible open={isAnalyticsOpen} onOpenChange={setIsAnalyticsOpen}>
                   <SidebarMenuItem>
                     <CollapsibleTrigger asChild>
                       <SidebarMenuButton tooltip="Analytics">
                         <BarChart3 />
                         <span>Analytics</span>
-                        <ChevronDown className={cn("ml-auto transition-transform", isReportsOpen && "rotate-180")} />
+                        <ChevronDown className={cn("ml-auto transition-transform", isAnalyticsOpen && "rotate-180")} />
                       </SidebarMenuButton>
                     </CollapsibleTrigger>
                     <CollapsibleContent>
                       <SidebarMenuSub>
-                        {filteredReportNavigation.map((item) => (
-                          <SidebarMenuSubItem key={item.name}>
+                        {availableAnalyticsModules.map((module) => (
+                          <SidebarMenuSubItem key={module}>
                             <SidebarMenuSubButton asChild>
-                              <NavLink to={item.href}>
-                                <span>{item.name}</span>
+                              <NavLink to={getModuleRoute(module)}>
+                                <span>{formatModuleName(module)}</span>
                               </NavLink>
                             </SidebarMenuSubButton>
                           </SidebarMenuSubItem>
@@ -207,8 +285,43 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
 
-        {/* Admin section - only show if user has admin permissions */}
-        {canViewAdmin && filteredAdminNavigation.length > 0 && (
+        {/* Data Management section */}
+        {availableDataModules.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Data Management</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <Collapsible open={isDataOpen} onOpenChange={setIsDataOpen}>
+                  <SidebarMenuItem>
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton tooltip="Data Management">
+                        <Database />
+                        <span>Data Management</span>
+                        <ChevronDown className={cn("ml-auto transition-transform", isDataOpen && "rotate-180")} />
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <SidebarMenuSub>
+                        {availableDataModules.map((module) => (
+                          <SidebarMenuSubItem key={module}>
+                            <SidebarMenuSubButton asChild>
+                              <NavLink to={getModuleRoute(module)}>
+                                <span>{formatModuleName(module)}</span>
+                              </NavLink>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        ))}
+                      </SidebarMenuSub>
+                    </CollapsibleContent>
+                  </SidebarMenuItem>
+                </Collapsible>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {/* Admin section */}
+        {availableAdminModules.length > 0 && (
           <SidebarGroup>
             <SidebarGroupLabel>Administration</SidebarGroupLabel>
             <SidebarGroupContent>
@@ -224,11 +337,11 @@ export function AppSidebar() {
                     </CollapsibleTrigger>
                     <CollapsibleContent>
                       <SidebarMenuSub>
-                        {filteredAdminNavigation.map((item) => (
-                          <SidebarMenuSubItem key={item.name}>
+                        {availableAdminModules.map((module) => (
+                          <SidebarMenuSubItem key={module}>
                             <SidebarMenuSubButton asChild>
-                              <NavLink to={item.href}>
-                                <span>{item.name}</span>
+                              <NavLink to={getModuleRoute(module)}>
+                                <span>{formatModuleName(module)}</span>
                               </NavLink>
                             </SidebarMenuSubButton>
                           </SidebarMenuSubItem>
