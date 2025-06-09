@@ -3,7 +3,7 @@ export interface FrontendRegistryItem {
   id: string;
   module: string;
   screen: string;
-  element_type: 'field' | 'button' | 'tab' | 'section' | 'menu' | 'action';
+  element_type: string; // Changed from union type to string to match database
   element_key: string;
   label?: string;
   is_active: boolean;
