@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { usePermissionCheck } from '@/hooks/usePermissionCheck';
+import { useRoleAccess } from '@/hooks/useRoleAccess';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Shield } from 'lucide-react';
 
@@ -19,12 +20,28 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   fallback = null,
   showError = false
 }) => {
+  const { userInfo, isLoading: roleLoading } = useRoleAccess();
   const { hasPermission, isLoading, error } = usePermissionCheck(
     elementKey,
     permissionType
   );
 
-  if (isLoading) {
+  console.log(`🛡️ [PermissionGuard] Checking access for ${elementKey}:`, {
+    elementKey,
+    permissionType,
+    userInfo,
+    hasPermission,
+    isLoading,
+    roleLoading
+  });
+
+  // If user is super admin or admin, grant access
+  if (userInfo?.role?.name === 'super_admin' || userInfo?.role?.name === 'admin') {
+    console.log(`👑 [PermissionGuard] Admin access granted for ${elementKey}`);
+    return <>{children}</>;
+  }
+
+  if (isLoading || roleLoading) {
     return <div className="animate-pulse bg-gray-200 h-4 w-full rounded"></div>;
   }
 
@@ -40,8 +57,10 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   }
 
   if (!hasPermission) {
+    console.log(`🚫 [PermissionGuard] Access denied for ${elementKey}`);
     return <>{fallback}</>;
   }
 
+  console.log(`✅ [PermissionGuard] Access granted for ${elementKey}`);
   return <>{children}</>;
 };
