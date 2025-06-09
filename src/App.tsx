@@ -15,6 +15,7 @@ import Layout from "./components/layout/Layout";
 import CitizenLayout from "./components/layout/CitizenLayout";
 import AuthLayout from "./components/layout/AuthLayout";
 import RequireAuth from "./components/auth/RequireAuth";
+import { RoleBasedRoute } from "./components/auth/RoleBasedRoute";
 import Permissions from "./pages/admin/Permissions";
 import Users from "./pages/admin/Users";
 import Reports from "./pages/Reports";
@@ -55,9 +56,13 @@ function App() {
                 <Route path="/auth/reset-password" element={<ResetPassword />} />
               </Route>
               
-              {/* Protected internal routes */}
+              {/* Protected internal routes - Only for internal users */}
               <Route element={<RequireAuth />}>
-                <Route element={<Layout />}>
+                <Route element={
+                  <RoleBasedRoute requireInternal={true}>
+                    <Layout />
+                  </RoleBasedRoute>
+                }>
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/cases" element={<Cases />} />
                   <Route path="/cases/:id" element={<CaseDetail />} />
@@ -66,19 +71,47 @@ function App() {
                   <Route path="/notifications" element={<Notifications />} />
                   <Route path="/insights" element={<Insights />} />
                   
-                  {/* Analytics */}
-                  <Route path="/reports" element={<Reports />} />
-                  <Route path="/reports/builder" element={<ReportBuilder />} />
-                  <Route path="/dashboards" element={<Dashboards />} />
+                  {/* Analytics - Only for users with analytics access */}
+                  <Route path="/reports" element={
+                    <RoleBasedRoute allowedRoles={['admin', 'manager', 'analyst']}>
+                      <Reports />
+                    </RoleBasedRoute>
+                  } />
+                  <Route path="/reports/builder" element={
+                    <RoleBasedRoute allowedRoles={['admin', 'manager', 'analyst']}>
+                      <ReportBuilder />
+                    </RoleBasedRoute>
+                  } />
+                  <Route path="/dashboards" element={
+                    <RoleBasedRoute allowedRoles={['admin', 'manager', 'analyst']}>
+                      <Dashboards />
+                    </RoleBasedRoute>
+                  } />
                   
-                  {/* Admin */}
-                  <Route path="/admin/users" element={<Users />} />
-                  <Route path="/admin/permissions" element={<Permissions />} />
-                  <Route path="/admin/roles" element={<Roles />} />
+                  {/* Admin routes - Only for admin users */}
+                  <Route path="/admin/users" element={
+                    <RoleBasedRoute allowedRoles={['admin']}>
+                      <Users />
+                    </RoleBasedRoute>
+                  } />
+                  <Route path="/admin/permissions" element={
+                    <RoleBasedRoute allowedRoles={['admin']}>
+                      <Permissions />
+                    </RoleBasedRoute>
+                  } />
+                  <Route path="/admin/roles" element={
+                    <RoleBasedRoute allowedRoles={['admin']}>
+                      <Roles />
+                    </RoleBasedRoute>
+                  } />
                 </Route>
                 
-                {/* Citizen Portal Routes */}
-                <Route element={<CitizenLayout />}>
+                {/* Citizen Portal Routes - Only for external users */}
+                <Route element={
+                  <RoleBasedRoute requireExternal={true}>
+                    <CitizenLayout />
+                  </RoleBasedRoute>
+                }>
                   <Route path="/citizen/dashboard" element={<CitizenDashboard />} />
                   <Route path="/citizen/cases" element={<CitizenCases />} />
                   <Route path="/citizen/cases/:id" element={<CitizenCaseDetail />} />

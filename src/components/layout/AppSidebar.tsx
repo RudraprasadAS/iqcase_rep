@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useState } from 'react';
+import { useRoleAccess } from '@/hooks/useRoleAccess';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -54,8 +55,12 @@ const adminNavigation = [
 
 export function AppSidebar() {
   const { state } = useSidebar();
+  const { isAdmin, roleName } = useRoleAccess();
   const [isReportsOpen, setIsReportsOpen] = useState(false);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
+  
+  // Check if user has analytics access
+  const hasAnalyticsAccess = ['admin', 'manager', 'analyst'].includes(roleName || '');
   
   return (
     <Sidebar collapsible="icon" className="font-inter">
@@ -107,69 +112,75 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup>
-          <SidebarGroupLabel>Analytics</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <Collapsible open={isReportsOpen} onOpenChange={setIsReportsOpen}>
-                <SidebarMenuItem>
-                  <CollapsibleTrigger asChild>
-                    <SidebarMenuButton tooltip="Analytics">
-                      <BarChart3 />
-                      <span>Analytics</span>
-                      <ChevronDown className={cn("ml-auto transition-transform", isReportsOpen && "rotate-180")} />
-                    </SidebarMenuButton>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <SidebarMenuSub>
-                      {reportNavigation.map((item) => (
-                        <SidebarMenuSubItem key={item.name}>
-                          <SidebarMenuSubButton asChild>
-                            <NavLink to={item.href}>
-                              <span>{item.name}</span>
-                            </NavLink>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                      ))}
-                    </SidebarMenuSub>
-                  </CollapsibleContent>
-                </SidebarMenuItem>
-              </Collapsible>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {/* Analytics section - only show if user has access */}
+        {hasAnalyticsAccess && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Analytics</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <Collapsible open={isReportsOpen} onOpenChange={setIsReportsOpen}>
+                  <SidebarMenuItem>
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton tooltip="Analytics">
+                        <BarChart3 />
+                        <span>Analytics</span>
+                        <ChevronDown className={cn("ml-auto transition-transform", isReportsOpen && "rotate-180")} />
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <SidebarMenuSub>
+                        {reportNavigation.map((item) => (
+                          <SidebarMenuSubItem key={item.name}>
+                            <SidebarMenuSubButton asChild>
+                              <NavLink to={item.href}>
+                                <span>{item.name}</span>
+                              </NavLink>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        ))}
+                      </SidebarMenuSub>
+                    </CollapsibleContent>
+                  </SidebarMenuItem>
+                </Collapsible>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
-        <SidebarGroup>
-          <SidebarGroupLabel>Administration</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <Collapsible open={isAdminOpen} onOpenChange={setIsAdminOpen}>
-                <SidebarMenuItem>
-                  <CollapsibleTrigger asChild>
-                    <SidebarMenuButton tooltip="Admin">
-                      <Shield />
-                      <span>Admin</span>
-                      <ChevronDown className={cn("ml-auto transition-transform", isAdminOpen && "rotate-180")} />
-                    </SidebarMenuButton>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <SidebarMenuSub>
-                      {adminNavigation.map((item) => (
-                        <SidebarMenuSubItem key={item.name}>
-                          <SidebarMenuSubButton asChild>
-                            <NavLink to={item.href}>
-                              <span>{item.name}</span>
-                            </NavLink>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                      ))}
-                    </SidebarMenuSub>
-                  </CollapsibleContent>
-                </SidebarMenuItem>
-              </Collapsible>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {/* Admin section - only show if user is admin */}
+        {isAdmin && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Administration</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <Collapsible open={isAdminOpen} onOpenChange={setIsAdminOpen}>
+                  <SidebarMenuItem>
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton tooltip="Admin">
+                        <Shield />
+                        <span>Admin</span>
+                        <ChevronDown className={cn("ml-auto transition-transform", isAdminOpen && "rotate-180")} />
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <SidebarMenuSub>
+                        {adminNavigation.map((item) => (
+                          <SidebarMenuSubItem key={item.name}>
+                            <SidebarMenuSubButton asChild>
+                              <NavLink to={item.href}>
+                                <span>{item.name}</span>
+                              </NavLink>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        ))}
+                      </SidebarMenuSub>
+                    </CollapsibleContent>
+                  </SidebarMenuItem>
+                </Collapsible>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
       
       <SidebarFooter>
