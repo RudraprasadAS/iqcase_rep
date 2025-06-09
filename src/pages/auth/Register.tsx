@@ -54,15 +54,32 @@ const Register = () => {
       } else {
         toast({
           title: "Registration successful",
-          description: "Your account has been created successfully.",
+          description: "Your account has been created successfully. You can now sign in.",
         });
-        navigate("/auth/login");
+        navigate("/");
       }
     } catch (err: any) {
       setError(err.message || "An error occurred during registration");
       console.error("Registration error:", err);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSignUp = async () => {
+    try {
+      // This will be implemented when Google OAuth is configured
+      toast({
+        title: "Google Sign-Up",
+        description: "Google OAuth needs to be configured in Supabase settings.",
+        variant: "destructive",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Google Sign-Up failed",
+        description: error.message,
+        variant: "destructive",
+      });
     }
   };
 
@@ -95,8 +112,8 @@ const Register = () => {
           {/* Mobile logo */}
           <div className="flex lg:hidden items-center justify-center mb-12">
             <img 
-              src="/lovable-uploads/6eaac0f3-2c45-46e1-9354-d335a6c466ca.png" 
-              alt="Ethos Logo" 
+              src="/lovable-uploads/ee388e32-d054-4367-b2ac-0dd3512cb8fd.png" 
+              alt="Case Management Logo" 
               className="w-8 h-8 mr-2"
             />
             <h1 className="text-2xl font-light text-black">Case Management</h1>
@@ -116,6 +133,7 @@ const Register = () => {
             <Button 
               variant="outline" 
               className="w-full h-10 font-normal text-sm border-gray-300 hover:border-gray-400 hover:bg-gray-50 justify-start px-4"
+              onClick={handleGoogleSignUp}
             >
               <svg className="w-4 h-4 mr-3" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -130,7 +148,7 @@ const Register = () => {
               className="w-full h-10 font-normal text-sm border-gray-300 hover:border-gray-400 hover:bg-gray-50 justify-start px-4"
             >
               <svg className="w-4 h-4 mr-3" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M11.4 24h1.2c7.2 0 9.84-5.64 9.84-10.8 0-.48-.04-.96-.08-1.44H12v3.6h5.76c-.24 1.32-.96 2.52-2.04 3.24v2.76h3.24c1.92-1.8 3.04-4.44 3.04-7.56 0-.72-.08-1.44-.2-2.12H12v3.48h5.16c-.12.6-.48 1.2-.96 1.56l-.04.04v2.28h2.52c1.44-1.32 2.32-3.24 2.32-5.4 0-5.4-3.6-9.24-8.4-9.24-4.68 0-8.4 3.84-8.4 8.4s3.72 8.4 8.4 8.4z"/>
+                <path d="M23.15 2.587L23.15 21.413L0.85 21.413L0.85 2.587L23.15 2.587ZM21.15 4.587L2.85 4.587L2.85 19.413L21.15 19.413L21.15 4.587ZM11.109 14.558L11.109 9.442L15.858 9.442L15.858 8.092L9.759 8.092L9.759 15.908L15.858 15.908L15.858 14.558L11.109 14.558Z"/>
               </svg>
               Continue with Microsoft
             </Button>
@@ -255,7 +273,7 @@ const Register = () => {
               Already have an account?
             </span>
             <Link
-              to="/auth/login"
+              to="/"
               className="ml-1 text-sm text-black hover:underline font-medium"
             >
               Sign In

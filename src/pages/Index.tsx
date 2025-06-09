@@ -1,150 +1,280 @@
 
+import React, { useState } from 'react';
+import { useNavigate, Link } from "react-router-dom";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Link } from "react-router-dom";
-import { FileText, Users, BarChart, Shield, UserCheck, Plus } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Loader2, Eye, EyeOff } from "lucide-react";
+
+const formSchema = z.object({
+  email: z.string().email({
+    message: "Please enter a valid email address.",
+  }),
+  password: z.string().min(6, {
+    message: "Password must be at least 6 characters.",
+  }),
+});
+
+type FormValues = z.infer<typeof formSchema>;
 
 const Index = () => {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const { login } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [loginError, setLoginError] = useState("");
+
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+    },
+  });
+
+  const onSubmit = async (data: FormValues) => {
+    setIsLoading(true);
+    setLoginError("");
+    
+    try {
+      const { error } = await login(data.email, data.password);
+      
+      if (error) {
+        setLoginError(error.message);
+        toast({
+          title: "Login failed",
+          description: error.message || "Please check your credentials and try again.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Login successful",
+          description: "Welcome to Case Management System.",
+        });
+        navigate("/dashboard", { replace: true });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Login failed",
+        description: error.message || "Please check your credentials and try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    try {
+      // This will be implemented when Google OAuth is configured
+      toast({
+        title: "Google Sign-In",
+        description: "Google OAuth needs to be configured in Supabase settings.",
+        variant: "destructive",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Google Sign-In failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="container mx-auto px-4 py-12">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            Case Management System
-          </h1>
-          <p className="text-xl text-gray-600 mb-8">
-            Streamline your case management process with our comprehensive platform
-          </p>
-          
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link to="/citizen/dashboard">
-              <Button size="lg" className="bg-blue-600 hover:bg-blue-700">
-                <UserCheck className="mr-2 h-5 w-5" />
-                Citizen Portal
-              </Button>
-            </Link>
-            <Link to="/auth/login">
-              <Button size="lg" variant="outline">
-                <Shield className="mr-2 h-5 w-5" />
-                Staff Login
-              </Button>
-            </Link>
+    <div className="min-h-screen flex font-inter bg-white">
+      {/* Left side - Quote section */}
+      <div className="hidden lg:flex lg:w-1/2 bg-gray-50 relative">
+        <div className="flex flex-col justify-center w-full px-16">
+          <div className="max-w-lg">
+            <div className="text-6xl text-gray-300 mb-4">"</div>
+            <blockquote className="text-xl font-light text-gray-900 mb-8 leading-relaxed">
+              And thanks to Case Management System, I was able to go from idea to launched civic platform in a matter of hours. Absolutely amazing!
+            </blockquote>
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 bg-gray-800 rounded-full flex items-center justify-center">
+                <span className="text-white font-medium text-sm">RS</span>
+              </div>
+              <div>
+                <div className="font-medium text-gray-900">@RohitShashank</div>
+                <div className="text-gray-500 text-sm">#casemanagement #civictech</div>
+              </div>
+            </div>
           </div>
         </div>
+      </div>
 
-        <div className="grid md:grid-cols-2 gap-8 mb-12">
-          {/* Citizen Portal */}
-          <Card className="border-blue-200 bg-blue-50">
-            <CardHeader>
-              <CardTitle className="flex items-center text-blue-700">
-                <UserCheck className="mr-2 h-6 w-6" />
-                Citizen Portal
-              </CardTitle>
-              <CardDescription className="text-blue-600">
-                Submit and track your cases easily
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex items-center text-sm text-blue-700">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Submit new cases
-                </div>
-                <div className="flex items-center text-sm text-blue-700">
-                  <FileText className="mr-2 h-4 w-4" />
-                  Track case progress
-                </div>
-                <div className="flex items-center text-sm text-blue-700">
-                  <Users className="mr-2 h-4 w-4" />
-                  Communicate with staff
-                </div>
-              </div>
-              <div className="mt-6 space-y-2">
-                <Link to="/citizen/dashboard" className="block">
-                  <Button className="w-full bg-blue-600 hover:bg-blue-700">
-                    Access Citizen Portal
-                  </Button>
-                </Link>
-                <Link to="/auth/register" className="block">
-                  <Button variant="outline" className="w-full border-blue-300 text-blue-700 hover:bg-blue-50">
-                    Create Account
-                  </Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
+      {/* Right side - Login Form */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center bg-white px-6 py-12">
+        <div className="w-full max-w-sm">
+          {/* Mobile logo */}
+          <div className="flex lg:hidden items-center justify-center mb-12">
+            <img 
+              src="/lovable-uploads/ee388e32-d054-4367-b2ac-0dd3512cb8fd.png" 
+              alt="Case Management Logo" 
+              className="w-8 h-8 mr-2"
+            />
+            <h1 className="text-2xl font-light text-black">Case Management</h1>
+          </div>
 
-          {/* Staff Portal */}
-          <Card className="border-gray-200">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Shield className="mr-2 h-6 w-6" />
-                Staff Portal
-              </CardTitle>
-              <CardDescription>
-                Manage cases and system administration
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex items-center text-sm text-gray-600">
-                  <FileText className="mr-2 h-4 w-4" />
-                  Case management
-                </div>
-                <div className="flex items-center text-sm text-gray-600">
-                  <BarChart className="mr-2 h-4 w-4" />
-                  Analytics & reporting
-                </div>
-                <div className="flex items-center text-sm text-gray-600">
-                  <Users className="mr-2 h-4 w-4" />
-                  User administration
-                </div>
-              </div>
-              <div className="mt-6">
-                <Link to="/auth/login" className="block">
-                  <Button variant="outline" className="w-full">
-                    Staff Login
-                  </Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+          <div className="mb-8 text-center">
+            <h2 className="text-3xl font-semibold text-black mb-2">
+              Welcome back
+            </h2>
+            <p className="text-gray-600 font-light text-sm">
+              Sign in to your account
+            </p>
+          </div>
 
-        {/* Features Grid */}
-        <div className="grid md:grid-cols-3 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Easy Case Submission</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-600">
-                Citizens can easily submit cases with detailed information, attachments, and location data.
-              </p>
-            </CardContent>
-          </Card>
+          {/* SSO Login Buttons */}
+          <div className="space-y-3 mb-6">
+            <Button 
+              variant="outline" 
+              className="w-full h-10 font-normal text-sm border-gray-300 hover:border-gray-400 hover:bg-gray-50 justify-start px-4"
+              onClick={handleGoogleSignIn}
+            >
+              <svg className="w-4 h-4 mr-3" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+              </svg>
+              Continue with Google
+            </Button>
+            <Button 
+              variant="outline" 
+              className="w-full h-10 font-normal text-sm border-gray-300 hover:border-gray-400 hover:bg-gray-50 justify-start px-4"
+            >
+              <svg className="w-4 h-4 mr-3" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M23.15 2.587L23.15 21.413L0.85 21.413L0.85 2.587L23.15 2.587ZM21.15 4.587L2.85 4.587L2.85 19.413L21.15 19.413L21.15 4.587ZM11.109 14.558L11.109 9.442L15.858 9.442L15.858 8.092L9.759 8.092L9.759 15.908L15.858 15.908L15.858 14.558L11.109 14.558Z"/>
+              </svg>
+              Continue with Microsoft
+            </Button>
+            <Button 
+              variant="outline" 
+              className="w-full h-10 font-normal text-sm border-gray-300 hover:border-gray-400 hover:bg-gray-50 justify-start px-4"
+            >
+              <svg className="w-4 h-4 mr-3" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+              Continue with SSO
+            </Button>
+          </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Real-time Tracking</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-600">
-                Track case progress in real-time with status updates and SLA monitoring.
-              </p>
-            </CardContent>
-          </Card>
+          <div className="relative mb-6">
+            <Separator className="bg-gray-200" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="bg-white px-2 text-xs text-gray-500">or</span>
+            </div>
+          </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Secure Communication</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-600">
-                Secure messaging between citizens and staff with full audit trails.
-              </p>
-            </CardContent>
-          </Card>
+          {/* Email/Password Form */}
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              {loginError && (
+                <div className="p-3 bg-red-50 border border-red-200 text-red-800 rounded-md text-sm">
+                  {loginError}
+                </div>
+              )}
+              
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-normal text-gray-700">Email</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="you@example.com"
+                        className="h-10 font-normal border-gray-300 focus:border-black focus:ring-1 focus:ring-black text-sm"
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <div className="flex items-center justify-between">
+                      <FormLabel className="text-sm font-normal text-gray-700">Password</FormLabel>
+                      <Link
+                        to="/auth/forgot-password"
+                        className="text-xs text-gray-500 hover:text-gray-700"
+                      >
+                        Forgot Password?
+                      </Link>
+                    </div>
+                    <FormControl>
+                      <div className="relative">
+                        <Input
+                          type={showPassword ? "text" : "password"}
+                          placeholder="••••••••"
+                          className="h-10 pr-10 font-normal border-gray-300 focus:border-black focus:ring-1 focus:ring-black text-sm"
+                          {...field}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <Button 
+                type="submit" 
+                className="w-full h-10 bg-black hover:bg-gray-800 text-white font-normal text-sm mt-6"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Signing in...
+                  </>
+                ) : "Sign In"}
+              </Button>
+            </form>
+          </Form>
+
+          <div className="text-center mt-6">
+            <span className="text-sm text-gray-600">
+              Don't have an account?
+            </span>
+            <Link
+              to="/auth/register"
+              className="ml-1 text-sm text-black hover:underline font-medium"
+            >
+              Sign Up Now
+            </Link>
+          </div>
+
+          <div className="text-center mt-8">
+            <p className="text-xs text-gray-500">
+              By continuing, you agree to our{' '}
+              <a href="#" className="underline hover:text-gray-700">Terms of Service</a>
+              {' '}and{' '}
+              <a href="#" className="underline hover:text-gray-700">Privacy Policy</a>
+              , and to receive periodic emails with updates.
+            </p>
+          </div>
         </div>
       </div>
     </div>
