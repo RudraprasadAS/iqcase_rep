@@ -16,28 +16,19 @@ export const usePermissionCheck = (
   const { data: hasPermission = false, isLoading, error } = useQuery({
     queryKey: ['frontend_permission', elementKey, permissionType],
     queryFn: async () => {
-      console.log(`🔍 [Permission Check] Checking permission for: ${elementKey}, type: ${permissionType}`);
-      
       const { data, error } = await supabase.rpc('current_user_has_frontend_permission', {
         p_element_key: elementKey,
         p_permission_type: permissionType
       });
       
       if (error) {
-        console.error('❌ [Permission Check] Error:', error);
+        console.error('Permission check error:', error);
         throw error;
       }
       
-      console.log(`✅ [Permission Check] Result for ${elementKey}.${permissionType}:`, data);
       return data as boolean;
     },
     enabled: !!elementKey,
-  });
-
-  console.log(`🎯 [Permission Check] Final result for ${elementKey}.${permissionType}:`, {
-    hasPermission,
-    isLoading,
-    error: error?.message
   });
 
   return {

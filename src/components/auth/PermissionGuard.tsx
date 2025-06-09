@@ -26,18 +26,8 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     permissionType
   );
 
-  console.log(`🛡️ [PermissionGuard] Checking access for ${elementKey}:`, {
-    elementKey,
-    permissionType,
-    userInfo,
-    hasPermission,
-    isLoading,
-    roleLoading
-  });
-
   // If user is super admin or admin, grant access
   if (userInfo?.role?.name === 'super_admin' || userInfo?.role?.name === 'admin') {
-    console.log(`👑 [PermissionGuard] Admin access granted for ${elementKey}`);
     return <>{children}</>;
   }
 
@@ -57,10 +47,8 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   }
 
   if (!hasPermission) {
-    console.log(`🚫 [PermissionGuard] Access denied for ${elementKey}`);
     return <>{fallback}</>;
   }
 
-  console.log(`✅ [PermissionGuard] Access granted for ${elementKey}`);
   return <>{children}</>;
 };
