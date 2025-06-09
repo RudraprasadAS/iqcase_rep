@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,10 +6,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertCircle, Clock, CheckCircle, FileText, Search, Users, Settings, TrendingUp, Calendar } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { useQuery } from "@tanstack/react-query";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import CalendarView from '@/components/dashboard/CalendarView';
-import { PermissionDebugger } from '@/components/debug/PermissionDebugger';
 
 interface DashboardStats {
   totalCases: number;
@@ -176,14 +173,13 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground">Welcome to your case management dashboard</p>
+        <p className="text-muted-foreground">
+          Welcome back! Here's an overview of your case management system.
+        </p>
       </div>
-
-      {/* Add debug component for Super Admin testing */}
-      <PermissionDebugger />
 
       <Tabs defaultValue="overview" className="space-y-6">
         <TabsList className="grid w-full grid-cols-2">

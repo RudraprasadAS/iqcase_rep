@@ -15,7 +15,6 @@ import Layout from "./components/layout/Layout";
 import CitizenLayout from "./components/layout/CitizenLayout";
 import AuthLayout from "./components/layout/AuthLayout";
 import RequireAuth from "./components/auth/RequireAuth";
-import { RoleBasedRoute } from "./components/auth/RoleBasedRoute";
 import Permissions from "./pages/admin/Permissions";
 import Users from "./pages/admin/Users";
 import Reports from "./pages/Reports";
@@ -56,68 +55,30 @@ function App() {
                 <Route path="/auth/reset-password" element={<ResetPassword />} />
               </Route>
               
-              {/* Protected internal routes - Only for internal users */}
+              {/* Protected internal routes */}
               <Route element={<RequireAuth />}>
-                <Route element={
-                  <RoleBasedRoute requireInternal={true}>
-                    <Layout />
-                  </RoleBasedRoute>
-                }>
+                <Route element={<Layout />}>
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/cases" element={<Cases />} />
                   <Route path="/cases/:id" element={<CaseDetail />} />
                   <Route path="/cases/new" element={<NewCase />} />
                   <Route path="/knowledge" element={<KnowledgeBase />} />
                   <Route path="/notifications" element={<Notifications />} />
+                  <Route path="/insights" element={<Insights />} />
                   
-                  {/* Insights - Permission-based access */}
-                  <Route path="/insights" element={
-                    <RoleBasedRoute requiredPermission={{ moduleName: 'insights', permissionType: 'view' }}>
-                      <Insights />
-                    </RoleBasedRoute>
-                  } />
+                  {/* Analytics */}
+                  <Route path="/reports" element={<Reports />} />
+                  <Route path="/reports/builder" element={<ReportBuilder />} />
+                  <Route path="/dashboards" element={<Dashboards />} />
                   
-                  {/* Analytics - Permission-based access */}
-                  <Route path="/reports" element={
-                    <RoleBasedRoute requiredPermission={{ moduleName: 'reports', permissionType: 'view' }}>
-                      <Reports />
-                    </RoleBasedRoute>
-                  } />
-                  <Route path="/reports/builder" element={
-                    <RoleBasedRoute requiredPermission={{ moduleName: 'reports', permissionType: 'view' }}>
-                      <ReportBuilder />
-                    </RoleBasedRoute>
-                  } />
-                  <Route path="/dashboards" element={
-                    <RoleBasedRoute requiredPermission={{ moduleName: 'dashboards', permissionType: 'view' }}>
-                      <Dashboards />
-                    </RoleBasedRoute>
-                  } />
-                  
-                  {/* Admin routes - Permission-based access */}
-                  <Route path="/admin/users" element={
-                    <RoleBasedRoute requiredPermission={{ moduleName: 'users', permissionType: 'view' }}>
-                      <Users />
-                    </RoleBasedRoute>
-                  } />
-                  <Route path="/admin/permissions" element={
-                    <RoleBasedRoute requiredPermission={{ moduleName: 'permissions', permissionType: 'view' }}>
-                      <Permissions />
-                    </RoleBasedRoute>
-                  } />
-                  <Route path="/admin/roles" element={
-                    <RoleBasedRoute requiredPermission={{ moduleName: 'roles', permissionType: 'view' }}>
-                      <Roles />
-                    </RoleBasedRoute>
-                  } />
+                  {/* Admin */}
+                  <Route path="/admin/users" element={<Users />} />
+                  <Route path="/admin/permissions" element={<Permissions />} />
+                  <Route path="/admin/roles" element={<Roles />} />
                 </Route>
                 
-                {/* Citizen Portal Routes - Only for external users */}
-                <Route element={
-                  <RoleBasedRoute requireExternal={true}>
-                    <CitizenLayout />
-                  </RoleBasedRoute>
-                }>
+                {/* Citizen Portal Routes */}
+                <Route element={<CitizenLayout />}>
                   <Route path="/citizen/dashboard" element={<CitizenDashboard />} />
                   <Route path="/citizen/cases" element={<CitizenCases />} />
                   <Route path="/citizen/cases/:id" element={<CitizenCaseDetail />} />

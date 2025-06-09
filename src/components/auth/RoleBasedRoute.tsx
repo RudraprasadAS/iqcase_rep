@@ -2,7 +2,6 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
-import { usePermissionCheck } from '@/hooks/usePermissionCheck';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Shield } from 'lucide-react';
 
@@ -12,11 +11,6 @@ interface RoleBasedRouteProps {
   allowedUserTypes?: string[];
   requireInternal?: boolean;
   requireExternal?: boolean;
-  requiredPermission?: {
-    moduleName: string;
-    fieldName?: string;
-    permissionType?: 'view' | 'edit';
-  };
   fallbackPath?: string;
 }
 
@@ -26,19 +20,9 @@ export const RoleBasedRoute: React.FC<RoleBasedRouteProps> = ({
   allowedUserTypes,
   requireInternal,
   requireExternal,
-  requiredPermission,
   fallbackPath = '/'
 }) => {
-  const { userInfo, isLoading: roleLoading, error, isInternal, isExternal } = useRoleAccess();
-  
-  // Check permission if specified
-  const { hasPermission, isLoading: permissionLoading } = usePermissionCheck(
-    requiredPermission?.moduleName || '',
-    requiredPermission?.fieldName,
-    requiredPermission?.permissionType || 'view'
-  );
-
-  const isLoading = roleLoading || (requiredPermission && permissionLoading);
+  const { userInfo, isLoading, error, isInternal, isExternal } = useRoleAccess();
 
   if (isLoading) {
     return (
@@ -76,18 +60,6 @@ export const RoleBasedRoute: React.FC<RoleBasedRouteProps> = ({
   // Check allowed roles
   if (allowedRoles && !allowedRoles.includes(userInfo.role.name)) {
     return <Navigate to={fallbackPath} replace />;
-  }
-
-  // Check required permission
-  if (requiredPermission && !hasPermission) {
-    return (
-      <Alert variant="destructive" className="m-4">
-        <Shield className="h-4 w-4" />
-        <AlertDescription>
-          You don't have permission to access this page.
-        </AlertDescription>
-      </Alert>
-    );
   }
 
   return <>{children}</>;
