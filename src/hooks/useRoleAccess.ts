@@ -82,7 +82,7 @@ export const useRoleAccess = () => {
         } as UserInfo;
       }
 
-      console.log('✅ User info fetched:', {
+      console.log('✅ User info fetched successfully:', {
         id: data.id,
         email: data.email,
         user_type: data.user_type,
@@ -96,19 +96,21 @@ export const useRoleAccess = () => {
         role: data.roles as UserRole
       } as UserInfo;
     },
+    retry: 1,
+    retryDelay: 1000,
   });
 
-  // Define role hierarchy and access patterns - admin should have full access
+  // Define role hierarchy and access patterns
   const isAdmin = userInfo?.role?.name === 'admin' || userInfo?.role?.name === 'super_admin';
   const isManager = userInfo?.role?.name === 'manager';
-  const isCaseworker = userInfo?.role?.name === 'caseworker';
+  const isCaseworker = userInfo?.role?.name === 'caseworker' || userInfo?.role?.name === 'case_worker';
   const isViewer = userInfo?.role?.name === 'viewer';
   const isCitizen = userInfo?.role?.name === 'citizen';
   
   const isInternal = userInfo?.user_type === 'internal';
   const isExternal = userInfo?.user_type === 'external';
 
-  // Define access levels based on RBAC spec - admin should have ALL permissions
+  // Define access levels based on RBAC spec
   const hasFullAccess = isAdmin;
   const hasManagerAccess = isAdmin || isManager;
   const hasCaseworkerAccess = isAdmin || isManager || isCaseworker;
