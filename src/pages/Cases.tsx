@@ -14,7 +14,6 @@ import {
   FieldPermissionWrapper, 
   ButtonPermissionWrapper 
 } from "@/components/auth";
-import { useFieldPermissions } from "@/hooks/useFieldPermissions";
 
 const Cases = () => {
   const navigate = useNavigate();
@@ -22,11 +21,7 @@ const Cases = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
 
-  // Check permissions for case fields
-  const caseFields = ['view_cases', 'create_case', 'edit_case', 'delete_case', 'assign_case', 'export_cases'];
-  const { canViewField, canEditField } = useFieldPermissions('cases', caseFields);
-
-  // Fetch cases data
+  // Fetch cases data - remove the permission check that was blocking it
   const { data: cases, isLoading } = useQuery({
     queryKey: ["cases", searchQuery, statusFilter, priorityFilter],
     queryFn: async () => {
@@ -56,7 +51,6 @@ const Cases = () => {
       if (error) throw error;
       return data;
     },
-    enabled: canViewField('view_cases'), // Only fetch if user can view cases
   });
 
   const getPriorityColor = (priority: string) => {
@@ -78,22 +72,6 @@ const Cases = () => {
       default: return "outline";
     }
   };
-
-  // If user can't view cases at all, show access denied
-  if (!canViewField('view_cases')) {
-    return (
-      <div className="container mx-auto py-6">
-        <Card>
-          <CardContent className="flex items-center justify-center py-12">
-            <div className="text-center">
-              <h2 className="text-2xl font-semibold mb-2">Access Denied</h2>
-              <p className="text-muted-foreground">You don't have permission to view cases.</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <PermissionGuard elementKey="cases" permissionType="view">
@@ -137,36 +115,32 @@ const Cases = () => {
                 </div>
               </div>
               
-              <FieldPermissionWrapper elementKey="cases.edit_case_status">
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-[150px]">
-                    <Filter className="h-4 w-4 mr-2" />
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="open">Open</SelectItem>
-                    <SelectItem value="in_progress">In Progress</SelectItem>
-                    <SelectItem value="resolved">Resolved</SelectItem>
-                    <SelectItem value="closed">Closed</SelectItem>
-                  </SelectContent>
-                </Select>
-              </FieldPermissionWrapper>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[150px]">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="open">Open</SelectItem>
+                  <SelectItem value="in_progress">In Progress</SelectItem>
+                  <SelectItem value="resolved">Resolved</SelectItem>
+                  <SelectItem value="closed">Closed</SelectItem>
+                </SelectContent>
+              </Select>
 
-              <FieldPermissionWrapper elementKey="cases.edit_case_priority">
-                <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                  <SelectTrigger className="w-[150px]">
-                    <SelectValue placeholder="Priority" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Priority</SelectItem>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                    <SelectItem value="urgent">Urgent</SelectItem>
-                  </SelectContent>
-                </Select>
-              </FieldPermissionWrapper>
+              <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue placeholder="Priority" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Priority</SelectItem>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="urgent">Urgent</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </CardContent>
         </Card>
@@ -218,48 +192,36 @@ const Cases = () => {
                       </CardDescription>
                     </div>
                     <div className="flex flex-col gap-2 ml-4">
-                      <FieldPermissionWrapper elementKey="cases.edit_case_priority">
-                        <Badge variant={getPriorityColor(caseItem.priority)}>
-                          {caseItem.priority}
-                        </Badge>
-                      </FieldPermissionWrapper>
-                      <FieldPermissionWrapper elementKey="cases.edit_case_status">
-                        <Badge variant={getStatusColor(caseItem.status)}>
-                          {caseItem.status.replace('_', ' ')}
-                        </Badge>
-                      </FieldPermissionWrapper>
+                      <Badge variant={getPriorityColor(caseItem.priority)}>
+                        {caseItem.priority}
+                      </Badge>
+                      <Badge variant={getStatusColor(caseItem.status)}>
+                        {caseItem.status.replace('_', ' ')}
+                      </Badge>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-muted-foreground">
-                    <FieldPermissionWrapper elementKey="cases.view_case_details">
-                      <div>
-                        <span className="font-medium">Category:</span>
-                        <p>{caseItem.category?.name || 'Uncategorized'}</p>
-                      </div>
-                    </FieldPermissionWrapper>
+                    <div>
+                      <span className="font-medium">Category:</span>
+                      <p>{caseItem.category?.name || 'Uncategorized'}</p>
+                    </div>
                     
-                    <FieldPermissionWrapper elementKey="cases.view_case_details">
-                      <div>
-                        <span className="font-medium">Submitted by:</span>
-                        <p>{caseItem.submitted_by_user?.name || 'Unknown'}</p>
-                      </div>
-                    </FieldPermissionWrapper>
+                    <div>
+                      <span className="font-medium">Submitted by:</span>
+                      <p>{caseItem.submitted_by_user?.name || 'Unknown'}</p>
+                    </div>
                     
-                    <FieldPermissionWrapper elementKey="cases.assign_case">
-                      <div>
-                        <span className="font-medium">Assigned to:</span>
-                        <p>{caseItem.assigned_to_user?.name || 'Unassigned'}</p>
-                      </div>
-                    </FieldPermissionWrapper>
+                    <div>
+                      <span className="font-medium">Assigned to:</span>
+                      <p>{caseItem.assigned_to_user?.name || 'Unassigned'}</p>
+                    </div>
                     
-                    <FieldPermissionWrapper elementKey="cases.edit_case_location">
-                      <div>
-                        <span className="font-medium">Location:</span>
-                        <p>{caseItem.location || 'Not specified'}</p>
-                      </div>
-                    </FieldPermissionWrapper>
+                    <div>
+                      <span className="font-medium">Location:</span>
+                      <p>{caseItem.location || 'Not specified'}</p>
+                    </div>
                   </div>
                   
                   <div className="mt-4 flex justify-between items-center">
@@ -268,18 +230,16 @@ const Cases = () => {
                     </div>
                     
                     <div className="flex gap-2">
-                      <ButtonPermissionWrapper elementKey="cases.edit_case">
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/cases/${caseItem.id}`);
-                          }}
-                        >
-                          Edit
-                        </Button>
-                      </ButtonPermissionWrapper>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/cases/${caseItem.id}`);
+                        }}
+                      >
+                        Edit
+                      </Button>
                     </div>
                   </div>
                 </CardContent>
