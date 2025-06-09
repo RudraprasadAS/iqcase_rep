@@ -1,6 +1,6 @@
 
-import { CitizenSidebar } from "./CitizenSidebar";
-import { CitizenNavbar } from "./CitizenNavbar";
+import CitizenSidebar from "./CitizenSidebar";
+import CitizenNavbar from "./CitizenNavbar";
 
 interface CitizenLayoutProps {
   children: React.ReactNode;
