@@ -1,6 +1,6 @@
 
 import { Helmet, HelmetProvider } from 'react-helmet-async';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Outlet } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from '@/components/ui/toaster';
 import { AuthProvider } from '@/hooks/useAuth';
@@ -84,7 +84,9 @@ function App() {
                 <Route path="/citizen" element={
                   <RequireAuth>
                     <RoleBasedRoute requireExternal={true}>
-                      <CitizenLayout />
+                      <CitizenLayout>
+                        <Outlet />
+                      </CitizenLayout>
                     </RoleBasedRoute>
                   </RequireAuth>
                 }>
@@ -99,7 +101,9 @@ function App() {
                 <Route path="/" element={
                   <RequireAuth>
                     <RoleBasedRoute requireInternal={true}>
-                      <Layout />
+                      <Layout>
+                        <Outlet />
+                      </Layout>
                     </RoleBasedRoute>
                   </RequireAuth>
                 }>

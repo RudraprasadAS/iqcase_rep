@@ -1,10 +1,11 @@
 
+import { Outlet } from "react-router-dom";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
 import Navbar from "./Navbar";
 
 interface LayoutProps {
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }
 
 const Layout = ({ children }: LayoutProps) => {
@@ -15,7 +16,7 @@ const Layout = ({ children }: LayoutProps) => {
         <div className="flex-1 flex flex-col">
           <Navbar />
           <main className="flex-1 p-6 bg-gray-50">
-            {children}
+            {children || <Outlet />}
           </main>
         </div>
       </div>

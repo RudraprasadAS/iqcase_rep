@@ -11,6 +11,8 @@ interface UserRole {
 
 interface UserInfo {
   id: string;
+  name: string;
+  email: string;
   user_type: string;
   role: UserRole;
 }
@@ -31,9 +33,9 @@ export const useRoleAccess = () => {
         .from('users')
         .select(`
           id,
-          user_type,
-          email,
           name,
+          email,
+          user_type,
           roles:role_id (
             id,
             name,
@@ -53,6 +55,8 @@ export const useRoleAccess = () => {
 
       return {
         id: data.id,
+        name: data.name,
+        email: data.email,
         user_type: data.user_type,
         role: data.roles as UserRole
       } as UserInfo;
