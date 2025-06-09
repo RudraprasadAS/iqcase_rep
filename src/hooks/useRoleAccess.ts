@@ -16,6 +16,8 @@ export const useRoleAccess = () => {
   useEffect(() => {
     if (user) {
       fetchUserRoles();
+    } else {
+      setLoading(false);
     }
   }, [user]);
 
@@ -23,10 +25,18 @@ export const useRoleAccess = () => {
     if (!user) return;
 
     try {
-      // First get the internal user ID
+      // First get the internal user ID and role
       const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('id')
+        .select(`
+          id,
+          role_id,
+          roles!inner(
+            name,
+            role_type,
+            is_active
+          )
+        `)
         .eq('auth_user_id', user.id)
         .single();
 
@@ -36,32 +46,16 @@ export const useRoleAccess = () => {
         return;
       }
 
-      // Then get user roles
-      const { data: userRolesData, error: rolesError } = await supabase
-        .from('user_roles')
-        .select(`
-          roles!inner(
-            name,
-            role_type,
-            is_active
-          )
-        `)
-        .eq('user_id', userData.id);
-
-      if (rolesError) {
-        console.error('Error fetching user roles:', rolesError);
-        setLoading(false);
-        return;
+      // Set user roles based on the direct role relationship
+      const roles: UserRole[] = [];
+      if (userData.roles && userData.roles.is_active !== false) {
+        roles.push({
+          role: userData.roles.name,
+          role_type: userData.roles.role_type || undefined
+        });
       }
 
-      const activeRoles = userRolesData
-        ?.filter(ur => ur.roles?.is_active !== false)
-        ?.map(ur => ({
-          role: ur.roles?.name || '',
-          role_type: ur.roles?.role_type || undefined
-        })) || [];
-
-      setUserRoles(activeRoles);
+      setUserRoles(roles);
     } catch (error) {
       console.error('Error in fetchUserRoles:', error);
     } finally {
