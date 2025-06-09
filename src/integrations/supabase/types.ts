@@ -1245,6 +1245,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
+      can_user_edit_case: {
+        Args: { case_id: string }
+        Returns: boolean
+      }
       cleanup_duplicate_permissions: {
         Args: { p_role_id: string }
         Returns: undefined
@@ -1334,6 +1338,12 @@ export type Database = {
           name: string
           schema: string
           fields: string[]
+        }[]
+      }
+      get_user_accessible_cases: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          case_id: string
         }[]
       }
       get_user_role: {
