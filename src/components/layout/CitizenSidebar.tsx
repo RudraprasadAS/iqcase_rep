@@ -38,13 +38,13 @@ const CitizenSidebar = () => {
               className="w-8 h-8 flex-shrink-0"
             />
           ) : (
-            <div className="w-8 h-8 flex items-center justify-center bg-blue-600 text-white font-bold text-lg rounded flex-shrink-0 font-inter">
+            <div className="w-8 h-8 flex items-center justify-center bg-gray-800 text-white font-bold text-lg rounded flex-shrink-0 font-inter">
               C
             </div>
           )}
           {state === "expanded" && (
             <div className="grid flex-1 text-left text-sm leading-tight min-w-0">
-              <span className="truncate font-semibold text-black font-inter">CivIQ</span>
+              <span className="truncate font-semibold text-gray-900 font-inter">CivIQ</span>
             </div>
           )}
         </div>
@@ -63,10 +63,10 @@ const CitizenSidebar = () => {
                       to={item.href}
                       className={({ isActive }) =>
                         cn(
-                          "font-inter flex items-center gap-2 px-2 py-2 text-sm font-medium rounded-md transition-colors",
+                          "font-inter flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-colors",
                           isActive 
-                            ? "bg-blue-50 text-black font-semibold border-l-4 border-blue-600" 
-                            : "text-black hover:bg-gray-100"
+                            ? "bg-gray-900 text-white font-semibold" 
+                            : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
                         )
                       }
                     >

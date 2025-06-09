@@ -28,13 +28,14 @@ export const useRoleAccess = () => {
     try {
       setLoading(true);
       
-      // First get the internal user ID and role
+      // Get the internal user and their role
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select(`
           id,
           role_id,
           is_active,
+          user_type,
           roles!inner(
             name,
             role_type,
@@ -51,7 +52,7 @@ export const useRoleAccess = () => {
         return;
       }
 
-      // Check if user is active and has an active role
+      // Check if user account is active
       if (!userData.is_active) {
         console.warn('User account is inactive');
         setUserRoles([]);
@@ -59,17 +60,23 @@ export const useRoleAccess = () => {
         return;
       }
 
-      // Set user roles based on the direct role relationship
-      const roles: UserRole[] = [];
-      if (userData.roles && userData.roles.is_active !== false) {
-        roles.push({
-          role: userData.roles.name,
-          role_type: userData.roles.role_type || undefined
-        });
-      } else {
+      // Check if user's role is active
+      if (!userData.roles || userData.roles.is_active === false) {
         console.warn('User has no active role assigned');
+        setUserRoles([]);
+        setLoading(false);
+        return;
       }
 
+      // Set user roles based on the direct role relationship
+      const roles: UserRole[] = [{
+        role: userData.roles.name,
+        role_type: userData.roles.role_type || undefined
+      }];
+
+      console.log('User roles loaded:', roles);
+      console.log('User type:', userData.user_type);
+      
       setUserRoles(roles);
     } catch (error) {
       console.error('Error in fetchUserRoles:', error);
@@ -111,6 +118,20 @@ export const useRoleAccess = () => {
     return userRoles.length > 0;
   };
 
+  // Enhanced logging for debugging
+  const debugUserAccess = () => {
+    console.log('=== USER ACCESS DEBUG ===');
+    console.log('User ID:', user?.id);
+    console.log('User roles:', userRoles);
+    console.log('Is Admin:', isAdmin());
+    console.log('Is Citizen:', isCitizen());
+    console.log('Is Staff:', isStaff());
+    console.log('Can Access Admin:', canAccessAdmin());
+    console.log('Can Access Citizen Portal:', canAccessCitizenPortal());
+    console.log('Has Active Role:', hasActiveRole());
+    console.log('========================');
+  };
+
   return {
     userRoles,
     loading,
@@ -122,6 +143,7 @@ export const useRoleAccess = () => {
     canAccessAdmin,
     canAccessCitizenPortal,
     hasActiveRole,
-    refetch: fetchUserRoles
+    refetch: fetchUserRoles,
+    debugUserAccess
   };
 };

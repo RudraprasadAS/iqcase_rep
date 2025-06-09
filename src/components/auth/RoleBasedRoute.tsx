@@ -24,7 +24,8 @@ const RoleBasedRoute: React.FC<RoleBasedRouteProps> = ({
     canAccessCitizenPortal, 
     isStaff, 
     hasActiveRole,
-    loading 
+    loading,
+    debugUserAccess
   } = useRoleAccess();
 
   if (loading) {
@@ -35,27 +36,33 @@ const RoleBasedRoute: React.FC<RoleBasedRouteProps> = ({
     );
   }
 
-  // If user has no active role, redirect to home with error message
+  // Debug logging when access is denied
+  const logAccessDenial = (reason: string) => {
+    console.warn('Access denied:', reason);
+    debugUserAccess();
+  };
+
+  // If user has no active role, redirect to home
   if (!hasActiveRole()) {
-    console.warn('Access denied: User has no active role or account is inactive');
+    logAccessDenial('User has no active role or account is inactive');
     return <Navigate to="/" replace />;
   }
 
   // Check admin access
   if (requireAdmin && !canAccessAdmin()) {
-    console.warn('Access denied: Admin access required');
+    logAccessDenial('Admin access required but user does not have admin permissions');
     return <Navigate to={fallbackPath} replace />;
   }
 
   // Check citizen access
   if (requireCitizen && !canAccessCitizenPortal()) {
-    console.warn('Access denied: Citizen access required');
+    logAccessDenial('Citizen access required but user does not have citizen permissions');
     return <Navigate to={fallbackPath} replace />;
   }
 
   // Check staff access
   if (requireStaff && !isStaff()) {
-    console.warn('Access denied: Staff access required');
+    logAccessDenial('Staff access required but user does not have staff permissions');
     return <Navigate to={fallbackPath} replace />;
   }
 
