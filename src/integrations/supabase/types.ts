@@ -1318,6 +1318,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      get_current_user_role_name: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       get_table_metadata: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -1345,6 +1349,10 @@ export type Database = {
         Returns: boolean
       }
       is_admin_user: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      is_current_user_admin: {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
