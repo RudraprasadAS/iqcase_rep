@@ -10,7 +10,7 @@ import { Plus, Search, FileText, Filter, Edit } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { 
   PermissionGuard, 
-  ButtonPermissionWrapper
+  ButtonPermissionWrapper 
 } from "@/components/auth";
 import {
   Table,
@@ -45,7 +45,7 @@ const Cases = () => {
         `)
         .order("created_at", { ascending: false });
 
-      // Filter cases based on user role - simplified logic
+      // Filter cases based on user role
       if (userInfo && userInfo.role.name !== 'super_admin' && userInfo.role.name !== 'admin') {
         // For non-admin users, only show cases they're assigned to or submitted by them
         query = query.or(`assigned_to.eq.${userInfo.id},submitted_by.eq.${userInfo.id}`);
@@ -69,10 +69,6 @@ const Cases = () => {
     },
     enabled: !!userInfo,
   });
-
-  console.log("Cases data:", cases);
-  console.log("User info:", userInfo);
-  console.log("Is loading:", isLoading);
 
   return (
     <PermissionGuard elementKey="cases" permissionType="view">
@@ -146,7 +142,7 @@ const Cases = () => {
           </CardContent>
         </Card>
 
-        {/* Cases Table - Simplified without field-level permissions */}
+        {/* Cases Table */}
         <Card>
           <CardHeader>
             <CardTitle>Cases List</CardTitle>
@@ -205,35 +201,27 @@ const Cases = () => {
                           </div>
                         </div>
                       </TableCell>
-                      
                       <TableCell>
                         <StatusBadge status={caseItem.status} />
                       </TableCell>
-                      
                       <TableCell>
                         <PriorityBadge priority={caseItem.priority} />
                       </TableCell>
-                      
                       <TableCell>
                         {caseItem.category?.name || 'Uncategorized'}
                       </TableCell>
-                      
                       <TableCell>
                         {caseItem.submitted_by_user?.name || 'Unknown'}
                       </TableCell>
-                      
                       <TableCell>
                         {caseItem.assigned_to_user?.name || 'Unassigned'}
                       </TableCell>
-                      
                       <TableCell className="max-w-xs truncate">
                         {caseItem.location || 'Not specified'}
                       </TableCell>
-                      
                       <TableCell>
                         {new Date(caseItem.created_at).toLocaleDateString()}
                       </TableCell>
-                      
                       <TableCell>
                         <Button 
                           variant="ghost" 
