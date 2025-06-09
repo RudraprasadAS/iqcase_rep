@@ -32,6 +32,7 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useState } from 'react';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
+import { usePermissionCheck } from '@/hooks/usePermissionCheck';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -55,12 +56,33 @@ const adminNavigation = [
 
 export function AppSidebar() {
   const { state } = useSidebar();
-  const { isAdmin, roleName } = useRoleAccess();
+  const { isInternal, roleName } = useRoleAccess();
   const [isReportsOpen, setIsReportsOpen] = useState(false);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   
-  // Check if user has analytics access
-  const hasAnalyticsAccess = ['admin', 'manager', 'analyst'].includes(roleName || '');
+  // Check permissions for Analytics and Admin sections
+  const { hasPermission: canAccessReports } = usePermissionCheck('reports', null, 'view');
+  const { hasPermission: canAccessUsers } = usePermissionCheck('users', null, 'view');
+  const { hasPermission: canAccessPermissions } = usePermissionCheck('permissions', null, 'view');
+  
+  // For backward compatibility, also check role-based access
+  const hasAnalyticsAccess = canAccessReports || ['admin', 'manager', 'analyst'].includes(roleName || '');
+  const hasAdminAccess = (canAccessUsers || canAccessPermissions) || roleName === 'admin';
+  
+  console.log('[AppSidebar] Access checks:', {
+    roleName,
+    canAccessReports,
+    canAccessUsers,
+    canAccessPermissions,
+    hasAnalyticsAccess,
+    hasAdminAccess,
+    isInternal
+  });
+  
+  // Don't show anything if user is not internal
+  if (!isInternal) {
+    return null;
+  }
   
   return (
     <Sidebar collapsible="icon" className="font-inter">
@@ -147,8 +169,8 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
 
-        {/* Admin section - only show if user is admin */}
-        {isAdmin && (
+        {/* Admin section - only show if user has access */}
+        {hasAdminAccess && (
           <SidebarGroup>
             <SidebarGroupLabel>Administration</SidebarGroupLabel>
             <SidebarGroupContent>

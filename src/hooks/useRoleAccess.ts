@@ -25,6 +25,8 @@ export const useRoleAccess = () => {
         throw new Error('No authenticated user');
       }
 
+      console.log('[useRoleAccess] Current auth user:', user.email);
+
       const { data, error } = await supabase
         .from('users')
         .select(`
@@ -41,8 +43,11 @@ export const useRoleAccess = () => {
         .single();
 
       if (error) {
+        console.error('[useRoleAccess] Error fetching user data:', error);
         throw error;
       }
+
+      console.log('[useRoleAccess] User data from database:', data);
 
       return {
         id: data.id,
@@ -57,6 +62,17 @@ export const useRoleAccess = () => {
   const isCitizen = userInfo?.role?.name === 'citizen';
   const isAdmin = userInfo?.role?.name === 'admin';
   const isSystemRole = userInfo?.role?.is_system;
+
+  // Debug logging
+  console.log('[useRoleAccess] Current user info:', {
+    userInfo,
+    isInternal,
+    isExternal,
+    isCitizen,
+    isAdmin,
+    isSystemRole,
+    roleName: userInfo?.role?.name
+  });
 
   return {
     userInfo,

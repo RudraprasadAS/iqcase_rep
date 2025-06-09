@@ -17,6 +17,8 @@ export const usePermissionCheck = (
   const { data: hasPermission = false, isLoading, error } = useQuery({
     queryKey: ['permission', moduleName, fieldName, permissionType],
     queryFn: async () => {
+      console.log(`[usePermissionCheck] Checking permission: ${moduleName}.${fieldName || 'null'}.${permissionType}`);
+      
       const { data, error } = await supabase.rpc('current_user_can_access', {
         p_module_name: moduleName,
         p_field_name: fieldName,
@@ -28,6 +30,7 @@ export const usePermissionCheck = (
         throw error;
       }
       
+      console.log(`[usePermissionCheck] Permission result for ${moduleName}.${fieldName || 'null'}.${permissionType}:`, data);
       return data as boolean;
     },
     enabled: !!moduleName,
