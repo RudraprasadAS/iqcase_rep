@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useModulePermission } from '@/hooks/useModulePermissions';
+import { useRoleAccess } from '@/hooks/useRoleAccess';
 import {
   FileText,
   Plus,
@@ -41,6 +42,7 @@ interface Case {
 const Cases = () => {
   const { toast } = useToast();
   const { hasViewPermission, hasEditPermission } = useModulePermission('cases');
+  const { isAdmin, userInfo } = useRoleAccess();
   
   const [loading, setLoading] = useState(true);
   const [cases, setCases] = useState<Case[]>([]);
@@ -50,10 +52,13 @@ const Cases = () => {
   const [priorityFilter, setPriorityFilter] = useState('all');
 
   useEffect(() => {
-    if (hasViewPermission) {
+    // Admin or users with view permission can see cases
+    if (isAdmin || hasViewPermission) {
       fetchCases();
+    } else {
+      setLoading(false);
     }
-  }, [hasViewPermission]);
+  }, [isAdmin, hasViewPermission]);
 
   useEffect(() => {
     filterCases();
@@ -64,6 +69,7 @@ const Cases = () => {
       setLoading(true);
       
       console.log('Fetching cases with RLS protection');
+      console.log('User info:', userInfo);
 
       // RLS policies will automatically filter cases based on user access
       const { data, error } = await supabase
@@ -170,7 +176,7 @@ const Cases = () => {
     return new Date(slaDueAt) < new Date();
   };
 
-  if (!hasViewPermission) {
+  if (!isAdmin && !hasViewPermission) {
     return (
       <>
         <Helmet>
@@ -206,13 +212,13 @@ const Cases = () => {
         <title>Cases - Case Management System</title>
       </Helmet>
 
-      <div className="space-y-6">
+      <div className="container mx-auto p-6 space-y-6">
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold">Cases</h1>
             <p className="text-gray-600">Manage and track all cases</p>
           </div>
-          {hasEditPermission && (
+          {(isAdmin || hasEditPermission) && (
             <Link to="/cases/new">
               <Button className="bg-blue-600 hover:bg-blue-700">
                 <Plus className="h-4 w-4 mr-2" />
@@ -277,7 +283,7 @@ const Cases = () => {
                   : 'Try adjusting your search or filter criteria'
                 }
               </p>
-              {hasEditPermission && cases.length === 0 && (
+              {(isAdmin || hasEditPermission) && cases.length === 0 && (
                 <Link to="/cases/new">
                   <Button>Create New Case</Button>
                 </Link>

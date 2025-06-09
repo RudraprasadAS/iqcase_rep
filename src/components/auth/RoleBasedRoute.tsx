@@ -63,7 +63,7 @@ export const RoleBasedRoute: React.FC<RoleBasedRouteProps> = ({
   }
 
   // Admin bypasses all restrictions (as per RBAC spec)
-  if (hasFullAccess) {
+  if (isAdmin) {
     console.log('Admin access granted, bypassing all restrictions');
     return <>{children}</>;
   }

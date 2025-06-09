@@ -59,7 +59,7 @@ export const useRoleAccess = () => {
     },
   });
 
-  // Define role hierarchy and access patterns
+  // Define role hierarchy and access patterns - admin should have full access
   const isAdmin = userInfo?.role?.name === 'admin';
   const isManager = userInfo?.role?.name === 'manager';
   const isCaseworker = userInfo?.role?.name === 'caseworker';
@@ -69,7 +69,7 @@ export const useRoleAccess = () => {
   const isInternal = userInfo?.user_type === 'internal';
   const isExternal = userInfo?.user_type === 'external';
 
-  // Define access levels based on RBAC spec
+  // Define access levels based on RBAC spec - admin should have ALL permissions
   const hasFullAccess = isAdmin;
   const hasManagerAccess = isAdmin || isManager;
   const hasCaseworkerAccess = isAdmin || isManager || isCaseworker;
