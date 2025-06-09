@@ -49,7 +49,7 @@ export const useAuth = () => {
       // Check if user exists in our users table
       const { data: existingUser, error: checkError } = await supabase
         .from('users')
-        .select('id, name, email, role_id')
+        .select('id, name, email, role_id, auth_user_id')
         .eq('auth_user_id', authUser.id)
         .maybeSingle();
 
