@@ -41,7 +41,7 @@ const CitizenNavbar = () => {
           alt="CivIQ Logo" 
           className="w-8 h-8 mr-2"
         />
-        <h1 className="text-xl font-semibold text-blue-600 font-inter">CivIQ Citizen Portal</h1>
+        <h1 className="text-xl font-semibold text-gray-900 font-inter">CivIQ</h1>
       </div>
 
       <div className="flex items-center space-x-3">

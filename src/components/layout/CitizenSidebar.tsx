@@ -31,15 +31,22 @@ const CitizenSidebar = () => {
     <Sidebar collapsible="icon" className="font-inter">
       <SidebarHeader>
         <div className="flex items-center gap-2 px-2 py-1">
-          <img 
-            src="/lovable-uploads/ee388e32-d054-4367-b2ac-0dd3512cb8fd.png" 
-            alt="CivIQ Logo" 
-            className="w-8 h-8"
-          />
+          {state === "expanded" ? (
+            <img 
+              src="/lovable-uploads/ee388e32-d054-4367-b2ac-0dd3512cb8fd.png" 
+              alt="CivIQ Logo" 
+              className="w-8 h-8 flex-shrink-0"
+            />
+          ) : (
+            <img 
+              src="/lovable-uploads/ee388e32-d054-4367-b2ac-0dd3512cb8fd.png" 
+              alt="CivIQ" 
+              className="w-6 h-6 flex-shrink-0"
+            />
+          )}
           {state === "expanded" && (
-            <div className="grid flex-1 text-left text-sm leading-tight">
-              <span className="truncate font-semibold text-blue-600 font-inter">CivIQ</span>
-              <span className="truncate text-xs text-muted-foreground font-inter">Citizen Portal</span>
+            <div className="grid flex-1 text-left text-sm leading-tight min-w-0">
+              <span className="truncate font-semibold text-gray-900 font-inter">CivIQ</span>
             </div>
           )}
         </div>
