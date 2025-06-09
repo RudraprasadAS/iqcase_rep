@@ -9,7 +9,8 @@ import { Role } from "@/types/roles";
 interface Permission {
   id: string;
   role_id: string;
-  frontend_registry_id: string;
+  module_name: string;
+  field_name: string | null;
   can_view: boolean;
   can_edit: boolean;
 }
@@ -17,20 +18,30 @@ interface Permission {
 interface PermissionRowProps {
   name: string;
   roleId: string;
-  isModule: boolean;
+  isTable: boolean;
   isExpanded?: boolean;
   onToggleExpand?: () => void;
-  registryId?: string;
+  fieldName?: string | null;
+  tableName?: string;
   roles?: Role[];
   permissions?: Permission[];
   getEffectivePermission: (
     roleId: string,
-    registryId: string,
+    moduleName: string,
+    fieldName: string | null,
     type: 'view' | 'edit'
   ) => boolean;
   handlePermissionChange: (
     roleId: string,
-    registryId: string,
+    moduleName: string,
+    fieldName: string | null,
+    type: 'view' | 'edit',
+    checked: boolean
+  ) => void;
+  showSelectAll?: boolean;
+  handleSelectAllForTable?: (
+    roleId: string,
+    tableName: string,
     type: 'view' | 'edit',
     checked: boolean
   ) => void;
@@ -39,43 +50,70 @@ interface PermissionRowProps {
 export const PermissionRow: React.FC<PermissionRowProps> = ({
   name,
   roleId,
-  isModule,
+  isTable,
   isExpanded,
   onToggleExpand,
-  registryId,
+  fieldName = null,
+  tableName,
   roles,
   permissions,
   getEffectivePermission,
-  handlePermissionChange
+  handlePermissionChange,
+  showSelectAll,
+  handleSelectAllForTable
 }) => {
   const isSystemRole = roles?.find(r => r.id === roleId)?.is_system === true;
   
-  // For module rows, we don't have specific permissions (they're just containers)
-  const canView = !isModule && registryId ? getEffectivePermission(roleId, registryId, 'view') : false;
-  const canEdit = !isModule && registryId ? getEffectivePermission(roleId, registryId, 'edit') : false;
+  // Determine the correct moduleName based on whether this is a table or field level row
+  const moduleName = isTable ? name : tableName || name;
+  
+  // For field rows, we need the actual field name (not the full string with module name)
+  const actualFieldName = isTable ? null : fieldName;
+  
+  // Get the current state of permissions for this row
+  const canView = getEffectivePermission(roleId, moduleName, actualFieldName, 'view');
+  const canEdit = getEffectivePermission(roleId, moduleName, actualFieldName, 'edit');
 
   // Debug permissions
   useEffect(() => {
-    const rowType = isModule ? "Module" : "Registry Item";
-    const rowId = isModule ? name : `${name} (${registryId})`;
+    const rowType = isTable ? "Table" : "Field";
+    const rowId = isTable ? name : `${moduleName}.${actualFieldName}`;
     
-    if (!isModule) {
-      console.log(`[PermissionRow] ${rowType} "${rowId}" permissions: view=${canView}, edit=${canEdit}`);
+    console.log(`[PermissionRow] ${rowType} "${rowId}" permissions: view=${canView}, edit=${canEdit}`);
+    
+    // Check for potential duplicate permissions in the data
+    if (permissions) {
+      const duplicates = permissions.filter(
+        p => p.role_id === roleId && 
+             p.module_name === moduleName && 
+             p.field_name === actualFieldName
+      );
+      
+      if (duplicates.length > 1) {
+        console.warn(`[PermissionRow] WARNING: Found ${duplicates.length} duplicate permissions for ${rowType} "${rowId}"!`, duplicates);
+      }
     }
-  }, [canView, canEdit, name, registryId, isModule, roleId, permissions]);
+  }, [canView, canEdit, name, moduleName, actualFieldName, isTable, roleId, permissions]);
 
-  // Handle checking logic
+  // Handle checking logic with enforced relationships
   const handleCheck = (type: 'view' | 'edit', checked: boolean) => {
-    if (!registryId || isModule) return;
+    console.log(`[PermissionRow] Permission change request: ${isTable ? 'table' : 'field'} ${moduleName}${actualFieldName ? '.' + actualFieldName : ''}, ${type}=${checked}`);
     
-    console.log(`[PermissionRow] Permission change request: registry item ${registryId}, ${type}=${checked}`);
-    handlePermissionChange(roleId, registryId, type, checked);
+    // For table level permissions, use the select all handler if provided
+    if (isTable && handleSelectAllForTable) {
+      console.log(`[PermissionRow] Using selectAll handler for table ${moduleName}`);
+      handleSelectAllForTable(roleId, moduleName, type, checked);
+    } else {
+      // For field level or when select all is not enabled
+      console.log(`[PermissionRow] Using regular permission handler for ${isTable ? 'table' : 'field'} ${moduleName}${actualFieldName ? '.' + actualFieldName : ''}`);
+      handlePermissionChange(roleId, moduleName, actualFieldName, type, checked);
+    }
   };
 
   return (
-    <TableRow className={isModule ? "bg-muted/20 hover:bg-muted/30" : "border-0"}>
-      <TableCell className={isModule ? "font-medium" : "pl-10 py-2 text-sm"}>
-        {isModule ? (
+    <TableRow className={isTable ? "bg-muted/20 hover:bg-muted/30" : "border-0"}>
+      <TableCell className={isTable ? "font-medium" : "pl-10 py-2 text-sm"}>
+        {isTable ? (
           <div className="flex items-center">
             <Button 
               variant="ghost" 
@@ -91,34 +129,52 @@ export const PermissionRow: React.FC<PermissionRowProps> = ({
             <span className="font-semibold">{name}</span>
           </div>
         ) : (
-          <span className="text-sm">{name}</span>
+          name
         )}
       </TableCell>
       <TableCell className="text-center py-2">
-        {!isModule && (
-          <div className="flex justify-center">
-            <Checkbox 
-              checked={canView}
-              onCheckedChange={(checked) => {
-                handleCheck('view', !!checked);
-              }}
-              disabled={isSystemRole}
-            />
-          </div>
-        )}
+        <div className="flex justify-center">
+          <Checkbox 
+            checked={canView}
+            onCheckedChange={(checked) => {
+              handleCheck('view', !!checked);
+            }}
+            disabled={isSystemRole}
+          />
+          {isTable && showSelectAll && !isSystemRole && (
+            <Button 
+              variant="ghost" 
+              size="sm"
+              className="ml-2 text-xs h-5"
+              onClick={() => handleSelectAllForTable && 
+                handleSelectAllForTable(roleId, moduleName, 'view', !canView)}
+            >
+              all
+            </Button>
+          )}
+        </div>
       </TableCell>
       <TableCell className="text-center py-2">
-        {!isModule && (
-          <div className="flex justify-center">
-            <Checkbox 
-              checked={canEdit}
-              onCheckedChange={(checked) => {
-                handleCheck('edit', !!checked);
-              }}
-              disabled={isSystemRole}
-            />
-          </div>
-        )}
+        <div className="flex justify-center">
+          <Checkbox 
+            checked={canEdit}
+            onCheckedChange={(checked) => {
+              handleCheck('edit', !!checked);
+            }}
+            disabled={isSystemRole}
+          />
+          {isTable && showSelectAll && !isSystemRole && (
+            <Button 
+              variant="ghost" 
+              size="sm"
+              className="ml-2 text-xs h-5"
+              onClick={() => handleSelectAllForTable && 
+                handleSelectAllForTable(roleId, moduleName, 'edit', !canEdit)}
+            >
+              all
+            </Button>
+          )}
+        </div>
       </TableCell>
     </TableRow>
   );

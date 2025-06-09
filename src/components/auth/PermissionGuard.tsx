@@ -1,12 +1,13 @@
 
 import React from 'react';
-import { useFrontendPermissionCheck } from '@/hooks/useFrontendPermissions';
+import { usePermissionCheck } from '@/hooks/usePermissionCheck';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Shield } from 'lucide-react';
 
 interface PermissionGuardProps {
   children: React.ReactNode;
-  elementKey: string;
+  moduleName: string;
+  fieldName?: string | null;
   permissionType?: 'view' | 'edit';
   fallback?: React.ReactNode;
   showError?: boolean;
@@ -14,13 +15,15 @@ interface PermissionGuardProps {
 
 export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   children,
-  elementKey,
+  moduleName,
+  fieldName,
   permissionType = 'view',
   fallback = null,
   showError = false
 }) => {
-  const { hasPermission, isLoading, error } = useFrontendPermissionCheck(
-    elementKey,
+  const { hasPermission, isLoading, error } = usePermissionCheck(
+    moduleName,
+    fieldName,
     permissionType
   );
 

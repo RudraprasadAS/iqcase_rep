@@ -1,98 +1,180 @@
 
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { AuthProvider } from '@/hooks/useAuth';
+import { RoleBasedRoute } from '@/components/auth/RoleBasedRoute';
+import RequireAuth from '@/components/auth/RequireAuth';
+import { Toaster } from '@/components/ui/toaster';
+import Layout from '@/components/layout/Layout';
+import CitizenLayout from '@/components/layout/CitizenLayout';
+import Index from '@/pages/Index';
+import Login from '@/pages/auth/Login';
+import Dashboard from '@/pages/Dashboard';
+import Cases from '@/pages/Cases';
+import NewCase from '@/pages/NewCase';
+import Insights from '@/pages/Insights';
+import Reports from '@/pages/Reports';
+import CitizenDashboard from '@/pages/citizen/CitizenDashboard';
+import CitizenCases from '@/pages/citizen/CitizenCases';
+import CitizenNewCase from '@/pages/citizen/NewCase';
+import AdminUsers from '@/pages/admin/Users';
+import AdminRoles from '@/pages/admin/Roles';
+import AdminPermissions from '@/pages/admin/Permissions';
 import { HelmetProvider } from 'react-helmet-async';
-import Index from "./pages/Index";
-import NotFound from "./pages/NotFound";
-import Register from "./pages/auth/Register";
-import ForgotPassword from "./pages/auth/ForgotPassword";
-import ResetPassword from "./pages/auth/ResetPassword";
-import Dashboard from "./pages/Dashboard";
-import Layout from "./components/layout/Layout";
-import CitizenLayout from "./components/layout/CitizenLayout";
-import AuthLayout from "./components/layout/AuthLayout";
-import RequireAuth from "./components/auth/RequireAuth";
-import Permissions from "./pages/admin/Permissions";
-import Users from "./pages/admin/Users";
-import Reports from "./pages/Reports";
-import ReportBuilder from "./pages/ReportBuilder";
-import Dashboards from "./pages/Dashboards";
-import Cases from './pages/Cases';
-import CaseDetail from './pages/CaseDetail';
-import NewCase from './pages/NewCase';
-import KnowledgeBase from './pages/KnowledgeBase';
-import CitizenDashboard from './pages/citizen/CitizenDashboard';
-import CitizenCases from './pages/citizen/CitizenCases';
-import CitizenCaseDetail from './pages/citizen/CitizenCaseDetail';
-import NewCitizenCase from './pages/citizen/NewCase';
-import CitizenKnowledgeBase from './pages/citizen/CitizenKnowledgeBase';
-import Notifications from './pages/Notifications';
-import Insights from './pages/Insights';
-import Roles from './pages/admin/Roles';
 
 const queryClient = new QueryClient();
-const helmetContext = {};
 
 function App() {
   return (
-    <HelmetProvider context={helmetContext}>
+    <HelmetProvider>
       <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
+        <AuthProvider>
+          <Router>
             <Routes>
-              {/* Main login page */}
+              {/* Public routes */}
               <Route path="/" element={<Index />} />
+              <Route path="/auth/login" element={<Login />} />
+              <Route path="/login" element={<Navigate to="/auth/login" replace />} />
               
-              {/* Auth routes */}
-              <Route element={<AuthLayout />}>
-                <Route path="/auth/register" element={<Register />} />
-                <Route path="/auth/forgot-password" element={<ForgotPassword />} />
-                <Route path="/auth/reset-password" element={<ResetPassword />} />
-              </Route>
+              {/* Internal user routes */}
+              <Route path="/dashboard" element={
+                <RequireAuth>
+                  <RoleBasedRoute requireInternal>
+                    <Layout>
+                      <Dashboard />
+                    </Layout>
+                  </RoleBasedRoute>
+                </RequireAuth>
+              } />
               
-              {/* Protected internal routes */}
-              <Route element={<RequireAuth />}>
-                <Route element={<Layout />}>
-                  <Route path="/dashboard" element={<Dashboard />} />
-                  <Route path="/cases" element={<Cases />} />
-                  <Route path="/cases/:id" element={<CaseDetail />} />
-                  <Route path="/cases/new" element={<NewCase />} />
-                  <Route path="/knowledge" element={<KnowledgeBase />} />
-                  <Route path="/notifications" element={<Notifications />} />
-                  <Route path="/insights" element={<Insights />} />
-                  
-                  {/* Analytics */}
-                  <Route path="/reports" element={<Reports />} />
-                  <Route path="/reports/builder" element={<ReportBuilder />} />
-                  <Route path="/dashboards" element={<Dashboards />} />
-                  
-                  {/* Admin */}
-                  <Route path="/admin/users" element={<Users />} />
-                  <Route path="/admin/permissions" element={<Permissions />} />
-                  <Route path="/admin/roles" element={<Roles />} />
-                </Route>
-                
-                {/* Citizen Portal Routes */}
-                <Route element={<CitizenLayout />}>
-                  <Route path="/citizen/dashboard" element={<CitizenDashboard />} />
-                  <Route path="/citizen/cases" element={<CitizenCases />} />
-                  <Route path="/citizen/cases/:id" element={<CitizenCaseDetail />} />
-                  <Route path="/citizen/cases/new" element={<NewCitizenCase />} />
-                  <Route path="/citizen/knowledge" element={<CitizenKnowledgeBase />} />
-                  <Route path="/citizen/notifications" element={<Notifications />} />
-                </Route>
-              </Route>
+              <Route path="/cases" element={
+                <RequireAuth>
+                  <RoleBasedRoute requireInternal>
+                    <Layout>
+                      <Cases />
+                    </Layout>
+                  </RoleBasedRoute>
+                </RequireAuth>
+              } />
               
-              {/* Catch-all route */}
-              <Route path="*" element={<NotFound />} />
+              <Route path="/cases/new" element={
+                <RequireAuth>
+                  <RoleBasedRoute requireInternal>
+                    <Layout>
+                      <NewCase />
+                    </Layout>
+                  </RoleBasedRoute>
+                </RequireAuth>
+              } />
+
+              <Route path="/insights" element={
+                <RequireAuth>
+                  <RoleBasedRoute requireInternal>
+                    <Layout>
+                      <Insights />
+                    </Layout>
+                  </RoleBasedRoute>
+                </RequireAuth>
+              } />
+
+              <Route path="/reports" element={
+                <RequireAuth>
+                  <RoleBasedRoute requireInternal>
+                    <Layout>
+                      <Reports />
+                    </Layout>
+                  </RoleBasedRoute>
+                </RequireAuth>
+              } />
+
+              <Route path="/reports/*" element={
+                <RequireAuth>
+                  <RoleBasedRoute requireInternal>
+                    <Layout>
+                      <Reports />
+                    </Layout>
+                  </RoleBasedRoute>
+                </RequireAuth>
+              } />
+
+              {/* Admin routes - using your existing admin pages */}
+              <Route path="/admin" element={
+                <RequireAuth>
+                  <RoleBasedRoute requireAdmin>
+                    <Layout>
+                      <AdminUsers />
+                    </Layout>
+                  </RoleBasedRoute>
+                </RequireAuth>
+              } />
+
+              <Route path="/admin/users" element={
+                <RequireAuth>
+                  <RoleBasedRoute requireAdmin>
+                    <Layout>
+                      <AdminUsers />
+                    </Layout>
+                  </RoleBasedRoute>
+                </RequireAuth>
+              } />
+
+              <Route path="/admin/roles" element={
+                <RequireAuth>
+                  <RoleBasedRoute requireAdmin>
+                    <Layout>
+                      <AdminRoles />
+                    </Layout>
+                  </RoleBasedRoute>
+                </RequireAuth>
+              } />
+
+              <Route path="/admin/permissions" element={
+                <RequireAuth>
+                  <RoleBasedRoute requireAdmin>
+                    <Layout>
+                      <AdminPermissions />
+                    </Layout>
+                  </RoleBasedRoute>
+                </RequireAuth>
+              } />
+
+              {/* Citizen routes */}
+              <Route path="/citizen/dashboard" element={
+                <RequireAuth>
+                  <RoleBasedRoute requireExternal>
+                    <CitizenLayout>
+                      <CitizenDashboard />
+                    </CitizenLayout>
+                  </RoleBasedRoute>
+                </RequireAuth>
+              } />
+              
+              <Route path="/citizen/cases" element={
+                <RequireAuth>
+                  <RoleBasedRoute requireExternal>
+                    <CitizenLayout>
+                      <CitizenCases />
+                    </CitizenLayout>
+                  </RoleBasedRoute>
+                </RequireAuth>
+              } />
+              
+              <Route path="/citizen/cases/new" element={
+                <RequireAuth>
+                  <RoleBasedRoute requireExternal>
+                    <CitizenLayout>
+                      <CitizenNewCase />
+                    </CitizenLayout>
+                  </RoleBasedRoute>
+                </RequireAuth>
+              } />
+
+              {/* Fallback redirect */}
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
+            <Toaster />
+          </Router>
+        </AuthProvider>
       </QueryClientProvider>
     </HelmetProvider>
   );
