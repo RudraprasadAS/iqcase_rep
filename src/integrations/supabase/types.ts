@@ -1332,7 +1332,15 @@ export type Database = {
           fields: string[]
         }[]
       }
+      has_manager_access: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       is_admin_user: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      is_internal_user: {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }

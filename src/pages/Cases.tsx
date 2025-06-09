@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
@@ -8,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { useModulePermission } from '@/hooks/useModulePermissions';
+import { useRoleAccess } from '@/hooks/useRoleAccess';
 import {
   FileText,
   Plus,
@@ -18,7 +19,8 @@ import {
   CheckCircle,
   Calendar,
   MapPin,
-  User
+  User,
+  RefreshCw
 } from 'lucide-react';
 
 interface Case {
@@ -40,7 +42,7 @@ interface Case {
 
 const Cases = () => {
   const { toast } = useToast();
-  const { hasViewPermission, hasEditPermission } = useModulePermission('cases');
+  const { hasAdminAccess, userInfo, isLoading: roleLoading } = useRoleAccess();
   
   const [loading, setLoading] = useState(true);
   const [cases, setCases] = useState<Case[]>([]);
@@ -50,10 +52,10 @@ const Cases = () => {
   const [priorityFilter, setPriorityFilter] = useState('all');
 
   useEffect(() => {
-    if (hasViewPermission) {
+    if (!roleLoading && userInfo) {
       fetchCases();
     }
-  }, [hasViewPermission]);
+  }, [roleLoading, userInfo]);
 
   useEffect(() => {
     filterCases();
@@ -63,9 +65,11 @@ const Cases = () => {
     try {
       setLoading(true);
       
-      console.log('Fetching cases with RLS protection');
+      console.log('Fetching cases with role:', userInfo?.role?.name);
+      console.log('Has admin access:', hasAdminAccess);
 
-      // RLS policies will automatically filter cases based on user access
+      // The RLS policies will automatically filter cases based on user role
+      // Admins see all, managers see all, case workers see relevant ones, citizens see own
       const { data, error } = await supabase
         .from('cases')
         .select(`
@@ -78,6 +82,18 @@ const Cases = () => {
 
       if (error) {
         console.error('Cases fetch error:', error);
+        
+        // Check if it's a permission error
+        if (error.code === 'PGRST301' || error.message.includes('permission')) {
+          toast({
+            title: 'Access Denied',
+            description: 'You do not have permission to view cases. Please contact your administrator.',
+            variant: 'destructive'
+          });
+          setCases([]);
+          return;
+        }
+        
         throw error;
       }
 
@@ -87,8 +103,8 @@ const Cases = () => {
     } catch (error) {
       console.error('Error fetching cases:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to load cases. Please check your permissions.',
+        title: 'Error Loading Cases',
+        description: 'Failed to load cases. Please try refreshing the page.',
         variant: 'destructive'
       });
       setCases([]);
@@ -170,18 +186,14 @@ const Cases = () => {
     return new Date(slaDueAt) < new Date();
   };
 
-  if (!hasViewPermission) {
+  if (roleLoading) {
     return (
       <>
         <Helmet>
-          <title>Access Denied - Cases</title>
+          <title>Loading Cases...</title>
         </Helmet>
         <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Access Denied</h3>
-            <p className="text-gray-500">You don't have permission to view cases.</p>
-          </div>
+          <div className="w-8 h-8 border-4 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
         </div>
       </>
     );
@@ -194,7 +206,10 @@ const Cases = () => {
           <title>Loading Cases...</title>
         </Helmet>
         <div className="flex items-center justify-center h-64">
-          <div className="w-8 h-8 border-4 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-8 h-8 border-4 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
+            <p className="text-gray-600">Loading cases...</p>
+          </div>
         </div>
       </>
     );
@@ -210,16 +225,31 @@ const Cases = () => {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold">Cases</h1>
-            <p className="text-gray-600">Manage and track all cases</p>
+            <p className="text-gray-600">
+              {hasAdminAccess ? 'Manage and track all cases' : 'View your assigned and relevant cases'}
+            </p>
+            {userInfo && (
+              <p className="text-sm text-gray-500 mt-1">
+                Role: {userInfo.role?.name} | Access Level: {hasAdminAccess ? 'Admin' : 'Standard'}
+              </p>
+            )}
           </div>
-          {hasEditPermission && (
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              onClick={fetchCases}
+              disabled={loading}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
             <Link to="/cases/new">
               <Button className="bg-blue-600 hover:bg-blue-700">
                 <Plus className="h-4 w-4 mr-2" />
                 New Case
               </Button>
             </Link>
-          )}
+          </div>
         </div>
 
         {/* Filters */}
@@ -269,15 +299,15 @@ const Cases = () => {
             <CardContent className="text-center py-12">
               <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">
-                {cases.length === 0 ? 'No cases accessible' : 'No cases match your filters'}
+                {cases.length === 0 ? 'No cases available' : 'No cases match your filters'}
               </h3>
               <p className="text-gray-500 mb-4">
                 {cases.length === 0 
-                  ? 'You currently have access to no cases. Contact your administrator if this seems incorrect.'
+                  ? `${hasAdminAccess ? 'No cases exist in the system yet.' : 'You currently have no assigned or accessible cases.'}`
                   : 'Try adjusting your search or filter criteria'
                 }
               </p>
-              {hasEditPermission && cases.length === 0 && (
+              {cases.length === 0 && (
                 <Link to="/cases/new">
                   <Button>Create New Case</Button>
                 </Link>
@@ -286,6 +316,11 @@ const Cases = () => {
           </Card>
         ) : (
           <div className="space-y-4">
+            {/* Results summary */}
+            <div className="text-sm text-gray-600">
+              Showing {filteredCases.length} of {cases.length} cases
+            </div>
+            
             {filteredCases.map((case_) => (
               <Card key={case_.id} className="hover:shadow-md transition-shadow">
                 <CardContent className="p-6">
