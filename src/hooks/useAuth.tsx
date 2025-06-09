@@ -82,7 +82,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         // Check if there's a user with this email but no auth_user_id
         const { data: emailUser, error: emailError } = await supabase
           .from('users')
-          .select('id, email, role_id')
+          .select('id, email, role_id, auth_user_id')
           .eq('email', authUser.email)
           .maybeSingle();
 
