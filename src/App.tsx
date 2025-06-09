@@ -57,56 +57,43 @@ const App = () => (
             {/* Public Landing Page */}
             <Route path="/landing" element={<Index />} />
 
-            {/* Redirect root to dashboard for authenticated users */}
+            {/* Redirect root to appropriate dashboard */}
             <Route path="/" element={
               <RequireAuth>
-                <RoleBasedRoute requireInternal>
-                  <Navigate to="/dashboard" replace />
-                </RoleBasedRoute>
-                <RoleBasedRoute requireExternal>
-                  <Navigate to="/citizen/dashboard" replace />
-                </RoleBasedRoute>
+                <Navigate to="/dashboard" replace />
               </RequireAuth>
             } />
 
             {/* Internal User Routes */}
             <Route path="/dashboard" element={
               <RequireAuth>
-                <RoleBasedRoute requireInternal>
-                  <Layout>
-                    <Dashboard />
-                  </Layout>
-                </RoleBasedRoute>
+                <Layout>
+                  <Dashboard />
+                </Layout>
               </RequireAuth>
             } />
 
             <Route path="/cases" element={
               <RequireAuth>
-                <RoleBasedRoute requireInternal>
-                  <Layout>
-                    <Cases />
-                  </Layout>
-                </RoleBasedRoute>
+                <Layout>
+                  <Cases />
+                </Layout>
               </RequireAuth>
             } />
 
             <Route path="/cases/new" element={
               <RequireAuth>
-                <RoleBasedRoute requireInternal>
-                  <Layout>
-                    <NewCase />
-                  </Layout>
-                </RoleBasedRoute>
+                <Layout>
+                  <NewCase />
+                </Layout>
               </RequireAuth>
             } />
 
             <Route path="/cases/:id" element={
               <RequireAuth>
-                <RoleBasedRoute requireInternal>
-                  <Layout>
-                    <CaseDetail />
-                  </Layout>
-                </RoleBasedRoute>
+                <Layout>
+                  <CaseDetail />
+                </Layout>
               </RequireAuth>
             } />
 
@@ -144,82 +131,66 @@ const App = () => (
             {/* Reports Routes */}
             <Route path="/reports" element={
               <RequireAuth>
-                <RoleBasedRoute requireInternal>
-                  <Layout>
-                    <Reports />
-                  </Layout>
-                </RoleBasedRoute>
+                <Layout>
+                  <Reports />
+                </Layout>
               </RequireAuth>
             } />
 
             <Route path="/reports/builder" element={
               <RequireAuth>
-                <RoleBasedRoute requireInternal>
-                  <Layout>
-                    <ReportBuilder />
-                  </Layout>
-                </RoleBasedRoute>
+                <Layout>
+                  <ReportBuilder />
+                </Layout>
               </RequireAuth>
             } />
 
             <Route path="/reports/table-builder" element={
               <RequireAuth>
-                <RoleBasedRoute requireInternal>
-                  <Layout>
-                    <TableReportBuilder />
-                  </Layout>
-                </RoleBasedRoute>
+                <Layout>
+                  <TableReportBuilder />
+                </Layout>
               </RequireAuth>
             } />
 
             <Route path="/reports/standard" element={
               <RequireAuth>
-                <RoleBasedRoute requireInternal>
-                  <Layout>
-                    <StandardReports />
-                  </Layout>
-                </RoleBasedRoute>
+                <Layout>
+                  <StandardReports />
+                </Layout>
               </RequireAuth>
             } />
 
             {/* Other Internal Routes */}
             <Route path="/insights" element={
               <RequireAuth>
-                <RoleBasedRoute requireInternal>
-                  <Layout>
-                    <Insights />
-                  </Layout>
-                </RoleBasedRoute>
+                <Layout>
+                  <Insights />
+                </Layout>
               </RequireAuth>
             } />
 
             <Route path="/knowledge" element={
               <RequireAuth>
-                <RoleBasedRoute requireInternal>
-                  <Layout>
-                    <KnowledgeBase />
-                  </Layout>
-                </RoleBasedRoute>
+                <Layout>
+                  <KnowledgeBase />
+                </Layout>
               </RequireAuth>
             } />
 
             <Route path="/notifications" element={
               <RequireAuth>
-                <RoleBasedRoute requireInternal>
-                  <Layout>
-                    <Notifications />
-                  </Layout>
-                </RoleBasedRoute>
+                <Layout>
+                  <Notifications />
+                </Layout>
               </RequireAuth>
             } />
 
             <Route path="/dashboards" element={
               <RequireAuth>
-                <RoleBasedRoute requireInternal>
-                  <Layout>
-                    <Dashboards />
-                  </Layout>
-                </RoleBasedRoute>
+                <Layout>
+                  <Dashboards />
+                </Layout>
               </RequireAuth>
             } />
 

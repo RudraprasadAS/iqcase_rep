@@ -112,6 +112,25 @@ export const useAuth = () => {
     }
   };
 
+  const login = async (email: string, password: string) => {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    return { user: data.user, error };
+  };
+
+  const register = async (email: string, password: string) => {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/`
+      }
+    });
+    return { user: data.user, error };
+  };
+
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) {
@@ -119,11 +138,17 @@ export const useAuth = () => {
     }
   };
 
+  const logout = signOut; // Alias for compatibility
+
   return {
     user,
     session,
     loading,
+    isLoading: loading, // Alias for compatibility
     signOut,
+    logout,
+    login,
+    register,
     isAuthenticated: !!user
   };
 };
