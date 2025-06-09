@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Save, Edit, Trash2 } from "lucide-react";
+import { Save, Edit, Trash2, RefreshCw } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { CreateRoleDialog } from "@/components/permissions/CreateRoleDialog";
 import { PermissionTable } from "@/components/permissions/PermissionTable";
@@ -95,29 +95,6 @@ const frontendElements = [
     ]
   },
   {
-    name: "Case Attachments",
-    type: "page",
-    fields: [
-      "view_case_attachments",
-      "upload_attachment",
-      "download_attachment",
-      "delete_attachment",
-      "mark_attachment_private",
-      "share_attachment"
-    ]
-  },
-  {
-    name: "Case Feedback",
-    type: "page",
-    fields: [
-      "view_case_feedback",
-      "submit_feedback",
-      "edit_feedback",
-      "view_feedback_analytics",
-      "export_feedback"
-    ]
-  },
-  {
     name: "Notifications", 
     type: "page",
     fields: [
@@ -170,62 +147,6 @@ const frontendElements = [
       "share_reports",
       "view_report_analytics"
     ]
-  },
-  {
-    name: "Knowledge Base",
-    type: "page",
-    fields: [
-      "view_knowledge", 
-      "create_articles", 
-      "edit_articles", 
-      "delete_articles",
-      "publish_articles",
-      "approve_articles",
-      "search_knowledge_base"
-    ]
-  },
-  {
-    name: "Case Categories",
-    type: "page",
-    fields: [
-      "view_case_categories",
-      "create_case_category",
-      "edit_case_category", 
-      "delete_case_category",
-      "manage_category_hierarchy"
-    ]
-  },
-  {
-    name: "SLA Management",
-    type: "page",
-    fields: [
-      "view_sla_policies",
-      "create_sla_policy",
-      "edit_sla_policy",
-      "delete_sla_policy",
-      "view_sla_reports"
-    ]
-  },
-  {
-    name: "Audit Logs",
-    type: "page", 
-    fields: [
-      "view_audit_logs",
-      "export_audit_logs",
-      "search_audit_logs",
-      "view_user_activity_logs"
-    ]
-  },
-  {
-    name: "System Settings",
-    type: "page",
-    fields: [
-      "view_system_settings",
-      "edit_system_settings",
-      "manage_integrations",
-      "configure_email_settings",
-      "manage_templates"
-    ]
   }
 ];
 
@@ -234,6 +155,7 @@ const PermissionsPage = () => {
   const [showSelectAll, setShowSelectAll] = useState<boolean>(false);
   const [editRoleOpen, setEditRoleOpen] = useState<boolean>(false);
   const [deleteRoleOpen, setDeleteRoleOpen] = useState<boolean>(false);
+  const [registryStatus, setRegistryStatus] = useState<string>("Not started");
   const queryClient = useQueryClient();
   
   // Fetch all roles
@@ -256,64 +178,93 @@ const PermissionsPage = () => {
     },
   });
   
-  // Populate frontend registry on component mount
-  useEffect(() => {
-    const populateFrontendRegistry = async () => {
-      try {
-        console.log("[PermissionsPage] Populating frontend registry with comprehensive frontend elements");
+  // Manual function to populate registry
+  const populateRegistry = async () => {
+    try {
+      setRegistryStatus("Populating...");
+      console.log("[PermissionsPage] Starting to populate frontend registry");
+      
+      // First, clear existing entries
+      const { error: deleteError } = await supabase
+        .from("frontend_registry")
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000');
+      
+      if (deleteError) {
+        console.error("[PermissionsPage] Error clearing registry:", deleteError);
+        throw deleteError;
+      }
+      
+      // Prepare registry entries
+      const registryEntries = [];
+      
+      frontendElements.forEach(element => {
+        const moduleKey = element.name.toLowerCase().replace(/\s+/g, '_').replace(/&/g, 'and');
         
-        // Clear existing frontend registry entries
-        await supabase.from("frontend_registry").delete().neq('id', '00000000-0000-0000-0000-000000000000');
-        
-        // Insert comprehensive frontend elements
-        const registryEntries = [];
-        
-        frontendElements.forEach(element => {
-          // Add page-level entry
-          registryEntries.push({
-            element_key: element.name.toLowerCase().replace(/\s+/g, '_').replace(/&/g, 'and'),
-            label: element.name,
-            module: element.name.toLowerCase().replace(/\s+/g, '_').replace(/&/g, 'and'),
-            screen: element.name.toLowerCase().replace(/\s+/g, '_').replace(/&/g, 'and'),
-            element_type: element.type
-          });
-          
-          // Add field-level entries for each capability
-          element.fields.forEach(field => {
-            registryEntries.push({
-              element_key: `${element.name.toLowerCase().replace(/\s+/g, '_').replace(/&/g, 'and')}.${field}`,
-              label: field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-              module: element.name.toLowerCase().replace(/\s+/g, '_').replace(/&/g, 'and'),
-              screen: element.name.toLowerCase().replace(/\s+/g, '_').replace(/&/g, 'and'),
-              element_type: 'field'
-            });
-          });
+        // Add page-level entry
+        registryEntries.push({
+          element_key: moduleKey,
+          label: element.name,
+          module: moduleKey,
+          screen: moduleKey,
+          element_type: element.type,
+          is_active: true
         });
         
-        console.log("[PermissionsPage] Inserting", registryEntries.length, "registry entries");
-        
+        // Add field-level entries
+        element.fields.forEach(field => {
+          registryEntries.push({
+            element_key: `${moduleKey}.${field}`,
+            label: field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+            module: moduleKey,
+            screen: moduleKey,
+            element_type: 'field',
+            is_active: true
+          });
+        });
+      });
+      
+      console.log("[PermissionsPage] Inserting", registryEntries.length, "registry entries");
+      
+      // Insert in batches to avoid potential size limits
+      const batchSize = 50;
+      for (let i = 0; i < registryEntries.length; i += batchSize) {
+        const batch = registryEntries.slice(i, i + batchSize);
         const { error } = await supabase
           .from("frontend_registry")
-          .insert(registryEntries);
+          .insert(batch);
           
         if (error) {
-          console.error("[PermissionsPage] Error populating frontend registry:", error);
-        } else {
-          console.log("[PermissionsPage] Frontend registry populated successfully with comprehensive elements");
+          console.error("[PermissionsPage] Error inserting batch:", error);
+          throw error;
         }
-      } catch (error) {
-        console.error("[PermissionsPage] Exception populating frontend registry:", error);
       }
-    };
-    
-    populateFrontendRegistry();
-  }, []);
+      
+      setRegistryStatus("Completed");
+      toast({
+        title: "Frontend Registry Populated",
+        description: `Successfully added ${registryEntries.length} frontend elements`
+      });
+      
+      // Refresh the registry query
+      queryClient.invalidateQueries({ queryKey: ["frontend_registry"] });
+      
+    } catch (error) {
+      console.error("[PermissionsPage] Error populating registry:", error);
+      setRegistryStatus("Error");
+      toast({
+        title: "Error Populating Registry",
+        description: "Failed to populate frontend registry. Check console for details.",
+        variant: "destructive"
+      });
+    }
+  };
   
   // Fetch frontend registry entries
-  const { data: frontendRegistry, isLoading: registryLoading } = useQuery({
+  const { data: frontendRegistry, isLoading: registryLoading, refetch: refetchRegistry } = useQuery({
     queryKey: ["frontend_registry"],
     queryFn: async () => {
-      console.log("[PermissionsPage] Fetching comprehensive frontend registry");
+      console.log("[PermissionsPage] Fetching frontend registry");
       try {
         const { data, error } = await supabase
           .from("frontend_registry")
@@ -327,7 +278,7 @@ const PermissionsPage = () => {
           throw error;
         }
         
-        console.log("[PermissionsPage] Frontend registry fetched successfully:", data?.length, "elements");
+        console.log("[PermissionsPage] Frontend registry fetched:", data?.length, "elements");
         return data || [];
       } catch (e) {
         console.error("[PermissionsPage] Exception fetching frontend registry:", e);
@@ -410,13 +361,6 @@ const PermissionsPage = () => {
     }
   };
 
-  // Log when permissions data changes
-  useEffect(() => {
-    if (permissions) {
-      console.log(`[PermissionsPage] Current permissions for role ${selectedRoleId}:`, permissions.length, "permissions loaded");
-    }
-  }, [permissions, selectedRoleId]);
-
   const selectedRole = roles?.find(role => role.id === selectedRoleId);
 
   // Group frontend registry by module for display
@@ -444,18 +388,6 @@ const PermissionsPage = () => {
   }));
   
   const isLoading = rolesLoading || registryLoading || (!!selectedRoleId && permissionsLoading);
-  
-  // Debug render
-  useEffect(() => {
-    console.log("[PermissionsPage] Rendering with state:", {
-      selectedRoleId,
-      hasUnsavedChanges,
-      isLoading,
-      permissionsCount: permissions?.length,
-      frontendTablesCount: frontendTables.length,
-      registryElementsCount: frontendRegistry?.length
-    });
-  });
 
   return (
     <div className="container mx-auto py-6 space-y-6">
@@ -477,11 +409,39 @@ const PermissionsPage = () => {
         </div>
       </div>
       
+      {/* Registry Status Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            Frontend Registry Status
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={populateRegistry}
+              disabled={registryStatus === "Populating..."}
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Populate Registry
+            </Button>
+          </CardTitle>
+          <CardDescription>
+            Status: {registryStatus} | Registry Elements: {frontendRegistry?.length || 0} | Tables: {frontendTables.length}
+          </CardDescription>
+        </CardHeader>
+        {frontendRegistry && frontendRegistry.length > 0 && (
+          <CardContent>
+            <div className="text-sm text-muted-foreground">
+              <p>Modules loaded: {Object.keys(groupedRegistry).join(", ")}</p>
+            </div>
+          </CardContent>
+        )}
+      </Card>
+      
       <Card>
         <CardHeader>
           <CardTitle>Role Management & Permissions</CardTitle>
           <CardDescription>
-            Configure comprehensive permissions for all application features including Cases, Tasks, Messages, Notifications, Reports, and Administration
+            Configure comprehensive permissions for all application features
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -550,6 +510,13 @@ const PermissionsPage = () => {
                   <p className="text-muted-foreground">Select a role to manage permissions</p>
                   <p className="text-sm text-muted-foreground mt-2">
                     Registry loaded: {frontendRegistry?.length || 0} elements across {frontendTables.length} modules
+                  </p>
+                </div>
+              ) : frontendTables.length === 0 ? (
+                <div className="text-center py-12 border rounded-md bg-yellow-50">
+                  <p className="text-muted-foreground">No frontend elements found in registry</p>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Click "Populate Registry" above to load frontend elements
                   </p>
                 </div>
               ) : (
