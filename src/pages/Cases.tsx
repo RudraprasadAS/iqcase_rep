@@ -21,7 +21,7 @@ const Cases = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
 
-  // Fetch cases data - remove the permission check that was blocking it
+  // Fetch cases data
   const { data: cases, isLoading } = useQuery({
     queryKey: ["cases", searchQuery, statusFilter, priorityFilter],
     queryFn: async () => {
