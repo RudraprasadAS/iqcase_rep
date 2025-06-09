@@ -167,7 +167,7 @@ const PermissionsPage = () => {
   const frontendTables = Object.entries(groupedRegistry).map(([module, data]) => ({
     name: data.page?.label || module.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
     schema: 'frontend',
-    fields: data.fields.map(field => field.element_key.split('.').pop() || field.element_key),
+    fields: data.fields.map(field => field.element_key), // Pass the full element_key instead of just the last part
     module: module,
     registryData: data
   }));

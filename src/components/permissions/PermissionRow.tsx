@@ -64,17 +64,21 @@ export const PermissionRow: React.FC<PermissionRowProps> = ({
   
   if (isFrontendMode) {
     if (isTable) {
+      // For page-level permissions, use the module name directly
       elementKey = module || name.toLowerCase().replace(/\s+/g, '_');
     } else {
-      elementKey = `${module || tableName?.toLowerCase().replace(/\s+/g, '_')}.${fieldName}`;
+      // For field-level permissions, we need to use the full element key
+      // The fieldName should already contain the full key from the registry
+      elementKey = fieldName || `${module || tableName?.toLowerCase().replace(/\s+/g, '_')}.${name}`;
     }
   } else {
     // Legacy backend mode
     elementKey = isTable ? name : tableName || name;
   }
   
-  // For field rows, we need the actual field name
-  const actualFieldName = isTable ? null : fieldName;
+  // For field rows in frontend mode, we don't need to pass fieldName separately
+  // since the elementKey already contains the full path
+  const actualFieldName = isFrontendMode ? null : (isTable ? null : fieldName);
   
   // Get the current state of permissions for this row
   const canView = getEffectivePermission(roleId, elementKey, actualFieldName, 'view');
@@ -83,15 +87,15 @@ export const PermissionRow: React.FC<PermissionRowProps> = ({
   // Debug permissions
   useEffect(() => {
     const rowType = isTable ? (isFrontendMode ? "Page" : "Table") : (isFrontendMode ? "Element" : "Field");
-    const rowId = isTable ? name : `${elementKey}.${actualFieldName}`;
+    const rowId = isTable ? name : elementKey;
     
     console.log(`[PermissionRow] ${rowType} "${rowId}" permissions: view=${canView}, edit=${canEdit}`);
-    console.log(`[PermissionRow] Element key: ${elementKey}, Field: ${actualFieldName}`);
+    console.log(`[PermissionRow] Element key: ${elementKey}, Field: ${actualFieldName}, IsTable: ${isTable}`);
   }, [canView, canEdit, name, elementKey, actualFieldName, isTable, roleId, permissions, isFrontendMode]);
 
   // Handle checking logic with enforced relationships
   const handleCheck = (type: 'view' | 'edit', checked: boolean) => {
-    console.log(`[PermissionRow] Permission change request: ${isTable ? (isFrontendMode ? 'page' : 'table') : (isFrontendMode ? 'element' : 'field')} ${elementKey}${actualFieldName ? '.' + actualFieldName : ''}, ${type}=${checked}`);
+    console.log(`[PermissionRow] Permission change request: ${isTable ? (isFrontendMode ? 'page' : 'table') : (isFrontendMode ? 'element' : 'field')} ${elementKey}, ${type}=${checked}`);
     
     // For page/table level permissions, use the select all handler if provided
     if (isTable && handleSelectAllForTable) {
@@ -99,7 +103,7 @@ export const PermissionRow: React.FC<PermissionRowProps> = ({
       handleSelectAllForTable(roleId, elementKey, type, checked);
     } else {
       // For field/element level or when select all is not enabled
-      console.log(`[PermissionRow] Using regular permission handler for ${isTable ? (isFrontendMode ? 'page' : 'table') : (isFrontendMode ? 'element' : 'field')} ${elementKey}${actualFieldName ? '.' + actualFieldName : ''}`);
+      console.log(`[PermissionRow] Using regular permission handler for ${isTable ? (isFrontendMode ? 'page' : 'table') : (isFrontendMode ? 'element' : 'field')} ${elementKey}`);
       handlePermissionChange(roleId, elementKey, actualFieldName, type, checked);
     }
   };
@@ -124,7 +128,10 @@ export const PermissionRow: React.FC<PermissionRowProps> = ({
           </div>
         ) : (
           <span className="text-muted-foreground">
-            {fieldName?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || name}
+            {isFrontendMode ? 
+              (fieldName?.split('.').pop()?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || name) :
+              (fieldName?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || name)
+            }
           </span>
         )}
       </TableCell>

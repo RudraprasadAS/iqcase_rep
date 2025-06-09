@@ -60,7 +60,8 @@ export const PermissionTable: React.FC<PermissionTableProps> = ({
     console.log("Selected role ID:", selectedRoleId);
     console.log("Expanded tables:", expandedTables);
     console.log("Frontend mode:", isFrontendMode);
-  }, [permissions, selectedRoleId, expandedTables, isFrontendMode]);
+    console.log("Tables structure:", tables);
+  }, [permissions, selectedRoleId, expandedTables, isFrontendMode, tables]);
   
   return (
     <div className="overflow-x-auto border rounded-md">
@@ -99,7 +100,7 @@ export const PermissionTable: React.FC<PermissionTableProps> = ({
                 {expandedTables[table.name] && table.fields && table.fields.map(field => (
                   <PermissionRow
                     key={`${table.name}-${field}-${selectedRoleId}`}
-                    name={field}
+                    name={field.split('.').pop() || field}
                     roleId={selectedRoleId}
                     isTable={false}
                     fieldName={field}
