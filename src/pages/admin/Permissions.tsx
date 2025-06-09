@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -109,11 +110,13 @@ const PermissionsPage = () => {
     handlePermissionChange,
     handleBulkToggleForTable,
     handleSelectAllForTable,
-    getEffectivePermission
+    getEffectivePermission,
+    debugCurrentState
   } = usePermissions(selectedRoleId, permissions, roles, tables);
 
   const handleSaveChanges = () => {
     console.log("[PermissionsPage] Save changes button clicked");
+    debugCurrentState(); // Log current state before saving
     savePermissionsMutation.mutate();
   };
 

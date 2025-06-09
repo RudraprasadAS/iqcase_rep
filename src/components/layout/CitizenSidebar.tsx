@@ -38,9 +38,11 @@ const CitizenSidebar = () => {
               className="w-8 h-8 flex-shrink-0"
             />
           ) : (
-            <div className="w-8 h-8 flex items-center justify-center bg-gray-800 text-white font-bold text-lg rounded flex-shrink-0 font-inter">
-              C
-            </div>
+            <img 
+              src="/lovable-uploads/ee388e32-d054-4367-b2ac-0dd3512cb8fd.png" 
+              alt="CivIQ" 
+              className="w-6 h-6 flex-shrink-0"
+            />
           )}
           {state === "expanded" && (
             <div className="grid flex-1 text-left text-sm leading-tight min-w-0">
@@ -53,7 +55,7 @@ const CitizenSidebar = () => {
       
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="font-inter text-gray-600">Citizen Portal</SidebarGroupLabel>
+          <SidebarGroupLabel>Portal</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {navigation.map((item) => (
@@ -62,16 +64,11 @@ const CitizenSidebar = () => {
                     <NavLink
                       to={item.href}
                       className={({ isActive }) =>
-                        cn(
-                          "font-inter flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-colors",
-                          isActive 
-                            ? "bg-gray-900 text-white font-semibold" 
-                            : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
-                        )
+                        cn(isActive && "bg-blue-100 text-blue-900")
                       }
                     >
-                      <item.icon className="h-4 w-4" />
-                      <span className="font-inter">{item.name}</span>
+                      <item.icon />
+                      <span>{item.name}</span>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

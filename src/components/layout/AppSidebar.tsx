@@ -68,9 +68,11 @@ export function AppSidebar() {
               className="w-8 h-8 flex-shrink-0"
             />
           ) : (
-            <div className="w-8 h-8 flex items-center justify-center bg-gray-800 text-white font-bold text-lg rounded flex-shrink-0 font-inter">
-              C
-            </div>
+            <img 
+              src="/lovable-uploads/ee388e32-d054-4367-b2ac-0dd3512cb8fd.png" 
+              alt="CivIQ" 
+              className="w-6 h-6 flex-shrink-0"
+            />
           )}
           {state === "expanded" && (
             <div className="grid flex-1 text-left text-sm leading-tight min-w-0">
@@ -83,7 +85,7 @@ export function AppSidebar() {
       
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="font-inter text-gray-600">Application</SidebarGroupLabel>
+          <SidebarGroupLabel>Application</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {navigation.map((item) => (
@@ -92,16 +94,11 @@ export function AppSidebar() {
                     <NavLink
                       to={item.href}
                       className={({ isActive }) =>
-                        cn(
-                          "font-inter flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-colors",
-                          isActive 
-                            ? "bg-gray-900 text-white font-semibold" 
-                            : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
-                        )
+                        cn(isActive && "bg-blue-100 text-blue-900")
                       }
                     >
-                      <item.icon className="h-4 w-4" />
-                      <span className="font-inter">{item.name}</span>
+                      <item.icon />
+                      <span>{item.name}</span>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -111,16 +108,16 @@ export function AppSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel className="font-inter text-gray-600">Analytics</SidebarGroupLabel>
+          <SidebarGroupLabel>Analytics</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               <Collapsible open={isReportsOpen} onOpenChange={setIsReportsOpen}>
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
-                    <SidebarMenuButton tooltip="Analytics" className="font-inter text-gray-700 hover:bg-gray-100 hover:text-gray-900">
-                      <BarChart3 className="h-4 w-4" />
-                      <span className="font-inter">Analytics</span>
-                      <ChevronDown className={cn("ml-auto transition-transform font-inter h-4 w-4", isReportsOpen && "rotate-180")} />
+                    <SidebarMenuButton tooltip="Analytics">
+                      <BarChart3 />
+                      <span>Analytics</span>
+                      <ChevronDown className={cn("ml-auto transition-transform", isReportsOpen && "rotate-180")} />
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
                   <CollapsibleContent>
@@ -128,16 +125,8 @@ export function AppSidebar() {
                       {reportNavigation.map((item) => (
                         <SidebarMenuSubItem key={item.name}>
                           <SidebarMenuSubButton asChild>
-                            <NavLink 
-                              to={item.href}
-                              className={({ isActive }) =>
-                                cn(
-                                  "font-inter text-gray-700 hover:bg-gray-100 hover:text-gray-900",
-                                  isActive && "bg-gray-900 text-white font-semibold"
-                                )
-                              }
-                            >
-                              <span className="font-inter">{item.name}</span>
+                            <NavLink to={item.href}>
+                              <span>{item.name}</span>
                             </NavLink>
                           </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
@@ -151,16 +140,16 @@ export function AppSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel className="font-inter text-gray-600">Administration</SidebarGroupLabel>
+          <SidebarGroupLabel>Administration</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               <Collapsible open={isAdminOpen} onOpenChange={setIsAdminOpen}>
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
-                    <SidebarMenuButton tooltip="Admin" className="font-inter text-gray-700 hover:bg-gray-100 hover:text-gray-900">
-                      <Shield className="h-4 w-4" />
-                      <span className="font-inter">Admin</span>
-                      <ChevronDown className={cn("ml-auto transition-transform font-inter h-4 w-4", isAdminOpen && "rotate-180")} />
+                    <SidebarMenuButton tooltip="Admin">
+                      <Shield />
+                      <span>Admin</span>
+                      <ChevronDown className={cn("ml-auto transition-transform", isAdminOpen && "rotate-180")} />
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
                   <CollapsibleContent>
@@ -168,16 +157,8 @@ export function AppSidebar() {
                       {adminNavigation.map((item) => (
                         <SidebarMenuSubItem key={item.name}>
                           <SidebarMenuSubButton asChild>
-                            <NavLink 
-                              to={item.href}
-                              className={({ isActive }) =>
-                                cn(
-                                  "font-inter text-gray-700 hover:bg-gray-100 hover:text-gray-900",
-                                  isActive && "bg-gray-900 text-white font-semibold"
-                                )
-                              }
-                            >
-                              <span className="font-inter">{item.name}</span>
+                            <NavLink to={item.href}>
+                              <span>{item.name}</span>
                             </NavLink>
                           </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
@@ -195,17 +176,9 @@ export function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild tooltip="Settings">
-              <NavLink 
-                to="/settings" 
-                className={({ isActive }) =>
-                  cn(
-                    "font-inter text-gray-700 hover:bg-gray-100 hover:text-gray-900",
-                    isActive && "bg-gray-900 text-white font-semibold"
-                  )
-                }
-              >
-                <Settings className="h-4 w-4" />
-                <span className="font-inter">Settings</span>
+              <NavLink to="/settings" className="font-inter">
+                <Settings />
+                <span>Settings</span>
               </NavLink>
             </SidebarMenuButton>
           </SidebarMenuItem>
