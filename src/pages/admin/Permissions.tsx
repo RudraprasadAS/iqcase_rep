@@ -13,10 +13,53 @@ import { Switch } from "@/components/ui/switch";
 import { CreateRoleDialog } from "@/components/permissions/CreateRoleDialog";
 import { PermissionTable } from "@/components/permissions/PermissionTable";
 import { usePermissions } from "@/hooks/usePermissions";
-import { Permission, TableInfo } from "@/types/permissions";
 import { DeleteRoleDialog } from "@/components/roles/DeleteRoleDialog";
 import { EditRoleDialog } from "@/components/roles/EditRoleDialog";
 import { toast } from "@/hooks/use-toast";
+
+// Define frontend elements structure
+const frontendElements = [
+  {
+    name: "Dashboard",
+    type: "page",
+    fields: ["view_dashboard", "export_dashboard", "customize_dashboard"]
+  },
+  {
+    name: "Cases",
+    type: "page", 
+    fields: ["view_cases", "create_case", "edit_case", "delete_case", "assign_case", "export_cases"]
+  },
+  {
+    name: "Case Detail",
+    type: "page",
+    fields: ["view_case_details", "edit_case_title", "edit_case_description", "edit_case_status", "edit_case_priority", "add_case_notes", "view_case_notes", "add_case_messages", "view_case_messages", "upload_attachments", "view_attachments"]
+  },
+  {
+    name: "Users Management",
+    type: "page",
+    fields: ["view_users", "create_user", "edit_user", "delete_user", "manage_user_roles"]
+  },
+  {
+    name: "Roles & Permissions",
+    type: "page",
+    fields: ["view_permissions", "edit_permissions", "create_roles", "delete_roles"]
+  },
+  {
+    name: "Reports",
+    type: "page",
+    fields: ["view_reports", "create_reports", "edit_reports", "delete_reports", "export_reports"]
+  },
+  {
+    name: "Knowledge Base",
+    type: "page",
+    fields: ["view_knowledge", "create_articles", "edit_articles", "delete_articles"]
+  },
+  {
+    name: "Notifications",
+    type: "page",
+    fields: ["view_notifications", "mark_read", "delete_notifications"]
+  }
+];
 
 const PermissionsPage = () => {
   const [selectedRoleId, setSelectedRoleId] = useState<string>("");
@@ -45,30 +88,79 @@ const PermissionsPage = () => {
     },
   });
   
-  // Fetch all database tables
-  const { data: tables, isLoading: tablesLoading } = useQuery({
-    queryKey: ["database_tables"],
-    queryFn: async () => {
-      console.log("[PermissionsPage] Fetching database tables");
+  // Populate frontend registry on component mount
+  useEffect(() => {
+    const populateFrontendRegistry = async () => {
       try {
-        const { data, error } = await supabase.rpc('get_tables_info');
+        console.log("[PermissionsPage] Populating frontend registry with frontend elements");
+        
+        // Clear existing frontend registry entries
+        await supabase.from("frontend_registry").delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        
+        // Insert frontend elements
+        const registryEntries = [];
+        
+        frontendElements.forEach(element => {
+          // Add page-level entry
+          registryEntries.push({
+            element_key: element.name.toLowerCase().replace(/\s+/g, '_'),
+            label: element.name,
+            module: element.name.toLowerCase().replace(/\s+/g, '_'),
+            screen: element.name.toLowerCase().replace(/\s+/g, '_'),
+            element_type: element.type
+          });
+          
+          // Add field-level entries
+          element.fields.forEach(field => {
+            registryEntries.push({
+              element_key: `${element.name.toLowerCase().replace(/\s+/g, '_')}.${field}`,
+              label: field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+              module: element.name.toLowerCase().replace(/\s+/g, '_'),
+              screen: element.name.toLowerCase().replace(/\s+/g, '_'),
+              element_type: 'field'
+            });
+          });
+        });
+        
+        const { error } = await supabase
+          .from("frontend_registry")
+          .insert(registryEntries);
           
         if (error) {
-          console.error("[PermissionsPage] Error fetching tables:", error);
-          // Fallback to a predefined list of core tables
-          return [
-            { name: "cases", schema: "public", fields: ["id", "title", "description", "status"] },
-            { name: "users", schema: "public", fields: ["id", "name", "email"] },
-            { name: "roles", schema: "public", fields: ["id", "name", "description"] },
-            { name: "permissions", schema: "public", fields: ["id", "role_id", "module_name"] },
-            { name: "case_categories", schema: "public", fields: ["id", "name", "description"] }
-          ] as TableInfo[];
+          console.error("[PermissionsPage] Error populating frontend registry:", error);
+        } else {
+          console.log("[PermissionsPage] Frontend registry populated successfully");
+        }
+      } catch (error) {
+        console.error("[PermissionsPage] Exception populating frontend registry:", error);
+      }
+    };
+    
+    populateFrontendRegistry();
+  }, []);
+  
+  // Fetch frontend registry entries
+  const { data: frontendRegistry, isLoading: registryLoading } = useQuery({
+    queryKey: ["frontend_registry"],
+    queryFn: async () => {
+      console.log("[PermissionsPage] Fetching frontend registry");
+      try {
+        const { data, error } = await supabase
+          .from("frontend_registry")
+          .select("*")
+          .eq("is_active", true)
+          .order("module", { ascending: true })
+          .order("element_type", { ascending: true });
+          
+        if (error) {
+          console.error("[PermissionsPage] Error fetching frontend registry:", error);
+          throw error;
         }
         
-        console.log("[PermissionsPage] Tables fetched successfully:", data);
-        return data as TableInfo[];
+        console.log("[PermissionsPage] Frontend registry fetched successfully:", data);
+        return data || [];
       } catch (e) {
-        console.error("[PermissionsPage] Exception fetching tables:", e);
+        console.error("[PermissionsPage] Exception fetching frontend registry:", e);
         throw e;
       }
     },
@@ -78,13 +170,16 @@ const PermissionsPage = () => {
   const { data: permissions, isLoading: permissionsLoading, refetch: refetchPermissions } = useQuery({
     queryKey: ["permissions", selectedRoleId],
     queryFn: async () => {
-      if (!selectedRoleId) return [] as Permission[];
+      if (!selectedRoleId) return [];
       
       console.log(`[PermissionsPage] Fetching permissions for role: ${selectedRoleId}`);
       try {
         const { data, error } = await supabase
           .from("permissions")
-          .select("*")
+          .select(`
+            *,
+            frontend_registry (*)
+          `)
           .eq("role_id", selectedRoleId);
           
         if (error) {
@@ -93,7 +188,7 @@ const PermissionsPage = () => {
         }
         
         console.log(`[PermissionsPage] Permissions fetched for role ${selectedRoleId}:`, data);
-        return (data || []) as Permission[];
+        return (data || []);
       } catch (e) {
         console.error("[PermissionsPage] Exception fetching permissions:", e);
         throw e;
@@ -108,24 +203,21 @@ const PermissionsPage = () => {
     savePermissionsMutation,
     handleToggleTable,
     handlePermissionChange,
-    handleBulkToggleForTable,
     handleSelectAllForTable,
     getEffectivePermission,
     debugCurrentState
-  } = usePermissions(selectedRoleId, permissions, roles, tables);
+  } = usePermissions(selectedRoleId, permissions, roles, frontendRegistry);
 
   const handleSaveChanges = () => {
     console.log("[PermissionsPage] Save changes button clicked");
-    debugCurrentState(); // Log current state before saving
+    debugCurrentState();
     savePermissionsMutation.mutate();
   };
 
   const handleRoleUpdate = () => {
     console.log("[PermissionsPage] Role updated, refreshing roles list");
-    // Refresh roles list
     queryClient.invalidateQueries({ queryKey: ["roles"] });
     
-    // Also refresh permissions if a role is selected
     if (selectedRoleId) {
       console.log("[PermissionsPage] Refreshing permissions after role update");
       refetchPermissions();
@@ -152,39 +244,36 @@ const PermissionsPage = () => {
   useEffect(() => {
     if (permissions) {
       console.log(`[PermissionsPage] Current permissions for role ${selectedRoleId}:`, permissions);
-      
-      // Check for permission conflicts (multiple permissions for same role/module/field)
-      const permissionMap = new Map<string, Permission[]>();
-      permissions.forEach(p => {
-        const key = `${p.role_id}|${p.module_name}|${p.field_name}`;
-        if (!permissionMap.has(key)) {
-          permissionMap.set(key, []);
-        }
-        permissionMap.get(key)?.push(p);
-      });
-      
-      // Log any permission conflicts
-      permissionMap.forEach((perms, key) => {
-        if (perms.length > 1) {
-          console.warn(`[PermissionsPage] DUPLICATE PERMISSION DETECTED: ${key}`, perms);
-        }
-      });
     }
   }, [permissions, selectedRoleId]);
 
   const selectedRole = roles?.find(role => role.id === selectedRoleId);
 
-  // Define relevant modules/tables to show
-  const relevantTables = tables?.filter(t => 
-    !t.name.startsWith('pg_') && 
-    !t.name.includes('_audit_') && 
-    !t.name.includes('_log')
-  ) || [];
+  // Group frontend registry by module for display
+  const groupedRegistry = frontendRegistry?.reduce((acc, item) => {
+    if (!acc[item.module]) {
+      acc[item.module] = { page: null, fields: [] };
+    }
+    
+    if (item.element_type === 'page') {
+      acc[item.module].page = item;
+    } else {
+      acc[item.module].fields.push(item);
+    }
+    
+    return acc;
+  }, {} as Record<string, { page: any; fields: any[] }>) || {};
 
-  // Filter out system tables and sort by name
-  const sortedTables = [...relevantTables].sort((a, b) => a.name.localeCompare(b.name));
+  // Convert to table format for PermissionTable component
+  const frontendTables = Object.entries(groupedRegistry).map(([module, data]) => ({
+    name: data.page?.label || module,
+    schema: 'frontend',
+    fields: data.fields.map(field => field.element_key.split('.').pop() || field.element_key),
+    module: module,
+    registryData: data
+  }));
   
-  const isLoading = rolesLoading || tablesLoading || (!!selectedRoleId && permissionsLoading);
+  const isLoading = rolesLoading || registryLoading || (!!selectedRoleId && permissionsLoading);
   
   // Debug render
   useEffect(() => {
@@ -193,7 +282,7 @@ const PermissionsPage = () => {
       hasUnsavedChanges,
       isLoading,
       permissionsCount: permissions?.length,
-      tablesCount: sortedTables.length
+      frontendTablesCount: frontendTables.length
     });
   });
 
@@ -202,7 +291,7 @@ const PermissionsPage = () => {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">Roles & Permissions</h1>
-          <p className="text-muted-foreground">Manage roles and their permissions across the system</p>
+          <p className="text-muted-foreground">Manage roles and their permissions across frontend elements</p>
         </div>
 
         <div className="flex items-center gap-4">
@@ -221,7 +310,7 @@ const PermissionsPage = () => {
         <CardHeader>
           <CardTitle>Role Management & Permissions</CardTitle>
           <CardDescription>
-            Create roles and configure what they can access across your database tables and fields
+            Create roles and configure what they can access across your application's pages, buttons, and fields
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -293,7 +382,7 @@ const PermissionsPage = () => {
                 <div>
                   <PermissionTable 
                     selectedRoleId={selectedRoleId}
-                    tables={sortedTables}
+                    tables={frontendTables}
                     roles={roles}
                     permissions={permissions}
                     expandedTables={expandedTables}
@@ -302,20 +391,16 @@ const PermissionsPage = () => {
                     handlePermissionChange={handlePermissionChange}
                     handleSelectAllForTable={handleSelectAllForTable}
                     showSelectAll={showSelectAll}
+                    isFrontendMode={true}
                   />
                   
                   <div className="mt-6 text-sm text-muted-foreground">
-                    <p>• <strong>View</strong>: Controls whether the role can see the table/field</p>
-                    <p>• <strong>Edit</strong>: Controls whether the role can modify the field</p>
+                    <p>• <strong>View</strong>: Controls whether the role can see the page/element</p>
+                    <p>• <strong>Edit</strong>: Controls whether the role can interact with buttons/fields</p>
                     <p className="mt-2 border-l-2 pl-3 border-primary/50">
                       <strong>Permission Rules:</strong><br/>
                       - Selecting Edit will automatically select View<br/>
                       - Deselecting View will deselect Edit<br/>
-                    </p>
-                    <p className="mt-2 border-l-2 pl-3 border-primary/50">
-                      <strong>Bulk Toggles:</strong><br/>
-                      - Checking a table-level permission applies that permission to all fields<br/>
-                      - Individual field permissions can still be manually adjusted afterward
                     </p>
                   </div>
                 </div>

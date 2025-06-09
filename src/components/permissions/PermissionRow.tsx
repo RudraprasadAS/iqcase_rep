@@ -6,15 +6,6 @@ import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Role } from "@/types/roles";
 
-interface Permission {
-  id: string;
-  role_id: string;
-  module_name: string;
-  field_name: string | null;
-  can_view: boolean;
-  can_edit: boolean;
-}
-
 interface PermissionRowProps {
   name: string;
   roleId: string;
@@ -23,17 +14,18 @@ interface PermissionRowProps {
   onToggleExpand?: () => void;
   fieldName?: string | null;
   tableName?: string;
+  module?: string;
   roles?: Role[];
-  permissions?: Permission[];
+  permissions?: any[];
   getEffectivePermission: (
     roleId: string,
-    moduleName: string,
+    elementKey: string,
     fieldName: string | null,
     type: 'view' | 'edit'
   ) => boolean;
   handlePermissionChange: (
     roleId: string,
-    moduleName: string,
+    elementKey: string,
     fieldName: string | null,
     type: 'view' | 'edit',
     checked: boolean
@@ -41,10 +33,11 @@ interface PermissionRowProps {
   showSelectAll?: boolean;
   handleSelectAllForTable?: (
     roleId: string,
-    tableName: string,
+    elementKey: string,
     type: 'view' | 'edit',
     checked: boolean
   ) => void;
+  isFrontendMode?: boolean;
 }
 
 export const PermissionRow: React.FC<PermissionRowProps> = ({
@@ -55,58 +48,59 @@ export const PermissionRow: React.FC<PermissionRowProps> = ({
   onToggleExpand,
   fieldName = null,
   tableName,
+  module,
   roles,
   permissions,
   getEffectivePermission,
   handlePermissionChange,
   showSelectAll,
-  handleSelectAllForTable
+  handleSelectAllForTable,
+  isFrontendMode = false
 }) => {
   const isSystemRole = roles?.find(r => r.id === roleId)?.is_system === true;
   
-  // Determine the correct moduleName based on whether this is a table or field level row
-  const moduleName = isTable ? name : tableName || name;
+  // Determine the correct element key based on frontend vs backend mode
+  let elementKey: string;
   
-  // For field rows, we need the actual field name (not the full string with module name)
+  if (isFrontendMode) {
+    if (isTable) {
+      elementKey = module || name.toLowerCase().replace(/\s+/g, '_');
+    } else {
+      elementKey = `${module || tableName?.toLowerCase().replace(/\s+/g, '_')}.${fieldName}`;
+    }
+  } else {
+    // Legacy backend mode
+    elementKey = isTable ? name : tableName || name;
+  }
+  
+  // For field rows, we need the actual field name
   const actualFieldName = isTable ? null : fieldName;
   
   // Get the current state of permissions for this row
-  const canView = getEffectivePermission(roleId, moduleName, actualFieldName, 'view');
-  const canEdit = getEffectivePermission(roleId, moduleName, actualFieldName, 'edit');
+  const canView = getEffectivePermission(roleId, elementKey, actualFieldName, 'view');
+  const canEdit = getEffectivePermission(roleId, elementKey, actualFieldName, 'edit');
 
   // Debug permissions
   useEffect(() => {
-    const rowType = isTable ? "Table" : "Field";
-    const rowId = isTable ? name : `${moduleName}.${actualFieldName}`;
+    const rowType = isTable ? (isFrontendMode ? "Page" : "Table") : (isFrontendMode ? "Element" : "Field");
+    const rowId = isTable ? name : `${elementKey}.${actualFieldName}`;
     
     console.log(`[PermissionRow] ${rowType} "${rowId}" permissions: view=${canView}, edit=${canEdit}`);
-    
-    // Check for potential duplicate permissions in the data
-    if (permissions) {
-      const duplicates = permissions.filter(
-        p => p.role_id === roleId && 
-             p.module_name === moduleName && 
-             p.field_name === actualFieldName
-      );
-      
-      if (duplicates.length > 1) {
-        console.warn(`[PermissionRow] WARNING: Found ${duplicates.length} duplicate permissions for ${rowType} "${rowId}"!`, duplicates);
-      }
-    }
-  }, [canView, canEdit, name, moduleName, actualFieldName, isTable, roleId, permissions]);
+    console.log(`[PermissionRow] Element key: ${elementKey}, Field: ${actualFieldName}`);
+  }, [canView, canEdit, name, elementKey, actualFieldName, isTable, roleId, permissions, isFrontendMode]);
 
   // Handle checking logic with enforced relationships
   const handleCheck = (type: 'view' | 'edit', checked: boolean) => {
-    console.log(`[PermissionRow] Permission change request: ${isTable ? 'table' : 'field'} ${moduleName}${actualFieldName ? '.' + actualFieldName : ''}, ${type}=${checked}`);
+    console.log(`[PermissionRow] Permission change request: ${isTable ? (isFrontendMode ? 'page' : 'table') : (isFrontendMode ? 'element' : 'field')} ${elementKey}${actualFieldName ? '.' + actualFieldName : ''}, ${type}=${checked}`);
     
-    // For table level permissions, use the select all handler if provided
+    // For page/table level permissions, use the select all handler if provided
     if (isTable && handleSelectAllForTable) {
-      console.log(`[PermissionRow] Using selectAll handler for table ${moduleName}`);
-      handleSelectAllForTable(roleId, moduleName, type, checked);
+      console.log(`[PermissionRow] Using selectAll handler for ${isFrontendMode ? 'page' : 'table'} ${elementKey}`);
+      handleSelectAllForTable(roleId, elementKey, type, checked);
     } else {
-      // For field level or when select all is not enabled
-      console.log(`[PermissionRow] Using regular permission handler for ${isTable ? 'table' : 'field'} ${moduleName}${actualFieldName ? '.' + actualFieldName : ''}`);
-      handlePermissionChange(roleId, moduleName, actualFieldName, type, checked);
+      // For field/element level or when select all is not enabled
+      console.log(`[PermissionRow] Using regular permission handler for ${isTable ? (isFrontendMode ? 'page' : 'table') : (isFrontendMode ? 'element' : 'field')} ${elementKey}${actualFieldName ? '.' + actualFieldName : ''}`);
+      handlePermissionChange(roleId, elementKey, actualFieldName, type, checked);
     }
   };
 
@@ -129,7 +123,9 @@ export const PermissionRow: React.FC<PermissionRowProps> = ({
             <span className="font-semibold">{name}</span>
           </div>
         ) : (
-          name
+          <span className="text-muted-foreground">
+            {fieldName?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || name}
+          </span>
         )}
       </TableCell>
       <TableCell className="text-center py-2">
@@ -147,7 +143,7 @@ export const PermissionRow: React.FC<PermissionRowProps> = ({
               size="sm"
               className="ml-2 text-xs h-5"
               onClick={() => handleSelectAllForTable && 
-                handleSelectAllForTable(roleId, moduleName, 'view', !canView)}
+                handleSelectAllForTable(roleId, elementKey, 'view', !canView)}
             >
               all
             </Button>
@@ -169,7 +165,7 @@ export const PermissionRow: React.FC<PermissionRowProps> = ({
               size="sm"
               className="ml-2 text-xs h-5"
               onClick={() => handleSelectAllForTable && 
-                handleSelectAllForTable(roleId, moduleName, 'edit', !canEdit)}
+                handleSelectAllForTable(roleId, elementKey, 'edit', !canEdit)}
             >
               all
             </Button>

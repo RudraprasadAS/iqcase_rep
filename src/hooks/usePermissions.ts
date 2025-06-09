@@ -1,12 +1,18 @@
 
 import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase, permissionsApi } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Role } from "@/types/roles";
-import { Permission, UnsavedPermission, TableInfo } from "@/types/permissions";
 
-export const usePermissions = (selectedRoleId: string, permissions?: Permission[], roles?: Role[], tables?: TableInfo[]) => {
+interface UnsavedPermission {
+  roleId: string;
+  frontendRegistryId: string;
+  canView: boolean;
+  canEdit: boolean;
+}
+
+export const usePermissions = (selectedRoleId: string, permissions?: any[], roles?: Role[], frontendElements?: any[]) => {
   const queryClient = useQueryClient();
   const [unsavedChanges, setUnsavedChanges] = useState<UnsavedPermission[]>([]);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -21,15 +27,10 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
       }
       
       console.log("[usePermissions] Starting to save permissions to database:", unsavedChanges);
-      console.log("[usePermissions] Total number of changes:", unsavedChanges.length);
-
-      // First, clean up any duplicate permissions for this role
-      await permissionsApi.cleanupDuplicatePermissions(selectedRoleId);
 
       const permissionsToSave = unsavedChanges.map(change => ({
         role_id: change.roleId,
-        module_name: change.moduleName,
-        field_name: change.fieldName,
+        frontend_registry_id: change.frontendRegistryId,
         can_view: change.canView,
         can_edit: change.canEdit
       }));
@@ -41,7 +42,7 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
         const { data, error } = await supabase
           .from("permissions")
           .upsert(permissionsToSave, { 
-            onConflict: 'role_id,module_name,field_name',
+            onConflict: 'role_id,frontend_registry_id',
             ignoreDuplicates: false 
           });
           
@@ -51,10 +52,6 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
         }
         
         console.log("[usePermissions] Permissions saved successfully. Response:", data);
-        
-        // Run cleanup again after save to ensure we don't have duplicates
-        await permissionsApi.cleanupDuplicatePermissions(selectedRoleId);
-        
         return data;
       } catch (error) {
         console.error("[usePermissions] Exception during permission save:", error);
@@ -88,10 +85,19 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
     }));
   };
 
-  // Updated handle permission change to implement required behavior rules
+  // Find frontend registry entry by element key
+  const findRegistryEntry = (elementKey: string, fieldName?: string | null) => {
+    if (!frontendElements) return null;
+    
+    const fullKey = fieldName ? `${elementKey}.${fieldName}` : elementKey;
+    
+    return frontendElements.find(entry => entry.element_key === fullKey);
+  };
+
+  // Updated handle permission change for frontend elements
   const handlePermissionChange = (
     roleId: string,
-    moduleName: string,
+    elementKey: string,
     fieldName: string | null,
     type: 'view' | 'edit',
     checked: boolean
@@ -99,7 +105,6 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
     // Find the role to check if it's a system role
     const role = roles?.find(r => r.id === roleId);
     
-    // Only prevent modifications for system roles that are explicitly marked as is_system=true
     if (role?.is_system === true) {
       toast({
         title: "Cannot modify system role",
@@ -109,18 +114,21 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
       return;
     }
 
-    // Get current permissions for this role and module
+    // Find the frontend registry entry
+    const registryEntry = findRegistryEntry(elementKey, fieldName);
+    if (!registryEntry) {
+      console.error(`[usePermissions] Frontend registry entry not found for: ${elementKey}${fieldName ? '.' + fieldName : ''}`);
+      return;
+    }
+
+    // Get current permissions for this registry entry
     const existingPermission = permissions?.find(
-      p => p.role_id === roleId && 
-           p.module_name === moduleName && 
-           p.field_name === fieldName
+      p => p.role_id === roleId && p.frontend_registry_id === registryEntry.id
     );
 
     // Find unsaved changes for this permission
     const existingChange = unsavedChanges.find(
-      c => c.roleId === roleId && 
-           c.moduleName === moduleName && 
-           c.fieldName === fieldName
+      c => c.roleId === roleId && c.frontendRegistryId === registryEntry.id
     );
 
     // Start with either unsaved changes or existing permissions
@@ -130,14 +138,11 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
     // Apply updated permission logic based on behavior rules
     if (type === 'view') {
       newCanView = checked;
-      // If unchecking view, also uncheck edit
       if (!checked) {
         newCanEdit = false;
       }
     } else if (type === 'edit') {
       newCanEdit = checked;
-      
-      // If checking edit, auto-enable view
       if (checked) {
         newCanView = true;
       }
@@ -145,9 +150,7 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
 
     // Find and remove any existing unsaved change for this permission
     const filteredChanges = unsavedChanges.filter(
-      change => !(change.roleId === roleId && 
-                 change.moduleName === moduleName && 
-                 change.fieldName === fieldName)
+      change => !(change.roleId === roleId && change.frontendRegistryId === registryEntry.id)
     );
     
     // Add the new change
@@ -155,8 +158,7 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
       ...filteredChanges,
       {
         roleId,
-        moduleName,
-        fieldName,
+        frontendRegistryId: registryEntry.id,
         canView: newCanView,
         canEdit: newCanEdit
       }
@@ -164,19 +166,18 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
     
     setHasUnsavedChanges(true);
     
-    console.log(`Permission change made for ${moduleName}.${fieldName}, ${type}=${checked} -> canView=${newCanView}, canEdit=${newCanEdit}`);
+    console.log(`Permission change made for ${elementKey}${fieldName ? '.' + fieldName : ''}, ${type}=${checked} -> canView=${newCanView}, canEdit=${newCanEdit}`);
   };
 
-  // Completely rewritten to properly cascade table-level permissions to fields
+  // Handle select all for frontend elements
   const handleSelectAllForTable = (
     roleId: string,
-    tableName: string,
+    elementKey: string,
     type: 'view' | 'edit',
     checked: boolean
   ) => {
-    console.log(`Bulk table permission: ${tableName}, ${type}=${checked}`);
+    console.log(`Bulk element permission: ${elementKey}, ${type}=${checked}`);
     
-    // Find the role
     const role = roles?.find(r => r.id === roleId);
     
     if (role?.is_system === true) {
@@ -188,68 +189,69 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
       return;
     }
 
-    // Create a batch of changes for all the fields
     const batchChanges: UnsavedPermission[] = [];
     
-    // First, handle the table-level permission itself
-    let tablePermission = unsavedChanges.find(
-      p => p.roleId === roleId && p.moduleName === tableName && p.fieldName === null
-    );
-    
-    if (!tablePermission) {
-      const existingTablePerm = permissions?.find(
-        p => p.role_id === roleId && p.module_name === tableName && p.field_name === null
+    // Handle the page-level permission
+    const pageRegistryEntry = findRegistryEntry(elementKey);
+    if (pageRegistryEntry) {
+      let pagePermission = unsavedChanges.find(
+        p => p.roleId === roleId && p.frontendRegistryId === pageRegistryEntry.id
       );
       
-      tablePermission = {
-        roleId,
-        moduleName: tableName,
-        fieldName: null,
-        canView: existingTablePerm?.can_view ?? false,
-        canEdit: existingTablePerm?.can_edit ?? false
-      };
+      if (!pagePermission) {
+        const existingPagePerm = permissions?.find(
+          p => p.role_id === roleId && p.frontend_registry_id === pageRegistryEntry.id
+        );
+        
+        pagePermission = {
+          roleId,
+          frontendRegistryId: pageRegistryEntry.id,
+          canView: existingPagePerm?.can_view ?? false,
+          canEdit: existingPagePerm?.can_edit ?? false
+        };
+      }
+      
+      // Apply the permission change with cascading logic
+      if (type === 'view') {
+        pagePermission.canView = checked;
+        if (!checked) {
+          pagePermission.canEdit = false;
+        }
+      } else if (type === 'edit') {
+        pagePermission.canEdit = checked;
+        if (checked) {
+          pagePermission.canView = true;
+        }
+      }
+      
+      batchChanges.push({ ...pagePermission });
     }
     
-    // Apply the permission change with cascading logic
-    if (type === 'view') {
-      tablePermission.canView = checked;
-      if (!checked) {
-        tablePermission.canEdit = false;
-      }
-    } else if (type === 'edit') {
-      tablePermission.canEdit = checked;
-      if (checked) {
-        tablePermission.canView = true;
-      }
-    }
-    
-    batchChanges.push({ ...tablePermission });
-    
-    // Now, do the same for all fields under this table
-    const tableInfo = tables?.find(t => t.name === tableName);
-    
-    if (tableInfo && tableInfo.fields) {
-      tableInfo.fields.forEach(field => {
+    // Handle field-level permissions
+    if (frontendElements) {
+      const fieldEntries = frontendElements.filter(entry => 
+        entry.element_key.startsWith(`${elementKey}.`) && entry.element_type === 'field'
+      );
+      
+      fieldEntries.forEach(fieldEntry => {
         let fieldPermission = unsavedChanges.find(
-          p => p.roleId === roleId && p.moduleName === tableName && p.fieldName === field
+          p => p.roleId === roleId && p.frontendRegistryId === fieldEntry.id
         );
         
         if (!fieldPermission) {
           const existingFieldPerm = permissions?.find(
-            p => p.role_id === roleId && p.module_name === tableName && p.field_name === field
+            p => p.role_id === roleId && p.frontend_registry_id === fieldEntry.id
           );
           
           fieldPermission = {
             roleId,
-            moduleName: tableName,
-            fieldName: field,
+            frontendRegistryId: fieldEntry.id,
             canView: existingFieldPerm?.can_view ?? false,
             canEdit: existingFieldPerm?.can_edit ?? false
           };
         }
         
-        // Important: Apply cascading permissions to all child fields
-        // This ensures that toggling View at table level affects all fields
+        // Apply cascading permissions to all child fields
         if (type === 'view') {
           fieldPermission.canView = checked;
           if (!checked) {
@@ -270,8 +272,9 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
     
     // Filter out any existing changes for these items
     const remainingChanges = unsavedChanges.filter(
-      change => !(change.roleId === roleId && 
-                 change.moduleName === tableName)
+      change => !batchChanges.some(bc => 
+        bc.roleId === change.roleId && bc.frontendRegistryId === change.frontendRegistryId
+      )
     );
     
     // Merge the batch changes with remaining changes
@@ -279,6 +282,7 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
     setHasUnsavedChanges(true);
     
     // Ensure the table is expanded to show changes
+    const tableName = frontendElements?.find(e => e.element_key === elementKey)?.label || elementKey;
     if (!expandedTables[tableName]) {
       setExpandedTables(prev => ({
         ...prev,
@@ -286,26 +290,25 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
       }));
     }
   };
-  
-  // Delegate to the main function
-  const handleBulkToggleForTable = handleSelectAllForTable;
 
-  // Modified to correctly check both existing and unsaved changes
+  // Get effective permission for frontend elements
   const getEffectivePermission = (
     roleId: string,
-    moduleName: string,
+    elementKey: string,
     fieldName: string | null,
     type: 'view' | 'edit'
   ): boolean => {
-    // For system roles specifically marked with is_system=true, return true for all permissions
+    // For system roles, return true for all permissions
     const role = roles?.find(r => r.id === roleId);
     if (role?.is_system === true) return true;
 
-    // Check for unsaved changes first at this specific level
+    // Find the frontend registry entry
+    const registryEntry = findRegistryEntry(elementKey, fieldName);
+    if (!registryEntry) return false;
+
+    // Check for unsaved changes first
     const unsavedChange = unsavedChanges.find(
-      change => change.roleId === roleId && 
-                change.moduleName === moduleName && 
-                change.fieldName === fieldName
+      change => change.roleId === roleId && change.frontendRegistryId === registryEntry.id
     );
 
     if (unsavedChange) {
@@ -313,38 +316,9 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
       return unsavedChange.canEdit;
     }
 
-    // For field-level permissions, check if any table-level permissions have been changed
-    if (fieldName !== null) {
-      // Check for unsaved table-level changes first
-      const unsavedTableChange = unsavedChanges.find(
-        change => change.roleId === roleId && 
-                  change.moduleName === moduleName && 
-                  change.fieldName === null
-      );
-
-      if (unsavedTableChange) {
-        if (type === 'view' && unsavedTableChange.canView) return true;
-        if (type === 'edit' && unsavedTableChange.canEdit) return true;
-      }
-
-      // Check for saved table-level permissions
-      const tablePermission = permissions?.find(
-        p => p.role_id === roleId && 
-             p.module_name === moduleName && 
-             p.field_name === null
-      );
-
-      if (tablePermission) {
-        if (type === 'view' && tablePermission.can_view) return true;
-        if (type === 'edit' && tablePermission.can_edit) return true;
-      }
-    }
-
-    // If no unsaved changes, check for a saved permission at this specific level
+    // Check for saved permissions
     const savedPermission = permissions?.find(
-      p => p.role_id === roleId && 
-           p.module_name === moduleName && 
-           p.field_name === fieldName
+      p => p.role_id === roleId && p.frontend_registry_id === registryEntry.id
     );
 
     if (savedPermission) {
@@ -356,36 +330,7 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
     return false;
   };
 
-  // Extra debug function to help diagnose permission issues
-  const logPermissionState = () => {
-    console.log("Current permissions:", permissions);
-    console.log("Unsaved changes:", unsavedChanges);
-  };
-  
-  // Add a debug log whenever unsavedChanges updates
-  useEffect(() => {
-    console.log("[usePermissions] Unsaved changes updated:", unsavedChanges);
-    
-    // If we have pending changes but hasUnsavedChanges is false, log a warning
-    if (unsavedChanges.length > 0 && !hasUnsavedChanges) {
-      console.warn("[usePermissions] WARNING: We have unsaved changes, but hasUnsavedChanges flag is false!");
-      setHasUnsavedChanges(true);
-    }
-    
-    // If we have no pending changes but hasUnsavedChanges is true, log a warning
-    if (unsavedChanges.length === 0 && hasUnsavedChanges) {
-      console.warn("[usePermissions] WARNING: We have no unsaved changes, but hasUnsavedChanges flag is true!");
-    }
-  }, [unsavedChanges, hasUnsavedChanges]);
-
-  // Add a debug log when permissions are fetched from database
-  useEffect(() => {
-    if (permissions) {
-      console.log(`[usePermissions] Permissions fetched from database for role ${selectedRoleId}:`, permissions);
-    }
-  }, [permissions, selectedRoleId]);
-
-  // Add this new debug function to examine current data state
+  // Debug function to examine current data state
   const debugCurrentState = () => {
     console.log("=== CURRENT PERMISSION STATE ===");
     console.log("Selected Role ID:", selectedRoleId);
@@ -393,8 +338,29 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
     console.log("Unsaved Changes:", unsavedChanges);
     console.log("Has Unsaved Changes Flag:", hasUnsavedChanges);
     console.log("Expanded Tables:", expandedTables);
+    console.log("Frontend Elements:", frontendElements);
     console.log("================================");
   };
+
+  // Add debug logging
+  useEffect(() => {
+    console.log("[usePermissions] Unsaved changes updated:", unsavedChanges);
+    
+    if (unsavedChanges.length > 0 && !hasUnsavedChanges) {
+      console.warn("[usePermissions] WARNING: We have unsaved changes, but hasUnsavedChanges flag is false!");
+      setHasUnsavedChanges(true);
+    }
+    
+    if (unsavedChanges.length === 0 && hasUnsavedChanges) {
+      console.warn("[usePermissions] WARNING: We have no unsaved changes, but hasUnsavedChanges flag is true!");
+    }
+  }, [unsavedChanges, hasUnsavedChanges]);
+
+  useEffect(() => {
+    if (permissions) {
+      console.log(`[usePermissions] Permissions fetched from database for role ${selectedRoleId}:`, permissions);
+    }
+  }, [permissions, selectedRoleId]);
 
   return {
     unsavedChanges,
@@ -403,7 +369,6 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
     savePermissionsMutation,
     handleToggleTable,
     handlePermissionChange,
-    handleBulkToggleForTable,
     handleSelectAllForTable,
     getEffectivePermission,
     debugCurrentState

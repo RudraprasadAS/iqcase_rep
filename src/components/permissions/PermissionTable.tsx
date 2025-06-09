@@ -10,44 +10,35 @@ import {
 } from "@/components/ui/table";
 import { PermissionRow } from "./PermissionRow";
 import { Role } from "@/types/roles";
-import { TableInfo } from "@/types/permissions";
-
-interface Permission {
-  id: string;
-  role_id: string;
-  module_name: string;
-  field_name: string | null;
-  can_view: boolean;
-  can_edit: boolean;
-}
 
 interface PermissionTableProps {
   selectedRoleId: string;
-  tables: TableInfo[];
+  tables: any[];
   roles?: Role[];
-  permissions?: Permission[];
+  permissions?: any[];
   expandedTables: Record<string, boolean>;
   onToggleTable: (tableName: string) => void;
   getEffectivePermission: (
     roleId: string,
-    moduleName: string,
+    elementKey: string,
     fieldName: string | null,
     type: 'view' | 'edit'
   ) => boolean;
   handlePermissionChange: (
     roleId: string,
-    moduleName: string,
+    elementKey: string,
     fieldName: string | null,
     type: 'view' | 'edit',
     checked: boolean
   ) => void;
   handleSelectAllForTable: (
     roleId: string,
-    tableName: string,
+    elementKey: string,
     type: 'view' | 'edit',
     checked: boolean
   ) => void;
   showSelectAll: boolean;
+  isFrontendMode?: boolean;
 }
 
 export const PermissionTable: React.FC<PermissionTableProps> = ({
@@ -60,21 +51,25 @@ export const PermissionTable: React.FC<PermissionTableProps> = ({
   getEffectivePermission,
   handlePermissionChange,
   handleSelectAllForTable,
-  showSelectAll
+  showSelectAll,
+  isFrontendMode = false
 }) => {
   // Debug logging on mount or when permissions change
   useEffect(() => {
     console.log("PermissionTable rendering with permissions:", permissions);
     console.log("Selected role ID:", selectedRoleId);
     console.log("Expanded tables:", expandedTables);
-  }, [permissions, selectedRoleId, expandedTables]);
+    console.log("Frontend mode:", isFrontendMode);
+  }, [permissions, selectedRoleId, expandedTables, isFrontendMode]);
   
   return (
     <div className="overflow-x-auto border rounded-md">
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/50">
-            <TableHead className="min-w-[200px]">Table / Field</TableHead>
+            <TableHead className="min-w-[200px]">
+              {isFrontendMode ? "Page / Element" : "Table / Field"}
+            </TableHead>
             <TableHead className="text-center w-[100px]">View</TableHead>
             <TableHead className="text-center w-[100px]">Edit</TableHead>
           </TableRow>
@@ -83,7 +78,7 @@ export const PermissionTable: React.FC<PermissionTableProps> = ({
           {tables.length > 0 ? (
             tables.map(table => (
               <React.Fragment key={table.name}>
-                {/* Table-level row */}
+                {/* Page/Table-level row */}
                 <PermissionRow
                   name={table.name}
                   roleId={selectedRoleId}
@@ -96,9 +91,11 @@ export const PermissionTable: React.FC<PermissionTableProps> = ({
                   handlePermissionChange={handlePermissionChange}
                   showSelectAll={showSelectAll}
                   handleSelectAllForTable={handleSelectAllForTable}
+                  isFrontendMode={isFrontendMode}
+                  module={table.module}
                 />
                 
-                {/* Field-level rows */}
+                {/* Field/Element-level rows */}
                 {expandedTables[table.name] && table.fields && table.fields.map(field => (
                   <PermissionRow
                     key={`${table.name}-${field}-${selectedRoleId}`}
@@ -112,6 +109,8 @@ export const PermissionTable: React.FC<PermissionTableProps> = ({
                     getEffectivePermission={getEffectivePermission}
                     handlePermissionChange={handlePermissionChange}
                     showSelectAll={false}
+                    isFrontendMode={isFrontendMode}
+                    module={table.module}
                   />
                 ))}
               </React.Fragment>
@@ -119,7 +118,7 @@ export const PermissionTable: React.FC<PermissionTableProps> = ({
           ) : (
             <TableRow>
               <TableCell colSpan={3} className="text-center py-8">
-                No tables available
+                {isFrontendMode ? "No frontend elements available" : "No tables available"}
               </TableCell>
             </TableRow>
           )}
