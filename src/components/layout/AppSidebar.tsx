@@ -58,16 +58,18 @@ export function AppSidebar() {
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar collapsible="icon" className="font-inter">
       <SidebarHeader>
         <div className="flex items-center gap-2 px-2 py-1">
-          <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-blue-600 text-white">
-            <span className="text-sm font-bold">IQ</span>
-          </div>
+          <img 
+            src="/lovable-uploads/ee388e32-d054-4367-b2ac-0dd3512cb8fd.png" 
+            alt="CivIQ Logo" 
+            className="w-8 h-8"
+          />
           {state === "expanded" && (
             <div className="grid flex-1 text-left text-sm leading-tight">
-              <span className="truncate font-semibold text-blue-600">InfiniqueAI</span>
-              <span className="truncate text-xs text-muted-foreground">Case Management</span>
+              <span className="truncate font-semibold text-blue-600 font-inter">CivIQ</span>
+              <span className="truncate text-xs text-muted-foreground font-inter">Internal Portal</span>
             </div>
           )}
         </div>
@@ -167,7 +169,7 @@ export function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild tooltip="Settings">
-              <NavLink to="/settings">
+              <NavLink to="/settings" className="font-inter">
                 <Settings />
                 <span>Settings</span>
               </NavLink>

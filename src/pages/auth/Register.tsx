@@ -89,7 +89,7 @@ const Register = () => {
       <div className="hidden lg:flex lg:w-1/2 bg-gray-50 relative">
         <div className="flex flex-col justify-center w-full px-16">
           <div className="max-w-lg">
-            <div className="text-6xl text-gray-300 mb-4">"</div>
+            <div className="text-6xl text-gray-300 mb-4 font-inter">"</div>
             <blockquote className="text-xl font-light text-gray-900 mb-8 leading-relaxed font-inter">
               Join thousands of organizations streamlining their civic engagement with our powerful platform.
             </blockquote>

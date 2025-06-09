@@ -21,7 +21,7 @@ const CitizenNavbar = () => {
         title: "Logged out successfully",
         description: "You have been logged out of the system.",
       });
-      navigate("/auth/login");
+      navigate("/");
     } catch (error) {
       toast({
         title: "Error",
@@ -34,9 +34,14 @@ const CitizenNavbar = () => {
   };
 
   return (
-    <header className="bg-white border-b border-gray-200 h-16 flex items-center px-4 justify-between">
+    <header className="bg-white border-b border-gray-200 h-16 flex items-center px-4 justify-between font-inter">
       <div className="flex items-center">
-        <h1 className="text-xl font-semibold text-blue-600">Citizen Portal</h1>
+        <img 
+          src="/lovable-uploads/ee388e32-d054-4367-b2ac-0dd3512cb8fd.png" 
+          alt="CivIQ Logo" 
+          className="w-8 h-8 mr-2"
+        />
+        <h1 className="text-xl font-semibold text-blue-600 font-inter">CivIQ Citizen Portal</h1>
       </div>
 
       <div className="flex items-center space-x-3">
@@ -49,12 +54,12 @@ const CitizenNavbar = () => {
         <div className="flex items-center space-x-2">
           <Button
             variant="ghost"
-            className="flex items-center space-x-2"
+            className="flex items-center space-x-2 font-inter"
             onClick={handleLogout}
             disabled={isLoading}
           >
             <User className="h-5 w-5" />
-            <span className="hidden md:inline-block">
+            <span className="hidden md:inline-block font-inter">
               {isLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (

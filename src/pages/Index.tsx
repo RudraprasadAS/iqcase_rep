@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate, Link } from "react-router-dom";
 import { z } from "zod";
@@ -95,17 +94,17 @@ const Index = () => {
       <div className="hidden lg:flex lg:w-1/2 bg-gray-50 relative">
         <div className="flex flex-col justify-center w-full px-16">
           <div className="max-w-lg">
-            <div className="text-6xl text-gray-300 mb-4">"</div>
-            <blockquote className="text-xl font-light text-gray-900 mb-8 leading-relaxed">
+            <div className="text-6xl text-gray-300 mb-4 font-inter">"</div>
+            <blockquote className="text-xl font-light text-gray-900 mb-8 leading-relaxed font-inter">
               And thanks to CivIQ, I was able to go from idea to launched civic platform in a matter of hours. Absolutely amazing!
             </blockquote>
             <div className="flex items-center space-x-3">
               <div className="w-12 h-12 bg-gray-800 rounded-full flex items-center justify-center">
-                <span className="text-white font-medium text-sm">RS</span>
+                <span className="text-white font-medium text-sm font-inter">RS</span>
               </div>
               <div>
-                <div className="font-medium text-gray-900">@RohitShashank</div>
-                <div className="text-gray-500 text-sm">#civiq #civictech</div>
+                <div className="font-medium text-gray-900 font-inter">@RohitShashank</div>
+                <div className="text-gray-500 text-sm font-inter">#civiq #civictech</div>
               </div>
             </div>
           </div>
