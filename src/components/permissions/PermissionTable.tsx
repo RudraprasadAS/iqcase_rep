@@ -10,7 +10,6 @@ import {
 } from "@/components/ui/table";
 import { PermissionRow } from "./PermissionRow";
 import { Role } from "@/types/roles";
-import { TableInfo } from "@/types/permissions";
 import { FrontendRegistryItem } from "@/types/frontend-registry";
 
 interface Permission {

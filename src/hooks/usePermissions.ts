@@ -4,9 +4,9 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Role } from "@/types/roles";
-import { Permission, UnsavedPermission, TableInfo } from "@/types/permissions";
+import { Permission, UnsavedPermission } from "@/types/permissions";
 
-export const usePermissions = (selectedRoleId: string, permissions?: Permission[], roles?: Role[], tables?: TableInfo[]) => {
+export const usePermissions = (selectedRoleId: string, permissions?: Permission[], roles?: Role[]) => {
   const queryClient = useQueryClient();
   const [unsavedChanges, setUnsavedChanges] = useState<UnsavedPermission[]>([]);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -78,7 +78,7 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
     }));
   };
 
-  // Updated handle permission change for frontend registry
+  // Handle permission change for frontend registry
   const handlePermissionChange = (
     roleId: string,
     registryId: string,
@@ -137,18 +137,6 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
     console.log(`Permission change made for registry ${registryId}, ${type}=${checked} -> canView=${newCanView}, canEdit=${newCanEdit}`);
   };
 
-  // Placeholder for table-level operations (not applicable to registry model)
-  const handleSelectAllForTable = (
-    roleId: string,
-    tableName: string,
-    type: 'view' | 'edit',
-    checked: boolean
-  ) => {
-    console.log(`Bulk table permission not applicable to registry model: ${tableName}, ${type}=${checked}`);
-  };
-  
-  const handleBulkToggleForTable = handleSelectAllForTable;
-
   // Get effective permission for registry items
   const getEffectivePermission = (
     roleId: string,
@@ -175,17 +163,6 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
     }
 
     return false;
-  };
-
-  // Debug function
-  const debugCurrentState = () => {
-    console.log("=== CURRENT PERMISSION STATE ===");
-    console.log("Selected Role ID:", selectedRoleId);
-    console.log("Database Permissions:", permissions);
-    console.log("Unsaved Changes:", unsavedChanges);
-    console.log("Has Unsaved Changes Flag:", hasUnsavedChanges);
-    console.log("Expanded Tables:", expandedTables);
-    console.log("================================");
   };
 
   // Update unsaved changes tracking
@@ -215,9 +192,6 @@ export const usePermissions = (selectedRoleId: string, permissions?: Permission[
     savePermissionsMutation,
     handleToggleTable,
     handlePermissionChange,
-    handleBulkToggleForTable,
-    handleSelectAllForTable,
-    getEffectivePermission,
-    debugCurrentState
+    getEffectivePermission
   };
 };
