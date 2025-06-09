@@ -797,6 +797,42 @@ export type Database = {
         }
         Relationships: []
       }
+      frontend_registry: {
+        Row: {
+          created_at: string
+          element_key: string
+          element_type: string
+          id: string
+          is_active: boolean
+          label: string | null
+          module: string
+          screen: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          element_key: string
+          element_type: string
+          id?: string
+          is_active?: boolean
+          label?: string | null
+          module: string
+          screen: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          element_key?: string
+          element_type?: string
+          id?: string
+          is_active?: boolean
+          label?: string | null
+          module?: string
+          screen?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       locations: {
         Row: {
           address: string | null
@@ -874,39 +910,40 @@ export type Database = {
       }
       permissions: {
         Row: {
-          can_delete: boolean | null
           can_edit: boolean
           can_view: boolean
-          created_at: string | null
-          field_name: string | null
+          created_at: string
+          frontend_registry_id: string
           id: string
-          module_name: string
           role_id: string
-          updated_at: string | null
+          updated_at: string
         }
         Insert: {
-          can_delete?: boolean | null
           can_edit?: boolean
           can_view?: boolean
-          created_at?: string | null
-          field_name?: string | null
+          created_at?: string
+          frontend_registry_id: string
           id?: string
-          module_name: string
           role_id: string
-          updated_at?: string | null
+          updated_at?: string
         }
         Update: {
-          can_delete?: boolean | null
           can_edit?: boolean
           can_view?: boolean
-          created_at?: string | null
-          field_name?: string | null
+          created_at?: string
+          frontend_registry_id?: string
           id?: string
-          module_name?: string
           role_id?: string
-          updated_at?: string | null
+          updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "permissions_frontend_registry_id_fkey"
+            columns: ["frontend_registry_id"]
+            isOneToOne: false
+            referencedRelation: "frontend_registry"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "permissions_role_id_fkey"
             columns: ["role_id"]
@@ -1241,6 +1278,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_edit_case: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       cleanup_duplicate_permissions: {
         Args: { p_role_id: string }
         Returns: undefined
@@ -1283,6 +1324,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      current_user_has_frontend_permission: {
+        Args: { p_element_key: string; p_permission_type?: string }
+        Returns: boolean
+      }
       execute_dynamic_report: {
         Args: { p_config: Json }
         Returns: Json
@@ -1302,7 +1347,19 @@ export type Database = {
         Args: { query_text: string }
         Returns: Json
       }
+      get_current_internal_user_id: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       get_current_user_id: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      get_current_user_role: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      get_current_user_role_name: {
         Args: Record<PropertyKey, never>
         Returns: string
       }
@@ -1324,9 +1381,37 @@ export type Database = {
           fields: string[]
         }[]
       }
+      get_user_role: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      has_manager_access: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      is_admin_user: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      is_current_user_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      is_internal_user: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       populate_data_sources: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      user_has_frontend_permission: {
+        Args: {
+          p_user_id: string
+          p_element_key: string
+          p_permission_type?: string
+        }
+        Returns: boolean
       }
       user_has_permission: {
         Args: {

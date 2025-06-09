@@ -1,23 +1,20 @@
 
-export interface TableInfo {
-  name: string;
-  schema: string;
-  fields: string[];
-}
+import { FrontendRegistryItem } from './frontend-registry';
 
 export interface Permission {
   id: string;
   role_id: string;
-  module_name: string;
-  field_name: string | null;
+  frontend_registry_id: string;
   can_view: boolean;
   can_edit: boolean;
+  created_at: string;
+  updated_at: string;
+  frontend_registry?: FrontendRegistryItem;
 }
 
 export interface UnsavedPermission {
   roleId: string;
-  moduleName: string;
-  fieldName: string | null;
+  frontendRegistryId: string;
   canView: boolean;
   canEdit: boolean;
 }
