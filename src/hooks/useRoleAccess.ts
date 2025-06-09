@@ -17,6 +17,7 @@ export const useRoleAccess = () => {
     if (user) {
       fetchUserRoles();
     } else {
+      setUserRoles([]);
       setLoading(false);
     }
   }, [user]);
@@ -25,12 +26,15 @@ export const useRoleAccess = () => {
     if (!user) return;
 
     try {
+      setLoading(true);
+      
       // First get the internal user ID and role
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select(`
           id,
           role_id,
+          is_active,
           roles!inner(
             name,
             role_type,
@@ -42,6 +46,15 @@ export const useRoleAccess = () => {
 
       if (userError || !userData) {
         console.error('Error fetching user data:', userError);
+        setUserRoles([]);
+        setLoading(false);
+        return;
+      }
+
+      // Check if user is active and has an active role
+      if (!userData.is_active) {
+        console.warn('User account is inactive');
+        setUserRoles([]);
         setLoading(false);
         return;
       }
@@ -53,11 +66,14 @@ export const useRoleAccess = () => {
           role: userData.roles.name,
           role_type: userData.roles.role_type || undefined
         });
+      } else {
+        console.warn('User has no active role assigned');
       }
 
       setUserRoles(roles);
     } catch (error) {
       console.error('Error in fetchUserRoles:', error);
+      setUserRoles([]);
     } finally {
       setLoading(false);
     }
@@ -91,6 +107,10 @@ export const useRoleAccess = () => {
     return isCitizen();
   };
 
+  const hasActiveRole = (): boolean => {
+    return userRoles.length > 0;
+  };
+
   return {
     userRoles,
     loading,
@@ -101,6 +121,7 @@ export const useRoleAccess = () => {
     isStaff,
     canAccessAdmin,
     canAccessCitizenPortal,
+    hasActiveRole,
     refetch: fetchUserRoles
   };
 };

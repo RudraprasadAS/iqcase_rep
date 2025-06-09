@@ -19,7 +19,13 @@ const RoleBasedRoute: React.FC<RoleBasedRouteProps> = ({
   requireStaff = false,
   fallbackPath = '/'
 }) => {
-  const { canAccessAdmin, canAccessCitizenPortal, isStaff, loading } = useRoleAccess();
+  const { 
+    canAccessAdmin, 
+    canAccessCitizenPortal, 
+    isStaff, 
+    hasActiveRole,
+    loading 
+  } = useRoleAccess();
 
   if (loading) {
     return (
@@ -29,18 +35,27 @@ const RoleBasedRoute: React.FC<RoleBasedRouteProps> = ({
     );
   }
 
+  // If user has no active role, redirect to home with error message
+  if (!hasActiveRole()) {
+    console.warn('Access denied: User has no active role or account is inactive');
+    return <Navigate to="/" replace />;
+  }
+
   // Check admin access
   if (requireAdmin && !canAccessAdmin()) {
+    console.warn('Access denied: Admin access required');
     return <Navigate to={fallbackPath} replace />;
   }
 
   // Check citizen access
   if (requireCitizen && !canAccessCitizenPortal()) {
+    console.warn('Access denied: Citizen access required');
     return <Navigate to={fallbackPath} replace />;
   }
 
   // Check staff access
   if (requireStaff && !isStaff()) {
+    console.warn('Access denied: Staff access required');
     return <Navigate to={fallbackPath} replace />;
   }
 

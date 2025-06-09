@@ -74,7 +74,7 @@ export function AppSidebar() {
           )}
           {state === "expanded" && (
             <div className="grid flex-1 text-left text-sm leading-tight min-w-0">
-              <span className="truncate font-semibold text-gray-900 font-inter">CivIQ</span>
+              <span className="truncate font-semibold text-black font-inter">CivIQ</span>
             </div>
           )}
         </div>
@@ -83,7 +83,7 @@ export function AppSidebar() {
       
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="font-inter">Application</SidebarGroupLabel>
+          <SidebarGroupLabel className="font-inter text-gray-600">Application</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {navigation.map((item) => (
@@ -95,12 +95,12 @@ export function AppSidebar() {
                         cn(
                           "font-inter flex items-center gap-2 px-2 py-2 text-sm font-medium rounded-md transition-colors",
                           isActive 
-                            ? "bg-blue-100 text-blue-900 font-semibold" 
-                            : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                            ? "bg-blue-50 text-black font-semibold border-l-4 border-blue-600" 
+                            : "text-black hover:bg-gray-100"
                         )
                       }
                     >
-                      <item.icon />
+                      <item.icon className={cn("h-4 w-4")} />
                       <span className="font-inter">{item.name}</span>
                     </NavLink>
                   </SidebarMenuButton>
@@ -111,16 +111,16 @@ export function AppSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel className="font-inter">Analytics</SidebarGroupLabel>
+          <SidebarGroupLabel className="font-inter text-gray-600">Analytics</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               <Collapsible open={isReportsOpen} onOpenChange={setIsReportsOpen}>
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
-                    <SidebarMenuButton tooltip="Analytics" className="font-inter">
-                      <BarChart3 />
+                    <SidebarMenuButton tooltip="Analytics" className="font-inter text-black hover:bg-gray-100">
+                      <BarChart3 className="h-4 w-4" />
                       <span className="font-inter">Analytics</span>
-                      <ChevronDown className={cn("ml-auto transition-transform font-inter", isReportsOpen && "rotate-180")} />
+                      <ChevronDown className={cn("ml-auto transition-transform font-inter h-4 w-4", isReportsOpen && "rotate-180")} />
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
                   <CollapsibleContent>
@@ -132,8 +132,8 @@ export function AppSidebar() {
                               to={item.href}
                               className={({ isActive }) =>
                                 cn(
-                                  "font-inter",
-                                  isActive && "bg-blue-100 text-blue-900 font-semibold"
+                                  "font-inter text-black hover:bg-gray-100",
+                                  isActive && "bg-blue-50 font-semibold border-l-4 border-blue-600"
                                 )
                               }
                             >
@@ -151,16 +151,16 @@ export function AppSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel className="font-inter">Administration</SidebarGroupLabel>
+          <SidebarGroupLabel className="font-inter text-gray-600">Administration</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               <Collapsible open={isAdminOpen} onOpenChange={setIsAdminOpen}>
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
-                    <SidebarMenuButton tooltip="Admin" className="font-inter">
-                      <Shield />
+                    <SidebarMenuButton tooltip="Admin" className="font-inter text-black hover:bg-gray-100">
+                      <Shield className="h-4 w-4" />
                       <span className="font-inter">Admin</span>
-                      <ChevronDown className={cn("ml-auto transition-transform font-inter", isAdminOpen && "rotate-180")} />
+                      <ChevronDown className={cn("ml-auto transition-transform font-inter h-4 w-4", isAdminOpen && "rotate-180")} />
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
                   <CollapsibleContent>
@@ -172,8 +172,8 @@ export function AppSidebar() {
                               to={item.href}
                               className={({ isActive }) =>
                                 cn(
-                                  "font-inter",
-                                  isActive && "bg-blue-100 text-blue-900 font-semibold"
+                                  "font-inter text-black hover:bg-gray-100",
+                                  isActive && "bg-blue-50 font-semibold border-l-4 border-blue-600"
                                 )
                               }
                             >
@@ -199,12 +199,12 @@ export function AppSidebar() {
                 to="/settings" 
                 className={({ isActive }) =>
                   cn(
-                    "font-inter",
-                    isActive && "bg-blue-100 text-blue-900 font-semibold"
+                    "font-inter text-black hover:bg-gray-100",
+                    isActive && "bg-blue-50 font-semibold border-l-4 border-blue-600"
                   )
                 }
               >
-                <Settings />
+                <Settings className="h-4 w-4" />
                 <span className="font-inter">Settings</span>
               </NavLink>
             </SidebarMenuButton>

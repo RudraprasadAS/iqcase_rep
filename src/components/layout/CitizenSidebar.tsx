@@ -44,7 +44,7 @@ const CitizenSidebar = () => {
           )}
           {state === "expanded" && (
             <div className="grid flex-1 text-left text-sm leading-tight min-w-0">
-              <span className="truncate font-semibold text-gray-900 font-inter">CivIQ</span>
+              <span className="truncate font-semibold text-black font-inter">CivIQ</span>
             </div>
           )}
         </div>
@@ -53,7 +53,7 @@ const CitizenSidebar = () => {
       
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="font-inter">Portal</SidebarGroupLabel>
+          <SidebarGroupLabel className="font-inter text-gray-600">Citizen Portal</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {navigation.map((item) => (
@@ -65,12 +65,12 @@ const CitizenSidebar = () => {
                         cn(
                           "font-inter flex items-center gap-2 px-2 py-2 text-sm font-medium rounded-md transition-colors",
                           isActive 
-                            ? "bg-blue-100 text-blue-900 font-semibold" 
-                            : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                            ? "bg-blue-50 text-black font-semibold border-l-4 border-blue-600" 
+                            : "text-black hover:bg-gray-100"
                         )
                       }
                     >
-                      <item.icon />
+                      <item.icon className="h-4 w-4" />
                       <span className="font-inter">{item.name}</span>
                     </NavLink>
                   </SidebarMenuButton>
