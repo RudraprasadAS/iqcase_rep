@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
@@ -54,7 +53,6 @@ const NewCase = () => {
   });
 
   useEffect(() => {
-    console.log('🔍 NewCase component mounted. User:', user?.id, user?.email);
     if (user) {
       fetchInternalUserId();
     }
@@ -63,35 +61,23 @@ const NewCase = () => {
   }, [user]);
 
   const fetchInternalUserId = async () => {
-    if (!user) {
-      console.log('❌ No user available for internal ID lookup');
-      return;
-    }
+    if (!user) return;
 
     try {
-      console.log('🔍 Fetching internal user ID for auth user:', user.id, user.email);
-      
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('id, name, email, role_id, user_type, roles(name)')
         .eq('auth_user_id', user.id)
         .single();
 
-      console.log('📊 User lookup result:', { userData, userError });
-
       if (userError) {
-        console.error('❌ User lookup error:', userError);
-        
         // Try fallback lookup by email
-        console.log('🔄 Trying fallback lookup by email...');
         const { data: emailUser, error: emailError } = await supabase
           .from('users')
           .select('id, name, email, role_id, user_type, roles(name)')
           .eq('email', user.email)
           .single();
           
-        console.log('📊 Email lookup result:', { emailUser, emailError });
-        
         if (emailError) {
           toast({
             title: 'Authentication Error',
@@ -102,14 +88,12 @@ const NewCase = () => {
         }
         
         setInternalUserId(emailUser.id);
-        console.log('✅ Internal user ID set from email lookup:', emailUser.id);
         return;
       }
 
       setInternalUserId(userData.id);
-      console.log('✅ Internal user ID set:', userData.id, 'Role:', userData.roles?.name);
     } catch (error) {
-      console.error('❌ Error fetching internal user ID:', error);
+      console.error('Error fetching internal user ID:', error);
       toast({
         title: 'Error',
         description: 'Failed to load user information',
@@ -120,21 +104,17 @@ const NewCase = () => {
 
   const fetchCategories = async () => {
     try {
-      console.log('📋 Fetching categories...');
       const { data: categoriesData, error: categoriesError } = await supabase
         .from('case_categories')
         .select('id, name, description')
         .eq('is_active', true)
         .order('name');
 
-      console.log('📋 Categories result:', { categoriesData, categoriesError });
-
       if (categoriesError) throw categoriesError;
       setCategories(categoriesData || []);
-      console.log('✅ Categories loaded:', categoriesData?.length || 0);
 
     } catch (error) {
-      console.error('❌ Error fetching categories:', error);
+      console.error('Error fetching categories:', error);
       toast({
         title: 'Error',
         description: 'Failed to load categories',
@@ -250,14 +230,10 @@ const NewCase = () => {
   const uploadFiles = async (caseId: string) => {
     if (files.length === 0) return;
 
-    console.log('Uploading files for case:', caseId);
-
     for (const file of files) {
       try {
         const fileExt = file.name.split('.').pop();
         const fileName = `${caseId}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-        
-        console.log('Uploading file:', fileName);
         
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('case-attachments')
@@ -271,13 +247,9 @@ const NewCase = () => {
           throw uploadError;
         }
 
-        console.log('Upload successful:', uploadData);
-
         const { data: { publicUrl } } = supabase.storage
           .from('case-attachments')
           .getPublicUrl(fileName);
-
-        console.log('Public URL:', publicUrl);
 
         const { error: attachmentError } = await supabase
           .from('case_attachments')
@@ -294,8 +266,6 @@ const NewCase = () => {
           console.error('Attachment record error:', attachmentError);
           throw attachmentError;
         }
-
-        console.log('Attachment record created successfully');
       } catch (error) {
         console.error('Error uploading file:', file.name, error);
         toast({
@@ -310,13 +280,7 @@ const NewCase = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    console.log('🚀 Starting case submission...');
-    console.log('📊 Form data:', formData);
-    console.log('👤 User:', user?.id, user?.email);
-    console.log('🆔 Internal user ID:', internalUserId);
-    
     if (!user || !internalUserId) {
-      console.error('❌ Missing authentication data');
       toast({
         title: 'Error',
         description: 'You must be logged in to submit a case',
@@ -326,7 +290,6 @@ const NewCase = () => {
     }
 
     if (!formData.title.trim() || !formData.description.trim()) {
-      console.error('❌ Missing required form data');
       toast({
         title: 'Error',
         description: 'Please fill in all required fields',
@@ -354,29 +317,23 @@ const NewCase = () => {
         tags: tags.length > 0 ? tags : null
       };
 
-      console.log('📝 Case data to insert:', caseData);
-
       const { data: newCase, error } = await supabase
         .from('cases')
         .insert(caseData)
         .select()
         .single();
 
-      console.log('📝 Case insert result:', { newCase, error });
-
       if (error) {
-        console.error('❌ Case creation error:', error);
+        console.error('Case creation error:', error);
         throw error;
       }
-
-      console.log('✅ Case created successfully:', newCase.id);
 
       // Upload files after case creation
       if (files.length > 0) {
         try {
           await uploadFiles(newCase.id);
         } catch (uploadError) {
-          console.error('⚠️ File upload failed:', uploadError);
+          console.error('File upload failed:', uploadError);
           // Continue even if file upload fails
         }
       }
@@ -390,15 +347,11 @@ const NewCase = () => {
           performed_by: internalUserId
         };
         
-        console.log('📝 Logging activity:', activityData);
-        
         await supabase
           .from('case_activities')
           .insert(activityData);
-          
-        console.log('✅ Activity logged');
       } catch (activityError) {
-        console.error('⚠️ Activity logging failed:', activityError);
+        console.error('Activity logging failed:', activityError);
         // Continue even if activity logging fails
       }
 
@@ -410,7 +363,7 @@ const NewCase = () => {
       navigate('/cases');
 
     } catch (error: any) {
-      console.error('❌ Error creating case:', error);
+      console.error('Error creating case:', error);
       toast({
         title: 'Error',
         description: `Failed to create case: ${error.message || 'Unknown error'}`,
