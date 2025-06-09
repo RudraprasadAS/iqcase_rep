@@ -6,9 +6,6 @@ import type { Database } from './types';
 const SUPABASE_URL = "https://nytxdkvpgbvndtbvcvxz.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im55dHhka3ZwZ2J2bmR0YnZjdnh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDczNjk0MDQsImV4cCI6MjA2Mjk0NTQwNH0.TpmAezgRrXiLaXFLVC98wPkY3hpV8y0Ogc_EatasxTQ";
 
-// Import the supabase client like this:
-// import { supabase } from "@/integrations/supabase/client";
-
 // Create custom fetch function with logging
 const createLoggingFetch = (originalFetch: typeof window.fetch) => {
   return function(input: RequestInfo | URL, init?: RequestInit) {
@@ -109,54 +106,38 @@ export const permissionsApi = {
   async cleanupDuplicatePermissions(roleId: string): Promise<void> {
     console.log(`[permissionsApi] Cleaning up duplicate permissions for role: ${roleId}`);
     try {
-      // First, get all permissions for the role
-      const { data: permissions, error: fetchError } = await supabase
-        .from("permissions")
-        .select("*")
-        .eq("role_id", roleId);
-        
-      if (fetchError) {
-        console.error("[permissionsApi] Error fetching permissions:", fetchError);
-        return;
-      }
+      const { error } = await supabase.rpc('cleanup_duplicate_permissions', {
+        p_role_id: roleId
+      });
       
-      // Group permissions by module_name and field_name
-      const groupedPermissions = permissions?.reduce((acc: Record<string, any[]>, perm) => {
-        const key = `${perm.module_name}|${perm.field_name || 'null'}`;
-        if (!acc[key]) acc[key] = [];
-        acc[key].push(perm);
-        return acc;
-      }, {});
-      
-      // For each group that has more than 1 permission, keep only the most recent one
-      for (const [key, perms] of Object.entries(groupedPermissions || {})) {
-        if (perms.length > 1) {
-          // Sort by created_at descending (newest first)
-          perms.sort((a, b) => 
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-          );
-          
-          // Keep the newest, delete the rest
-          const [newest, ...duplicates] = perms;
-          console.log(`[permissionsApi] Found ${duplicates.length} duplicates for ${key}. Keeping ID: ${newest.id}`);
-          
-          if (duplicates.length > 0) {
-            const idsToDelete = duplicates.map(d => d.id);
-            const { error: deleteError } = await supabase
-              .from("permissions")
-              .delete()
-              .in("id", idsToDelete);
-              
-            if (deleteError) {
-              console.error("[permissionsApi] Error deleting duplicate permissions:", deleteError);
-            } else {
-              console.log(`[permissionsApi] Successfully deleted ${idsToDelete.length} duplicate permissions`);
-            }
-          }
-        }
+      if (error) {
+        console.error("[permissionsApi] Error cleaning up permissions:", error);
+      } else {
+        console.log("[permissionsApi] Successfully cleaned up duplicate permissions");
       }
     } catch (e) {
       console.error("[permissionsApi] Exception in cleanupDuplicatePermissions:", e);
+    }
+  },
+
+  // Check if current user has permission
+  async checkPermission(moduleName: string, fieldName?: string | null, permissionType: 'view' | 'edit' = 'view'): Promise<boolean> {
+    try {
+      const { data, error } = await supabase.rpc('current_user_can_access', {
+        p_module_name: moduleName,
+        p_field_name: fieldName,
+        p_permission_type: permissionType
+      });
+      
+      if (error) {
+        console.error("[permissionsApi] Error checking permission:", error);
+        return false;
+      }
+      
+      return data as boolean;
+    } catch (e) {
+      console.error("[permissionsApi] Exception checking permission:", e);
+      return false;
     }
   }
 };

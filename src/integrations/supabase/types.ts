@@ -1241,6 +1241,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cleanup_duplicate_permissions: {
+        Args: { p_role_id: string }
+        Returns: undefined
+      }
       create_case_with_sla: {
         Args: {
           _title: string
@@ -1271,6 +1275,14 @@ export type Database = {
         Args: { role_name: string; role_description: string }
         Returns: string
       }
+      current_user_can_access: {
+        Args: {
+          p_module_name: string
+          p_field_name?: string
+          p_permission_type?: string
+        }
+        Returns: boolean
+      }
       execute_dynamic_report: {
         Args: { p_config: Json }
         Returns: Json
@@ -1289,6 +1301,10 @@ export type Database = {
       execute_query: {
         Args: { query_text: string }
         Returns: Json
+      }
+      get_current_user_id: {
+        Args: Record<PropertyKey, never>
+        Returns: string
       }
       get_table_metadata: {
         Args: Record<PropertyKey, never>
@@ -1311,6 +1327,15 @@ export type Database = {
       populate_data_sources: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      user_has_permission: {
+        Args: {
+          p_user_id: string
+          p_module_name: string
+          p_field_name?: string
+          p_permission_type?: string
+        }
+        Returns: boolean
       }
     }
     Enums: {
