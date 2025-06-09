@@ -68,7 +68,7 @@ export const useRoleAccess = () => {
   const isCitizen = userInfo?.role?.name === 'citizen';
   const isAdmin = userInfo?.role?.name === 'admin';
   const isSuperAdmin = userInfo?.role?.name === 'super_admin';
-  const isSystemRole = userInfo?.role?.is_system;
+  const isSystemRole = userInfo?.role?.is_system ?? false;
 
   // Super admin and admin should have full access
   const hasAdminAccess = isSuperAdmin || isAdmin;
@@ -81,7 +81,8 @@ export const useRoleAccess = () => {
     isAdmin,
     isSuperAdmin,
     hasAdminAccess,
-    roleName: userInfo?.role?.name
+    roleName: userInfo?.role?.name,
+    isSystemRole
   });
 
   return {
