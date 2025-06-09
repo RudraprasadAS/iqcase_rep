@@ -18,3 +18,9 @@ export interface UnsavedPermission {
   canView: boolean;
   canEdit: boolean;
 }
+
+// For legacy components that still need table structure
+export interface TableInfo {
+  name: string;
+  fields: string[];
+}
