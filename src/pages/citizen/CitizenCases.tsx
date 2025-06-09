@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -60,11 +61,30 @@ const CitizenCases = () => {
       
       console.log('Fetching cases for user:', user.id);
 
-      // Since RLS is enabled, we can directly query cases table
-      // The RLS policies will automatically filter to only show cases the user has access to
+      // Get internal user ID first
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .maybeSingle();
+
+      if (userError) {
+        console.error('User lookup error:', userError);
+        throw userError;
+      }
+
+      if (!userData) {
+        console.log('No internal user found for auth user:', user.id);
+        setCases([]);
+        return;
+      }
+
+      console.log('Found internal user ID:', userData.id);
+
       const { data, error } = await supabase
         .from('cases')
         .select('id, title, status, priority, created_at, sla_due_at, location, description')
+        .eq('submitted_by', userData.id)
         .order('created_at', { ascending: false });
 
       if (error) {

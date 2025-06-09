@@ -4,7 +4,7 @@ import { useFrontendPermissionCheck } from '@/hooks/useFrontendPermissions';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Shield } from 'lucide-react';
 
-interface PermissionGuardProps {
+interface FrontendPermissionGuardProps {
   children: React.ReactNode;
   elementKey: string;
   permissionType?: 'view' | 'edit';
@@ -12,7 +12,7 @@ interface PermissionGuardProps {
   showError?: boolean;
 }
 
-export const PermissionGuard: React.FC<PermissionGuardProps> = ({
+export const FrontendPermissionGuard: React.FC<FrontendPermissionGuardProps> = ({
   children,
   elementKey,
   permissionType = 'view',

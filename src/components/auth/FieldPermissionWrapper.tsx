@@ -1,87 +1,32 @@
 
 import React from 'react';
-import { useFieldPermission } from '@/hooks/useFieldPermissions';
+import { useFrontendPermissionCheck } from '@/hooks/useFrontendPermissions';
 
 interface FieldPermissionWrapperProps {
-  moduleName: string;
-  screenName: string;
-  fieldName: string;
   children: React.ReactNode;
-  requireEdit?: boolean;
+  elementKey: string;
+  permissionType?: 'view' | 'edit';
   fallback?: React.ReactNode;
 }
 
 export const FieldPermissionWrapper: React.FC<FieldPermissionWrapperProps> = ({
-  moduleName,
-  screenName,
-  fieldName,
   children,
-  requireEdit = false,
+  elementKey,
+  permissionType = 'view',
   fallback = null
 }) => {
-  const { canView, canEdit, isLoading } = useFieldPermission(moduleName, screenName, fieldName);
+  const { hasPermission, isLoading } = useFrontendPermissionCheck(
+    elementKey,
+    permissionType
+  );
 
   if (isLoading) {
-    return <div className="animate-pulse bg-gray-200 h-4 rounded"></div>;
+    return <div className="animate-pulse bg-gray-200 h-4 w-8 rounded"></div>;
   }
 
-  const hasPermission = requireEdit ? canEdit : canView;
-
   if (!hasPermission) {
-    return fallback ? <>{fallback}</> : null;
+    return <>{fallback}</>;
   }
 
   return <>{children}</>;
 };
-
-// Component-specific permission wrappers
-export const CaseFieldWrapper: React.FC<{
-  fieldName: string;
-  children: React.ReactNode;
-  requireEdit?: boolean;
-  fallback?: React.ReactNode;
-}> = ({ fieldName, children, requireEdit, fallback }) => (
-  <FieldPermissionWrapper
-    moduleName="cases"
-    screenName="detail"
-    fieldName={fieldName}
-    requireEdit={requireEdit}
-    fallback={fallback}
-  >
-    {children}
-  </FieldPermissionWrapper>
-);
-
-export const TaskFieldWrapper: React.FC<{
-  fieldName: string;
-  children: React.ReactNode;
-  requireEdit?: boolean;
-  fallback?: React.ReactNode;
-}> = ({ fieldName, children, requireEdit, fallback }) => (
-  <FieldPermissionWrapper
-    moduleName="cases"
-    screenName="tasks"
-    fieldName={fieldName}
-    requireEdit={requireEdit}
-    fallback={fallback}
-  >
-    {children}
-  </FieldPermissionWrapper>
-);
-
-export const MessageFieldWrapper: React.FC<{
-  fieldName: string;
-  children: React.ReactNode;
-  requireEdit?: boolean;
-  fallback?: React.ReactNode;
-}> = ({ fieldName, children, requireEdit, fallback }) => (
-  <FieldPermissionWrapper
-    moduleName="cases"
-    screenName="messages"
-    fieldName={fieldName}
-    requireEdit={requireEdit}
-    fallback={fallback}
-  >
-    {children}
-  </FieldPermissionWrapper>
-);

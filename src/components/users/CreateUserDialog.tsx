@@ -31,7 +31,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { useToast } from "@/hooks/use-toast";
 
 interface CreateUserDialogProps {
   open: boolean;
@@ -52,7 +51,6 @@ type UserFormValues = z.infer<typeof userSchema>;
 
 const CreateUserDialog = ({ open, onOpenChange, roles, onUserCreated }: CreateUserDialogProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { toast } = useToast();
   
   const form = useForm<UserFormValues>({
     resolver: zodResolver(userSchema),
@@ -69,28 +67,6 @@ const CreateUserDialog = ({ open, onOpenChange, roles, onUserCreated }: CreateUs
     setIsSubmitting(true);
     
     try {
-      // First check if user already exists
-      const { data: existingUser, error: checkError } = await supabase
-        .from("users")
-        .select("id, email")
-        .eq("email", data.email)
-        .maybeSingle();
-        
-      if (checkError) {
-        console.error("Error checking existing user:", checkError);
-        throw checkError;
-      }
-
-      if (existingUser) {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: `A user with email ${data.email} already exists. Please use a different email.`,
-        });
-        return;
-      }
-
-      // If no existing user, create new one
       const { error } = await supabase
         .from("users")
         .insert({
@@ -101,26 +77,13 @@ const CreateUserDialog = ({ open, onOpenChange, roles, onUserCreated }: CreateUs
           is_active: data.is_active,
         });
         
-      if (error) {
-        console.error("Error creating user:", error);
-        throw error;
-      }
-      
-      toast({
-        title: "Success",
-        description: "User created successfully",
-      });
+      if (error) throw error;
       
       form.reset();
       onUserCreated();
       onOpenChange(false);
-    } catch (error: any) {
-      console.error("Error in user creation:", error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message || "Failed to create user",
-      });
+    } catch (error) {
+      console.error("Error creating user:", error);
     } finally {
       setIsSubmitting(false);
     }

@@ -10,108 +10,101 @@ import {
 } from "@/components/ui/table";
 import { PermissionRow } from "./PermissionRow";
 import { Role } from "@/types/roles";
-import { TableInfo } from "@/types/permissions";
+import { FrontendRegistryItem } from "@/types/frontend-registry";
 
 interface Permission {
   id: string;
   role_id: string;
-  module_name: string;
-  field_name: string | null;
+  frontend_registry_id: string;
   can_view: boolean;
   can_edit: boolean;
 }
 
 interface PermissionTableProps {
   selectedRoleId: string;
-  tables: TableInfo[];
+  registryItems: FrontendRegistryItem[];
   roles?: Role[];
   permissions?: Permission[];
-  expandedTables: Record<string, boolean>;
-  onToggleTable: (tableName: string) => void;
+  expandedModules: Record<string, boolean>;
+  onToggleModule: (moduleName: string) => void;
   getEffectivePermission: (
     roleId: string,
-    moduleName: string,
-    fieldName: string | null,
+    registryId: string,
     type: 'view' | 'edit'
   ) => boolean;
   handlePermissionChange: (
     roleId: string,
-    moduleName: string,
-    fieldName: string | null,
+    registryId: string,
     type: 'view' | 'edit',
     checked: boolean
   ) => void;
-  handleSelectAllForTable: (
-    roleId: string,
-    tableName: string,
-    type: 'view' | 'edit',
-    checked: boolean
-  ) => void;
-  showSelectAll: boolean;
 }
 
 export const PermissionTable: React.FC<PermissionTableProps> = ({
   selectedRoleId,
-  tables,
+  registryItems,
   roles,
   permissions,
-  expandedTables,
-  onToggleTable,
+  expandedModules,
+  onToggleModule,
   getEffectivePermission,
-  handlePermissionChange,
-  handleSelectAllForTable,
-  showSelectAll
+  handlePermissionChange
 }) => {
   // Debug logging on mount or when permissions change
   useEffect(() => {
     console.log("PermissionTable rendering with permissions:", permissions);
     console.log("Selected role ID:", selectedRoleId);
-    console.log("Expanded tables:", expandedTables);
-  }, [permissions, selectedRoleId, expandedTables]);
+    console.log("Registry items:", registryItems);
+  }, [permissions, selectedRoleId, registryItems]);
+
+  // Group registry items by module
+  const groupedItems = registryItems.reduce((acc, item) => {
+    if (!acc[item.module]) {
+      acc[item.module] = [];
+    }
+    acc[item.module].push(item);
+    return acc;
+  }, {} as Record<string, FrontendRegistryItem[]>);
   
   return (
     <div className="overflow-x-auto border rounded-md">
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/50">
-            <TableHead className="min-w-[200px]">Table / Field</TableHead>
+            <TableHead className="min-w-[200px]">Module / Element</TableHead>
             <TableHead className="text-center w-[100px]">View</TableHead>
             <TableHead className="text-center w-[100px]">Edit</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {tables.length > 0 ? (
-            tables.map(table => (
-              <React.Fragment key={table.name}>
-                {/* Table-level row */}
+          {Object.keys(groupedItems).length > 0 ? (
+            Object.entries(groupedItems).map(([module, items]) => (
+              <React.Fragment key={module}>
+                {/* Module-level row */}
                 <PermissionRow
-                  name={table.name}
+                  name={module}
                   roleId={selectedRoleId}
-                  isTable={true}
-                  isExpanded={expandedTables[table.name]}
-                  onToggleExpand={() => onToggleTable(table.name)}
+                  isModule={true}
+                  isExpanded={expandedModules[module]}
+                  onToggleExpand={() => onToggleModule(module)}
                   roles={roles}
                   permissions={permissions}
                   getEffectivePermission={getEffectivePermission}
                   handlePermissionChange={handlePermissionChange}
-                  showSelectAll={showSelectAll}
-                  handleSelectAllForTable={handleSelectAllForTable}
                 />
                 
-                {/* Field-level rows */}
-                {expandedTables[table.name] && table.fields && table.fields.map(field => (
+                {/* Registry item rows */}
+                {expandedModules[module] && items.map(item => (
                   <PermissionRow
-                    key={`${table.name}-${field}-${selectedRoleId}`}
-                    name={field}
+                    key={`${module}-${item.id}-${selectedRoleId}`}
+                    name={`${item.screen} - ${item.label || item.element_key}`}
                     roleId={selectedRoleId}
-                    isTable={false}
-                    fieldName={field}
-                    tableName={table.name}
+                    isModule={false}
+                    registryId={item.id}
                     roles={roles}
                     permissions={permissions}
                     getEffectivePermission={getEffectivePermission}
                     handlePermissionChange={handlePermissionChange}
-                    showSelectAll={false}
                   />
                 ))}
               </React.Fragment>
@@ -119,7 +112,7 @@ export const PermissionTable: React.FC<PermissionTableProps> = ({
           ) : (
             <TableRow>
               <TableCell colSpan={3} className="text-center py-8">
-                No tables available
+                No registry items available
               </TableCell>
             </TableRow>
           )}
