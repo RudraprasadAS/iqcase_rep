@@ -49,7 +49,7 @@ export const useAuth = () => {
       // Check if user exists in our users table
       const { data: existingUser, error: checkError } = await supabase
         .from('users')
-        .select('id, name, email, role_id, auth_user_id')
+        .select('id, name, email, role_id, auth_user_id, user_type, roles(name, role_type)')
         .eq('auth_user_id', authUser.id)
         .maybeSingle();
 
@@ -72,7 +72,7 @@ export const useAuth = () => {
           defaultRoleQuery = supabase
             .from('roles')
             .select('id')
-            .eq('name', 'admin')
+            .eq('name', 'super_admin')
             .single();
         }
 
@@ -97,7 +97,7 @@ export const useAuth = () => {
           }
         }
       } else {
-        console.log('User record exists:', existingUser.email);
+        console.log('User record exists:', existingUser.email, 'Role:', existingUser.roles?.name);
         
         // Update auth_user_id if it's missing
         if (!existingUser.auth_user_id) {

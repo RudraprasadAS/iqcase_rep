@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -97,10 +98,10 @@ const App = () => (
               </RequireAuth>
             } />
 
-            {/* Admin Routes */}
+            {/* Admin Routes - Updated to allow super_admin */}
             <Route path="/admin/users" element={
               <RequireAuth>
-                <RoleBasedRoute allowedRoles={['admin']}>
+                <RoleBasedRoute allowedRoles={['admin', 'super_admin']}>
                   <Layout>
                     <Users />
                   </Layout>
@@ -110,7 +111,7 @@ const App = () => (
 
             <Route path="/admin/roles" element={
               <RequireAuth>
-                <RoleBasedRoute allowedRoles={['admin']}>
+                <RoleBasedRoute allowedRoles={['admin', 'super_admin']}>
                   <Layout>
                     <Roles />
                   </Layout>
@@ -120,7 +121,7 @@ const App = () => (
 
             <Route path="/admin/permissions" element={
               <RequireAuth>
-                <RoleBasedRoute allowedRoles={['admin']}>
+                <RoleBasedRoute allowedRoles={['admin', 'super_admin']}>
                   <Layout>
                     <Permissions />
                   </Layout>
