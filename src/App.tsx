@@ -6,8 +6,8 @@ import { RoleBasedRoute } from '@/components/auth/RoleBasedRoute';
 import { Toaster } from '@/components/ui/toaster';
 import Layout from '@/components/layout/Layout';
 import CitizenLayout from '@/components/layout/CitizenLayout';
-import Landing from '@/pages/Landing';
-import Login from '@/pages/Login';
+import Index from '@/pages/Index';
+import Login from '@/pages/auth/Login';
 import Dashboard from '@/pages/Dashboard';
 import Cases from '@/pages/Cases';
 import NewCase from '@/pages/NewCase';
@@ -26,7 +26,7 @@ function App() {
           <Router>
             <Routes>
               {/* Public routes */}
-              <Route path="/" element={<Landing />} />
+              <Route path="/" element={<Index />} />
               <Route path="/login" element={<Login />} />
               
               {/* Internal user routes - Admins can access everything */}
