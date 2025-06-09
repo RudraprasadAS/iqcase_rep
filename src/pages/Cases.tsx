@@ -1,215 +1,143 @@
-import { useState, useEffect } from 'react';
-import { Helmet } from 'react-helmet-async';
-import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Plus, ArrowUp, ArrowDown, Edit } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import CaseEditDialog from '@/components/cases/CaseEditDialog';
-import SLABadge from '@/components/cases/SLABadge';
-import StatusBadge from '@/components/cases/StatusBadge';
-import PriorityBadge from '@/components/cases/PriorityBadge';
 
-interface Case {
-  id: string;
-  title: string;
-  status: string;
-  priority: string;
-  category_id?: string;
-  submitted_by: string;
-  assigned_to?: string;
-  created_at: string;
-  updated_at: string;
-  description?: string;
-  sla_due_at?: string;
-}
-
-interface SortConfig {
-  key: keyof Case;
-  direction: 'asc' | 'desc';
-}
+import React, { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Plus, Search, FileText, Filter } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { PermissionGuard } from "@/components/auth/PermissionGuard";
+import { FieldPermissionWrapper } from "@/components/auth/FieldPermissionWrapper";
+import { useFieldPermissions } from "@/hooks/useFieldPermissions";
 
 const Cases = () => {
-  const [cases, setCases] = useState<Case[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [priorityFilter, setPriorityFilter] = useState<string>('all');
-  const [slaFilter, setSlaFilter] = useState<string>('all');
-  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'created_at', direction: 'desc' });
-  const [editingCase, setEditingCase] = useState<Case | null>(null);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [priorityFilter, setPriorityFilter] = useState("all");
 
-  useEffect(() => {
-    fetchCases();
-  }, [sortConfig]);
+  // Check permissions for case fields
+  const caseFields = ['view_cases', 'create_case', 'edit_case', 'delete_case', 'assign_case', 'export_cases'];
+  const { canViewField, canEditField } = useFieldPermissions('cases', caseFields);
 
-  const fetchCases = async () => {
-    try {
+  // Fetch cases data
+  const { data: cases, isLoading } = useQuery({
+    queryKey: ["cases", searchQuery, statusFilter, priorityFilter],
+    queryFn: async () => {
       let query = supabase
-        .from('cases')
+        .from("cases")
         .select(`
-          id,
-          title,
-          status,
-          priority,
-          category_id,
-          submitted_by,
-          assigned_to,
-          created_at,
-          updated_at,
-          description,
-          sla_due_at
-        `);
+          *,
+          category:case_categories(name),
+          submitted_by_user:users!cases_submitted_by_fkey(name),
+          assigned_to_user:users!cases_assigned_to_fkey(name)
+        `)
+        .order("created_at", { ascending: false });
 
-      query = query.order(sortConfig.key, { ascending: sortConfig.direction === 'asc' });
-
-      const { data, error } = await query;
-
-      if (error) {
-        throw error;
+      if (searchQuery) {
+        query = query.or(`title.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`);
       }
 
-      setCases(data || []);
-    } catch (error) {
-      console.error('Error fetching cases:', error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch cases",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+      if (statusFilter !== "all") {
+        query = query.eq("status", statusFilter);
+      }
 
-  const handleSort = (key: keyof Case) => {
-    setSortConfig(prevConfig => ({
-      key,
-      direction: prevConfig.key === key && prevConfig.direction === 'asc' ? 'desc' : 'asc'
-    }));
-  };
+      if (priorityFilter !== "all") {
+        query = query.eq("priority", priorityFilter);
+      }
 
-  const getSortIcon = (key: keyof Case) => {
-    if (sortConfig.key !== key) return null;
-    return sortConfig.direction === 'asc' ? 
-      <ArrowUp className="h-4 w-4 ml-1" /> : 
-      <ArrowDown className="h-4 w-4 ml-1" />;
-  };
-
-  const getSLAStatus = (case_: Case) => {
-    if (!case_.sla_due_at || case_.status === 'closed' || case_.status === 'resolved') {
-      return 'none';
-    }
-    
-    const dueDate = new Date(case_.sla_due_at);
-    const now = new Date();
-    const timeDiff = dueDate.getTime() - now.getTime();
-    const hoursRemaining = timeDiff / (1000 * 60 * 60);
-
-    if (hoursRemaining < 0) return 'breached';
-    if (hoursRemaining < 2) return 'critical';
-    if (hoursRemaining < 24) return 'warning';
-    return 'on_track';
-  };
-
-  const filteredCases = cases.filter(case_ => {
-    const matchesSearch = case_.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      case_.status.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      case_.priority.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStatus = statusFilter === 'all' || case_.status === statusFilter;
-    const matchesPriority = priorityFilter === 'all' || case_.priority === priorityFilter;
-    
-    const slaStatus = getSLAStatus(case_);
-    const matchesSLA = slaFilter === 'all' || slaStatus === slaFilter;
-    
-    return matchesSearch && matchesStatus && matchesPriority && matchesSLA;
+      const { data, error } = await query;
+      if (error) throw error;
+      return data;
+    },
+    enabled: canViewField('view_cases'), // Only fetch if user can view cases
   });
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case "urgent": return "destructive";
+      case "high": return "destructive";
+      case "medium": return "default";
+      case "low": return "secondary";
+      default: return "outline";
+    }
   };
 
-  const generateCaseNumber = (id: string, createdAt: string) => {
-    const year = new Date(createdAt).getFullYear();
-    const shortId = id.slice(-6).toUpperCase();
-    return `#${year}-${shortId}`;
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "open": return "default";
+      case "in_progress": return "secondary";
+      case "resolved": return "outline";
+      case "closed": return "outline";
+      default: return "outline";
+    }
   };
 
-  const handleRowClick = (caseId: string) => {
-    navigate(`/cases/${caseId}`);
-  };
-
-  const handleEditClick = (event: React.MouseEvent, case_: Case) => {
-    event.stopPropagation();
-    setEditingCase(case_);
-    setIsEditDialogOpen(true);
-  };
-
-  const handleCaseUpdate = (updatedCase: Case) => {
-    setCases(prevCases => 
-      prevCases.map(case_ => 
-        case_.id === updatedCase.id ? updatedCase : case_
-      )
-    );
-    setIsEditDialogOpen(false);
-    setEditingCase(null);
-    toast({
-      title: "Success",
-      description: "Case updated successfully"
-    });
-  };
-
-  if (loading) {
+  // If user can't view cases at all, show access denied
+  if (!canViewField('view_cases')) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-lg">Loading cases...</div>
+      <div className="container mx-auto py-6">
+        <Card>
+          <CardContent className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <h2 className="text-2xl font-semibold mb-2">Access Denied</h2>
+              <p className="text-muted-foreground">You don't have permission to view cases.</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   return (
-    <>
-      <Helmet>
-        <title>Cases - IQCase</title>
-      </Helmet>
-      
+    <PermissionGuard elementKey="cases" permissionType="view">
       <div className="container mx-auto py-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">Cases</h1>
-          <Button onClick={() => navigate('/cases/new')}>
-            <Plus className="h-4 w-4 mr-2" />
-            New Case
-          </Button>
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold">Cases</h1>
+            <p className="text-muted-foreground">Manage and track all cases</p>
+          </div>
+          
+          <div className="flex gap-2">
+            <PermissionGuard elementKey="cases.export_cases" permissionType="view">
+              <Button variant="outline">
+                <FileText className="h-4 w-4 mr-2" />
+                Export
+              </Button>
+            </PermissionGuard>
+            
+            <PermissionGuard elementKey="cases.create_case" permissionType="edit">
+              <Button onClick={() => navigate("/cases/new")}>
+                <Plus className="h-4 w-4 mr-2" />
+                New Case
+              </Button>
+            </PermissionGuard>
+          </div>
         </div>
 
+        {/* Search and Filters */}
         <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>All Cases</CardTitle>
-              <div className="flex items-center space-x-2">
+          <CardContent className="pt-6">
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                   <Input
                     placeholder="Search cases..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 w-64"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
                   />
                 </div>
+              </div>
+              
+              <FieldPermissionWrapper elementKey="cases.edit_case_status">
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-32">
+                  <SelectTrigger className="w-[150px]">
+                    <Filter className="h-4 w-4 mr-2" />
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -220,158 +148,144 @@ const Cases = () => {
                     <SelectItem value="closed">Closed</SelectItem>
                   </SelectContent>
                 </Select>
+              </FieldPermissionWrapper>
+
+              <FieldPermissionWrapper elementKey="cases.edit_case_priority">
                 <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                  <SelectTrigger className="w-32">
+                  <SelectTrigger className="w-[150px]">
                     <SelectValue placeholder="Priority" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Priority</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
                     <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="urgent">Urgent</SelectItem>
                   </SelectContent>
                 </Select>
-                <Select value={slaFilter} onValueChange={setSlaFilter}>
-                  <SelectTrigger className="w-32">
-                    <SelectValue placeholder="SLA" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All SLA</SelectItem>
-                    <SelectItem value="breached">Breached</SelectItem>
-                    <SelectItem value="critical">Critical</SelectItem>
-                    <SelectItem value="warning">Warning</SelectItem>
-                    <SelectItem value="on_track">On Track</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              </FieldPermissionWrapper>
             </div>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead 
-                    className="cursor-pointer hover:bg-muted/30"
-                    onClick={() => handleSort('id')}
-                  >
-                    <div className="flex items-center">
-                      Case Number
-                      {getSortIcon('id')}
-                    </div>
-                  </TableHead>
-                  <TableHead 
-                    className="cursor-pointer hover:bg-muted/30"
-                    onClick={() => handleSort('title')}
-                  >
-                    <div className="flex items-center">
-                      Title
-                      {getSortIcon('title')}
-                    </div>
-                  </TableHead>
-                  <TableHead 
-                    className="cursor-pointer hover:bg-muted/30"
-                    onClick={() => handleSort('status')}
-                  >
-                    <div className="flex items-center">
-                      Status
-                      {getSortIcon('status')}
-                    </div>
-                  </TableHead>
-                  <TableHead 
-                    className="cursor-pointer hover:bg-muted/30"
-                    onClick={() => handleSort('priority')}
-                  >
-                    <div className="flex items-center">
-                      Priority
-                      {getSortIcon('priority')}
-                    </div>
-                  </TableHead>
-                  <TableHead 
-                    className="cursor-pointer hover:bg-muted/30"
-                    onClick={() => handleSort('sla_due_at')}
-                  >
-                    <div className="flex items-center">
-                      SLA Status
-                      {getSortIcon('sla_due_at')}
-                    </div>
-                  </TableHead>
-                  <TableHead 
-                    className="cursor-pointer hover:bg-muted/30"
-                    onClick={() => handleSort('created_at')}
-                  >
-                    <div className="flex items-center">
-                      Created
-                      {getSortIcon('created_at')}
-                    </div>
-                  </TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredCases.map((case_) => (
-                  <TableRow 
-                    key={case_.id} 
-                    className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => handleRowClick(case_.id)}
-                  >
-                    <TableCell className="font-medium">
-                      {generateCaseNumber(case_.id, case_.created_at)}
-                    </TableCell>
-                    <TableCell>
-                      <div className="max-w-xs truncate">{case_.title}</div>
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge status={case_.status} />
-                    </TableCell>
-                    <TableCell>
-                      <PriorityBadge priority={case_.priority} />
-                    </TableCell>
-                    <TableCell>
-                      <SLABadge sla_due_at={case_.sla_due_at} status={case_.status} />
-                    </TableCell>
-                    <TableCell>{formatDate(case_.created_at)}</TableCell>
-                    <TableCell>
-                      <div className="flex space-x-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => navigate(`/cases/${case_.id}`)}
-                        >
-                          View
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={(e) => handleEditClick(e, case_)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            
-            {filteredCases.length === 0 && (
-              <div className="text-center py-8 text-muted-foreground">
-                {searchTerm || statusFilter !== 'all' || priorityFilter !== 'all' || slaFilter !== 'all' ? 'No cases found matching your filters.' : 'No cases found.'}
-              </div>
-            )}
           </CardContent>
         </Card>
-      </div>
 
-      <CaseEditDialog
-        case={editingCase}
-        isOpen={isEditDialogOpen}
-        onClose={() => {
-          setIsEditDialogOpen(false);
-          setEditingCase(null);
-        }}
-        onCaseUpdate={handleCaseUpdate}
-      />
-    </>
+        {/* Cases List */}
+        <div className="grid gap-6">
+          {isLoading ? (
+            <div className="grid gap-4">
+              {[...Array(5)].map((_, i) => (
+                <Card key={i} className="animate-pulse">
+                  <CardContent className="pt-6">
+                    <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                    <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : cases?.length === 0 ? (
+            <Card>
+              <CardContent className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <h2 className="text-2xl font-semibold mb-2">No cases found</h2>
+                  <p className="text-muted-foreground mb-4">
+                    {searchQuery || statusFilter !== "all" || priorityFilter !== "all"
+                      ? "Try adjusting your search or filters"
+                      : "Get started by creating your first case"}
+                  </p>
+                  <PermissionGuard elementKey="cases.create_case" permissionType="edit">
+                    <Button onClick={() => navigate("/cases/new")}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create Case
+                    </Button>
+                  </PermissionGuard>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            cases?.map((caseItem) => (
+              <Card key={caseItem.id} className="hover:shadow-md transition-shadow cursor-pointer">
+                <CardHeader 
+                  className="pb-4"
+                  onClick={() => navigate(`/cases/${caseItem.id}`)}
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <CardTitle className="text-lg mb-2">{caseItem.title}</CardTitle>
+                      <CardDescription className="line-clamp-2">
+                        {caseItem.description}
+                      </CardDescription>
+                    </div>
+                    <div className="flex flex-col gap-2 ml-4">
+                      <FieldPermissionWrapper elementKey="cases.edit_case_priority">
+                        <Badge variant={getPriorityColor(caseItem.priority)}>
+                          {caseItem.priority}
+                        </Badge>
+                      </FieldPermissionWrapper>
+                      <FieldPermissionWrapper elementKey="cases.edit_case_status">
+                        <Badge variant={getStatusColor(caseItem.status)}>
+                          {caseItem.status.replace('_', ' ')}
+                        </Badge>
+                      </FieldPermissionWrapper>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-muted-foreground">
+                    <FieldPermissionWrapper elementKey="cases.view_case_details">
+                      <div>
+                        <span className="font-medium">Category:</span>
+                        <p>{caseItem.category?.name || 'Uncategorized'}</p>
+                      </div>
+                    </FieldPermissionWrapper>
+                    
+                    <FieldPermissionWrapper elementKey="cases.view_case_details">
+                      <div>
+                        <span className="font-medium">Submitted by:</span>
+                        <p>{caseItem.submitted_by_user?.name || 'Unknown'}</p>
+                      </div>
+                    </FieldPermissionWrapper>
+                    
+                    <FieldPermissionWrapper elementKey="cases.assign_case">
+                      <div>
+                        <span className="font-medium">Assigned to:</span>
+                        <p>{caseItem.assigned_to_user?.name || 'Unassigned'}</p>
+                      </div>
+                    </FieldPermissionWrapper>
+                    
+                    <FieldPermissionWrapper elementKey="cases.edit_case_location">
+                      <div>
+                        <span className="font-medium">Location:</span>
+                        <p>{caseItem.location || 'Not specified'}</p>
+                      </div>
+                    </FieldPermissionWrapper>
+                  </div>
+                  
+                  <div className="mt-4 flex justify-between items-center">
+                    <div className="text-xs text-muted-foreground">
+                      Created: {new Date(caseItem.created_at).toLocaleDateString()}
+                    </div>
+                    
+                    <div className="flex gap-2">
+                      <PermissionGuard elementKey="cases.edit_case" permissionType="edit">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/cases/${caseItem.id}`);
+                          }}
+                        >
+                          Edit
+                        </Button>
+                      </PermissionGuard>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </div>
+      </div>
+    </PermissionGuard>
   );
 };
 

@@ -4,22 +4,19 @@ import { usePermissionCheck } from '@/hooks/usePermissionCheck';
 
 interface FieldPermissionWrapperProps {
   children: React.ReactNode;
-  moduleName: string;
-  fieldName: string;
+  elementKey: string;
   permissionType?: 'view' | 'edit';
   fallback?: React.ReactNode;
 }
 
 export const FieldPermissionWrapper: React.FC<FieldPermissionWrapperProps> = ({
   children,
-  moduleName,
-  fieldName,
+  elementKey,
   permissionType = 'view',
   fallback = null
 }) => {
   const { hasPermission, isLoading } = usePermissionCheck(
-    moduleName,
-    fieldName,
+    elementKey,
     permissionType
   );
 

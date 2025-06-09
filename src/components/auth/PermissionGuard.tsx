@@ -6,8 +6,7 @@ import { Shield } from 'lucide-react';
 
 interface PermissionGuardProps {
   children: React.ReactNode;
-  moduleName: string;
-  fieldName?: string | null;
+  elementKey: string;
   permissionType?: 'view' | 'edit';
   fallback?: React.ReactNode;
   showError?: boolean;
@@ -15,15 +14,13 @@ interface PermissionGuardProps {
 
 export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   children,
-  moduleName,
-  fieldName,
+  elementKey,
   permissionType = 'view',
   fallback = null,
   showError = false
 }) => {
   const { hasPermission, isLoading, error } = usePermissionCheck(
-    moduleName,
-    fieldName,
+    elementKey,
     permissionType
   );
 
