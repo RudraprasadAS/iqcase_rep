@@ -62,12 +62,15 @@ export const PermissionTable: React.FC<PermissionTableProps> = ({
   handleSelectAllForTable,
   showSelectAll
 }) => {
-  // Debug logging on mount or when permissions change
+  // Debug logging
   useEffect(() => {
-    console.log("PermissionTable rendering with permissions:", permissions);
-    console.log("Selected role ID:", selectedRoleId);
-    console.log("Expanded tables:", expandedTables);
-  }, [permissions, selectedRoleId, expandedTables]);
+    console.log("PermissionTable rendering with:", {
+      tablesCount: tables.length,
+      selectedRoleId,
+      permissionsCount: permissions?.length,
+      tables: tables.map(t => ({ name: t.name, fieldsCount: t.fields?.length }))
+    });
+  }, [tables, selectedRoleId, permissions]);
   
   return (
     <div className="overflow-x-auto border rounded-md">
@@ -119,7 +122,7 @@ export const PermissionTable: React.FC<PermissionTableProps> = ({
           ) : (
             <TableRow>
               <TableCell colSpan={3} className="text-center py-8">
-                No tables available
+                Loading tables from database...
               </TableCell>
             </TableRow>
           )}

@@ -1,11 +1,12 @@
 
 import React from 'react';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
-import { useMenuPermissions } from '@/hooks/usePermissionCheck';
+import { useMenuPermissions, useUserPermissions } from '@/hooks/usePermissionCheck';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export const PermissionDebugger: React.FC = () => {
   const { userInfo, isLoading: roleLoading } = useRoleAccess();
+  const { userPermissions, isLoading: permissionLoading } = useUserPermissions();
   const {
     canViewAnalytics,
     canViewReports,
@@ -15,17 +16,20 @@ export const PermissionDebugger: React.FC = () => {
     canViewRoles,
     canViewDashboards,
     canViewInsights,
-    isLoading: permissionLoading
+    canViewCases,
+    canViewNotifications,
+    canViewKnowledge,
+    availableModules
   } = useMenuPermissions();
 
   if (roleLoading || permissionLoading) {
-    return <div>Loading...</div>;
+    return <div>Loading permissions...</div>;
   }
 
   return (
     <Card className="m-4">
       <CardHeader>
-        <CardTitle>Permission Debugger</CardTitle>
+        <CardTitle>Permission Debugger - Super Admin Check</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div>
@@ -33,6 +37,19 @@ export const PermissionDebugger: React.FC = () => {
           <pre className="text-xs bg-gray-100 p-2 rounded">
             {JSON.stringify(userInfo, null, 2)}
           </pre>
+        </div>
+        
+        <div>
+          <h3 className="font-semibold">Available Modules (from permissions):</h3>
+          <div className="text-sm space-y-1">
+            {availableModules.map(module => (
+              <div key={module} className="flex items-center gap-2">
+                <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs">
+                  {module}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
         
         <div>
@@ -46,7 +63,17 @@ export const PermissionDebugger: React.FC = () => {
             <li>Roles: {canViewRoles ? '✅' : '❌'}</li>
             <li>Dashboards: {canViewDashboards ? '✅' : '❌'}</li>
             <li>Insights: {canViewInsights ? '✅' : '❌'}</li>
+            <li>Cases: {canViewCases ? '✅' : '❌'}</li>
+            <li>Notifications: {canViewNotifications ? '✅' : '❌'}</li>
+            <li>Knowledge Base: {canViewKnowledge ? '✅' : '❌'}</li>
           </ul>
+        </div>
+
+        <div>
+          <h3 className="font-semibold">All User Permissions (Raw):</h3>
+          <pre className="text-xs bg-gray-100 p-2 rounded max-h-64 overflow-y-auto">
+            {JSON.stringify(userPermissions, null, 2)}
+          </pre>
         </div>
       </CardContent>
     </Card>

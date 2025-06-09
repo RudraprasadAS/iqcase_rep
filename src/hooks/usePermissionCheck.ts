@@ -94,30 +94,109 @@ export const useBulkPermissionCheck = (permissions: Array<{
   };
 };
 
-// Hook to check specific menu/module access
-export const useMenuPermissions = () => {
-  const permissions = [
-    { moduleName: 'analytics', permissionType: 'view' as const },
-    { moduleName: 'reports', permissionType: 'view' as const },
-    { moduleName: 'admin', permissionType: 'view' as const },
-    { moduleName: 'users', permissionType: 'view' as const },
-    { moduleName: 'permissions', permissionType: 'view' as const },
-    { moduleName: 'roles', permissionType: 'view' as const },
-    { moduleName: 'dashboards', permissionType: 'view' as const },
-    { moduleName: 'insights', permissionType: 'view' as const },
-  ];
+// Hook to get all permissions for the current user - this will help with dynamic menu generation
+export const useUserPermissions = () => {
+  const { data: userPermissions = [], isLoading, error } = useQuery({
+    queryKey: ['user_permissions'],
+    queryFn: async () => {
+      console.log('[useUserPermissions] Fetching all user permissions');
+      
+      // Get current user info
+      const { data: userInfo } = await supabase
+        .from('users')
+        .select(`
+          id,
+          role_id,
+          roles:role_id (
+            id,
+            name,
+            is_system
+          )
+        `)
+        .eq('auth_user_id', (await supabase.auth.getUser()).data.user?.id)
+        .single();
 
-  const { permissionResults, isLoading, error } = useBulkPermissionCheck(permissions);
+      if (!userInfo) {
+        throw new Error('User not found');
+      }
+
+      // If user has a system role (like Super Admin), return permissions for all modules
+      if (userInfo.roles?.is_system) {
+        console.log('[useUserPermissions] User has system role, granting all permissions');
+        // Get all available tables from database
+        const { data: tables } = await supabase.rpc('get_tables_info');
+        
+        const allPermissions = tables?.map((table: any) => ({
+          module_name: table.name,
+          field_name: null,
+          can_view: true,
+          can_edit: true
+        })) || [];
+
+        return allPermissions;
+      }
+
+      // Get permissions from database for this role
+      const { data: permissions, error } = await supabase
+        .from('permissions')
+        .select('module_name, field_name, can_view, can_edit')
+        .eq('role_id', userInfo.role_id);
+
+      if (error) {
+        console.error('Error fetching user permissions:', error);
+        throw error;
+      }
+
+      console.log('[useUserPermissions] User permissions:', permissions);
+      return permissions || [];
+    },
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+  });
 
   return {
-    canViewAnalytics: permissionResults['analytics.view'] || false,
-    canViewReports: permissionResults['reports.view'] || false,
-    canViewAdmin: permissionResults['admin.view'] || false,
-    canViewUsers: permissionResults['users.view'] || false,
-    canViewPermissions: permissionResults['permissions.view'] || false,
-    canViewRoles: permissionResults['roles.view'] || false,
-    canViewDashboards: permissionResults['dashboards.view'] || false,
-    canViewInsights: permissionResults['insights.view'] || false,
+    userPermissions,
+    isLoading,
+    error: error as Error | null
+  };
+};
+
+// Hook to check specific menu/module access
+export const useMenuPermissions = () => {
+  const { userPermissions, isLoading, error } = useUserPermissions();
+
+  // Create a permission checker function
+  const hasModulePermission = (moduleName: string, permissionType: 'view' | 'edit' = 'view') => {
+    if (!userPermissions) return false;
+    
+    // Check if user has permission for this module (either specific or table-level)
+    const permission = userPermissions.find(p => 
+      p.module_name === moduleName && 
+      (p.field_name === null || p.field_name === undefined)
+    );
+    
+    if (permission) {
+      return permissionType === 'view' ? permission.can_view : permission.can_edit;
+    }
+    
+    return false;
+  };
+
+  return {
+    canViewAnalytics: hasModulePermission('analytics', 'view'),
+    canViewReports: hasModulePermission('reports', 'view'),
+    canViewAdmin: hasModulePermission('admin', 'view'),
+    canViewUsers: hasModulePermission('users', 'view'),
+    canViewPermissions: hasModulePermission('permissions', 'view'),
+    canViewRoles: hasModulePermission('roles', 'view'),
+    canViewDashboards: hasModulePermission('dashboards', 'view'),
+    canViewInsights: hasModulePermission('insights', 'view'),
+    canViewCases: hasModulePermission('cases', 'view'),
+    canViewNotifications: hasModulePermission('notifications', 'view'),
+    canViewKnowledge: hasModulePermission('knowledge_base', 'view'),
+    // Add all available modules dynamically
+    availableModules: userPermissions?.filter(p => p.can_view && p.field_name === null).map(p => p.module_name) || [],
+    userPermissions,
     isLoading,
     error
   };

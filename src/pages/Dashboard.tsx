@@ -6,7 +6,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertCircle, Clock, CheckCircle, FileText, Search, Users, Settings, TrendingUp, Calendar } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
+import { useQuery } from "@tanstack/react-query";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import CalendarView from '@/components/dashboard/CalendarView';
 import { PermissionDebugger } from '@/components/debug/PermissionDebugger';
 
@@ -174,16 +175,14 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="container mx-auto py-6 space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground">
-          Welcome back! Here's an overview of your case management system.
-        </p>
+        <p className="text-muted-foreground">Welcome to your case management dashboard</p>
       </div>
 
-      {/* Debug component - remove in production */}
-      {process.env.NODE_ENV === 'development' && <PermissionDebugger />}
+      {/* Add debug component for Super Admin testing */}
+      <PermissionDebugger />
 
       <Tabs defaultValue="overview" className="space-y-6">
         <TabsList className="grid w-full grid-cols-2">

@@ -10,7 +10,11 @@ import {
   Bell,
   Shield,
   ChevronDown,
-  TrendingUp
+  TrendingUp,
+  Users,
+  Key,
+  UserCog,
+  Database
 } from 'lucide-react';
 import {
   Sidebar,
@@ -33,30 +37,36 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { useState } from 'react';
 import { useMenuPermissions } from '@/hooks/usePermissionCheck';
 
-const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Cases', href: '/cases', icon: FileText },
-  { name: 'Knowledge Base', href: '/knowledge', icon: BookOpen },
-  { name: 'Notifications', href: '/notifications', icon: Bell },
-  { name: 'Insights', href: '/insights', icon: TrendingUp },
+// Base navigation items that should always be available
+const baseNavigation = [
+  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, module: 'dashboard' },
 ];
 
+// Module to navigation mapping
+const moduleNavigation: Record<string, any> = {
+  'cases': { name: 'Cases', href: '/cases', icon: FileText },
+  'knowledge_base': { name: 'Knowledge Base', href: '/knowledge', icon: BookOpen },
+  'notifications': { name: 'Notifications', href: '/notifications', icon: Bell },
+  'insights': { name: 'Insights', href: '/insights', icon: TrendingUp },
+};
+
 const reportNavigation = [
-  { name: 'Reports', href: '/reports' },
-  { name: 'Report Builder', href: '/reports/builder' },
-  { name: 'Dashboards', href: '/dashboards' },
+  { name: 'Reports', href: '/reports', module: 'reports' },
+  { name: 'Report Builder', href: '/reports/builder', module: 'reports' },
+  { name: 'Dashboards', href: '/dashboards', module: 'dashboards' },
 ];
 
 const adminNavigation = [
-  { name: 'Users', href: '/admin/users' },
-  { name: 'Permissions', href: '/admin/permissions' },
-  { name: 'Roles', href: '/admin/roles' },
+  { name: 'Users', href: '/admin/users', icon: Users, module: 'users' },
+  { name: 'Permissions', href: '/admin/permissions', icon: Key, module: 'permissions' },
+  { name: 'Roles', href: '/admin/roles', icon: UserCog, module: 'roles' },
 ];
 
 export function AppSidebar() {
   const { state } = useSidebar();
   const [isReportsOpen, setIsReportsOpen] = useState(false);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const [isDatabaseOpen, setIsDatabaseOpen] = useState(false);
   
   const {
     canViewAnalytics,
@@ -67,36 +77,17 @@ export function AppSidebar() {
     canViewRoles,
     canViewDashboards,
     canViewInsights,
+    canViewCases,
+    canViewNotifications,
+    canViewKnowledge,
+    availableModules,
+    userPermissions,
     isLoading
   } = useMenuPermissions();
 
-  // Filter navigation items based on permissions
-  const filteredNavigation = navigation.filter(item => {
-    if (item.name === 'Insights') return canViewInsights;
-    return true; // Allow dashboard, cases, knowledge base, and notifications for all authenticated users
-  });
+  console.log('[AppSidebar] Available modules:', availableModules);
+  console.log('[AppSidebar] User permissions:', userPermissions);
 
-  // Filter admin navigation based on specific permissions
-  const filteredAdminNavigation = adminNavigation.filter(item => {
-    switch (item.name) {
-      case 'Users':
-        return canViewUsers;
-      case 'Permissions':
-        return canViewPermissions;
-      case 'Roles':
-        return canViewRoles;
-      default:
-        return false;
-    }
-  });
-
-  // Filter reports navigation based on specific permissions
-  const filteredReportNavigation = reportNavigation.filter(item => {
-    if (item.name === 'Dashboards') return canViewDashboards;
-    return canViewReports; // Reports and Report Builder both need reports permission
-  });
-
-  // Show loading state
   if (isLoading) {
     return (
       <Sidebar collapsible="icon" className="font-inter">
@@ -121,7 +112,45 @@ export function AppSidebar() {
       </Sidebar>
     );
   }
+
+  // Build dynamic navigation based on permissions
+  const dynamicNavigation = [];
   
+  // Add base navigation
+  dynamicNavigation.push(...baseNavigation);
+  
+  // Add module-based navigation items
+  availableModules.forEach(module => {
+    if (moduleNavigation[module]) {
+      dynamicNavigation.push(moduleNavigation[module]);
+    }
+  });
+
+  // Filter admin navigation based on specific permissions
+  const filteredAdminNavigation = adminNavigation.filter(item => {
+    switch (item.module) {
+      case 'users':
+        return canViewUsers;
+      case 'permissions':
+        return canViewPermissions;
+      case 'roles':
+        return canViewRoles;
+      default:
+        return false;
+    }
+  });
+
+  // Filter reports navigation based on specific permissions
+  const filteredReportNavigation = reportNavigation.filter(item => {
+    if (item.module === 'dashboards') return canViewDashboards;
+    return canViewReports;
+  });
+
+  // Get database tables that user has access to (for database section)
+  const databaseTables = availableModules.filter(module => 
+    !['dashboard', 'analytics', 'reports', 'admin', 'users', 'permissions', 'roles', 'dashboards', 'insights'].includes(module)
+  );
+
   return (
     <Sidebar collapsible="icon" className="font-inter">
       <SidebarHeader>
@@ -153,7 +182,7 @@ export function AppSidebar() {
           <SidebarGroupLabel>Application</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {filteredNavigation.map((item) => (
+              {dynamicNavigation.map((item) => (
                 <SidebarMenuItem key={item.name}>
                   <SidebarMenuButton asChild tooltip={item.name}>
                     <NavLink
@@ -172,7 +201,7 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Analytics section - only show if user has permission */}
+        {/* Analytics section */}
         {(canViewAnalytics || canViewReports || canViewDashboards) && filteredReportNavigation.length > 0 && (
           <SidebarGroup>
             <SidebarGroupLabel>Analytics</SidebarGroupLabel>
@@ -207,7 +236,42 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
 
-        {/* Admin section - only show if user has admin permissions */}
+        {/* Database Tables section - show all tables user has access to */}
+        {databaseTables.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Database</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <Collapsible open={isDatabaseOpen} onOpenChange={setIsDatabaseOpen}>
+                  <SidebarMenuItem>
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton tooltip="Database Tables">
+                        <Database />
+                        <span>Tables</span>
+                        <ChevronDown className={cn("ml-auto transition-transform", isDatabaseOpen && "rotate-180")} />
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <SidebarMenuSub>
+                        {databaseTables.map((tableName) => (
+                          <SidebarMenuSubItem key={tableName}>
+                            <SidebarMenuSubButton asChild>
+                              <NavLink to={`/data/${tableName}`}>
+                                <span>{tableName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
+                              </NavLink>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        ))}
+                      </SidebarMenuSub>
+                    </CollapsibleContent>
+                  </SidebarMenuItem>
+                </Collapsible>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {/* Admin section */}
         {canViewAdmin && filteredAdminNavigation.length > 0 && (
           <SidebarGroup>
             <SidebarGroupLabel>Administration</SidebarGroupLabel>
@@ -228,6 +292,7 @@ export function AppSidebar() {
                           <SidebarMenuSubItem key={item.name}>
                             <SidebarMenuSubButton asChild>
                               <NavLink to={item.href}>
+                                <item.icon className="h-4 w-4" />
                                 <span>{item.name}</span>
                               </NavLink>
                             </SidebarMenuSubButton>
