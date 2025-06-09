@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Save, Edit, Trash2, RefreshCw } from "lucide-react";
+import { Save, Edit, Trash2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { CreateRoleDialog } from "@/components/permissions/CreateRoleDialog";
 import { PermissionTable } from "@/components/permissions/PermissionTable";
@@ -17,145 +17,11 @@ import { DeleteRoleDialog } from "@/components/roles/DeleteRoleDialog";
 import { EditRoleDialog } from "@/components/roles/EditRoleDialog";
 import { toast } from "@/hooks/use-toast";
 
-// Comprehensive frontend elements structure covering all application features
-const frontendElements = [
-  {
-    name: "Dashboard",
-    type: "page",
-    fields: [
-      "view_dashboard", 
-      "export_dashboard", 
-      "customize_dashboard", 
-      "view_dashboard_metrics",
-      "edit_dashboard_layout",
-      "create_dashboard_widgets"
-    ]
-  },
-  {
-    name: "Cases",
-    type: "page", 
-    fields: [
-      "view_cases", 
-      "create_case", 
-      "edit_case", 
-      "delete_case", 
-      "assign_case", 
-      "export_cases",
-      "view_case_details",
-      "edit_case_title",
-      "edit_case_description", 
-      "edit_case_status",
-      "edit_case_priority",
-      "edit_case_category",
-      "edit_case_location",
-      "edit_case_tags",
-      "close_case",
-      "reopen_case",
-      "archive_case"
-    ]
-  },
-  {
-    name: "Case Tasks",
-    type: "page",
-    fields: [
-      "view_case_tasks",
-      "create_case_task",
-      "edit_case_task", 
-      "delete_case_task",
-      "assign_case_task",
-      "complete_case_task",
-      "set_task_due_date",
-      "view_task_history"
-    ]
-  },
-  {
-    name: "Case Notes",
-    type: "page",
-    fields: [
-      "view_case_notes",
-      "add_case_note",
-      "edit_case_note",
-      "delete_case_note",
-      "pin_case_note",
-      "view_internal_notes",
-      "create_internal_notes"
-    ]
-  },
-  {
-    name: "Case Messages",
-    type: "page", 
-    fields: [
-      "view_case_messages",
-      "send_internal_message",
-      "send_external_message", 
-      "edit_message",
-      "delete_message",
-      "pin_message",
-      "view_message_history"
-    ]
-  },
-  {
-    name: "Notifications", 
-    type: "page",
-    fields: [
-      "view_notifications",
-      "mark_notification_read",
-      "delete_notification",
-      "create_notification",
-      "send_bulk_notifications",
-      "configure_notification_settings"
-    ]
-  },
-  {
-    name: "Users Management",
-    type: "page",
-    fields: [
-      "view_users", 
-      "create_user", 
-      "edit_user", 
-      "delete_user", 
-      "activate_user",
-      "deactivate_user",
-      "reset_user_password",
-      "manage_user_roles",
-      "view_user_activity"
-    ]
-  },
-  {
-    name: "Roles & Permissions",
-    type: "page",
-    fields: [
-      "view_permissions", 
-      "edit_permissions", 
-      "create_roles", 
-      "delete_roles",
-      "edit_roles",
-      "assign_permissions",
-      "view_role_hierarchy"
-    ]
-  },
-  {
-    name: "Reports",
-    type: "page",
-    fields: [
-      "view_reports", 
-      "create_reports", 
-      "edit_reports", 
-      "delete_reports", 
-      "export_reports",
-      "schedule_reports",
-      "share_reports",
-      "view_report_analytics"
-    ]
-  }
-];
-
 const PermissionsPage = () => {
   const [selectedRoleId, setSelectedRoleId] = useState<string>("");
   const [showSelectAll, setShowSelectAll] = useState<boolean>(false);
   const [editRoleOpen, setEditRoleOpen] = useState<boolean>(false);
   const [deleteRoleOpen, setDeleteRoleOpen] = useState<boolean>(false);
-  const [registryStatus, setRegistryStatus] = useState<string>("Not started");
   const queryClient = useQueryClient();
   
   // Fetch all roles
@@ -178,90 +44,8 @@ const PermissionsPage = () => {
     },
   });
   
-  // Manual function to populate registry
-  const populateRegistry = async () => {
-    try {
-      setRegistryStatus("Populating...");
-      console.log("[PermissionsPage] Starting to populate frontend registry");
-      
-      // First, clear existing entries
-      const { error: deleteError } = await supabase
-        .from("frontend_registry")
-        .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000');
-      
-      if (deleteError) {
-        console.error("[PermissionsPage] Error clearing registry:", deleteError);
-        throw deleteError;
-      }
-      
-      // Prepare registry entries
-      const registryEntries = [];
-      
-      frontendElements.forEach(element => {
-        const moduleKey = element.name.toLowerCase().replace(/\s+/g, '_').replace(/&/g, 'and');
-        
-        // Add page-level entry
-        registryEntries.push({
-          element_key: moduleKey,
-          label: element.name,
-          module: moduleKey,
-          screen: moduleKey,
-          element_type: element.type,
-          is_active: true
-        });
-        
-        // Add field-level entries
-        element.fields.forEach(field => {
-          registryEntries.push({
-            element_key: `${moduleKey}.${field}`,
-            label: field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-            module: moduleKey,
-            screen: moduleKey,
-            element_type: 'field',
-            is_active: true
-          });
-        });
-      });
-      
-      console.log("[PermissionsPage] Inserting", registryEntries.length, "registry entries");
-      
-      // Insert in batches to avoid potential size limits
-      const batchSize = 50;
-      for (let i = 0; i < registryEntries.length; i += batchSize) {
-        const batch = registryEntries.slice(i, i + batchSize);
-        const { error } = await supabase
-          .from("frontend_registry")
-          .insert(batch);
-          
-        if (error) {
-          console.error("[PermissionsPage] Error inserting batch:", error);
-          throw error;
-        }
-      }
-      
-      setRegistryStatus("Completed");
-      toast({
-        title: "Frontend Registry Populated",
-        description: `Successfully added ${registryEntries.length} frontend elements`
-      });
-      
-      // Refresh the registry query
-      queryClient.invalidateQueries({ queryKey: ["frontend_registry"] });
-      
-    } catch (error) {
-      console.error("[PermissionsPage] Error populating registry:", error);
-      setRegistryStatus("Error");
-      toast({
-        title: "Error Populating Registry",
-        description: "Failed to populate frontend registry. Check console for details.",
-        variant: "destructive"
-      });
-    }
-  };
-  
   // Fetch frontend registry entries
-  const { data: frontendRegistry, isLoading: registryLoading, refetch: refetchRegistry } = useQuery({
+  const { data: frontendRegistry, isLoading: registryLoading } = useQuery({
     queryKey: ["frontend_registry"],
     queryFn: async () => {
       console.log("[PermissionsPage] Fetching frontend registry");
@@ -271,7 +55,7 @@ const PermissionsPage = () => {
           .select("*")
           .eq("is_active", true)
           .order("module", { ascending: true })
-          .order("element_type", { ascending: true });
+          .order("element_key", { ascending: true });
           
         if (error) {
           console.error("[PermissionsPage] Error fetching frontend registry:", error);
@@ -369,7 +153,8 @@ const PermissionsPage = () => {
       acc[item.module] = { page: null, fields: [] };
     }
     
-    if (item.element_type === 'page') {
+    // Treat main module entries (without dots) as the page level
+    if (!item.element_key.includes('.')) {
       acc[item.module].page = item;
     } else {
       acc[item.module].fields.push(item);
@@ -412,20 +197,9 @@ const PermissionsPage = () => {
       {/* Registry Status Card */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            Frontend Registry Status
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={populateRegistry}
-              disabled={registryStatus === "Populating..."}
-            >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Populate Registry
-            </Button>
-          </CardTitle>
+          <CardTitle>Frontend Registry Status</CardTitle>
           <CardDescription>
-            Status: {registryStatus} | Registry Elements: {frontendRegistry?.length || 0} | Tables: {frontendTables.length}
+            Registry Elements: {frontendRegistry?.length || 0} | Available Modules: {frontendTables.length}
           </CardDescription>
         </CardHeader>
         {frontendRegistry && frontendRegistry.length > 0 && (
@@ -516,7 +290,7 @@ const PermissionsPage = () => {
                 <div className="text-center py-12 border rounded-md bg-yellow-50">
                   <p className="text-muted-foreground">No frontend elements found in registry</p>
                   <p className="text-sm text-muted-foreground mt-2">
-                    Click "Populate Registry" above to load frontend elements
+                    The frontend registry appears to be empty
                   </p>
                 </div>
               ) : (
