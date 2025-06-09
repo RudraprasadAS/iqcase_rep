@@ -1,167 +1,137 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { supabase } from '@/integrations/supabase/client';
+import { Search, Plus, ArrowUp, ArrowDown, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useModulePermission } from '@/hooks/useModulePermissions';
-import { useRoleAccess } from '@/hooks/useRoleAccess';
-import {
-  FileText,
-  Plus,
-  Search,
-  Clock,
-  AlertCircle,
-  CheckCircle,
-  Calendar,
-  MapPin,
-  User
-} from 'lucide-react';
+import CaseEditDialog from '@/components/cases/CaseEditDialog';
+import SLABadge from '@/components/cases/SLABadge';
+import StatusBadge from '@/components/cases/StatusBadge';
+import PriorityBadge from '@/components/cases/PriorityBadge';
 
 interface Case {
   id: string;
   title: string;
   status: string;
   priority: string;
+  category_id?: string;
+  submitted_by: string;
+  assigned_to?: string;
   created_at: string;
   updated_at: string;
-  sla_due_at: string | null;
-  location: string | null;
-  description: string;
-  assigned_to?: string;
-  submitted_by?: string;
-  assigned_to_user?: { name: string };
-  submitted_by_user?: { name: string };
-  category?: { name: string };
+  description?: string;
+  sla_due_at?: string;
+}
+
+interface SortConfig {
+  key: keyof Case;
+  direction: 'asc' | 'desc';
 }
 
 const Cases = () => {
-  const { toast } = useToast();
-  const { hasViewPermission, hasEditPermission } = useModulePermission('cases');
-  const { isAdmin, userInfo } = useRoleAccess();
-  
-  const [loading, setLoading] = useState(true);
   const [cases, setCases] = useState<Case[]>([]);
-  const [filteredCases, setFilteredCases] = useState<Case[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [priorityFilter, setPriorityFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [priorityFilter, setPriorityFilter] = useState<string>('all');
+  const [slaFilter, setSlaFilter] = useState<string>('all');
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'created_at', direction: 'desc' });
+  const [editingCase, setEditingCase] = useState<Case | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
   useEffect(() => {
-    // Admin or users with view permission can see cases
-    if (isAdmin || hasViewPermission) {
-      fetchCases();
-    } else {
-      setLoading(false);
-    }
-  }, [isAdmin, hasViewPermission]);
-
-  useEffect(() => {
-    filterCases();
-  }, [cases, searchTerm, statusFilter, priorityFilter]);
+    fetchCases();
+  }, [sortConfig]);
 
   const fetchCases = async () => {
     try {
-      setLoading(true);
-      
-      console.log('Fetching cases with RLS protection');
-      console.log('User info:', userInfo);
-
-      // RLS policies will automatically filter cases based on user access
-      const { data, error } = await supabase
+      let query = supabase
         .from('cases')
         .select(`
-          *,
-          assigned_to_user:users!cases_assigned_to_fkey(name),
-          submitted_by_user:users!cases_submitted_by_fkey(name),
-          category:case_categories!cases_category_id_fkey(name)
-        `)
-        .order('created_at', { ascending: false });
+          id,
+          title,
+          status,
+          priority,
+          category_id,
+          submitted_by,
+          assigned_to,
+          created_at,
+          updated_at,
+          description,
+          sla_due_at
+        `);
+
+      query = query.order(sortConfig.key, { ascending: sortConfig.direction === 'asc' });
+
+      const { data, error } = await query;
 
       if (error) {
-        console.error('Cases fetch error:', error);
         throw error;
       }
 
-      console.log('Cases fetched successfully:', data?.length || 0, 'cases');
       setCases(data || []);
-
     } catch (error) {
       console.error('Error fetching cases:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to load cases. Please check your permissions.',
-        variant: 'destructive'
+        title: "Error",
+        description: "Failed to fetch cases",
+        variant: "destructive"
       });
-      setCases([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const filterCases = () => {
-    let filtered = cases;
-
-    if (searchTerm) {
-      filtered = filtered.filter(case_ =>
-        case_.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        case_.description.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(case_ => case_.status === statusFilter);
-    }
-
-    if (priorityFilter !== 'all') {
-      filtered = filtered.filter(case_ => case_.priority === priorityFilter);
-    }
-
-    setFilteredCases(filtered);
+  const handleSort = (key: keyof Case) => {
+    setSortConfig(prevConfig => ({
+      key,
+      direction: prevConfig.key === key && prevConfig.direction === 'asc' ? 'desc' : 'asc'
+    }));
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'open':
-        return <AlertCircle className="h-4 w-4 text-red-500" />;
-      case 'in_progress':
-        return <Clock className="h-4 w-4 text-yellow-500" />;
-      case 'closed':
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
-      default:
-        return <FileText className="h-4 w-4" />;
-    }
+  const getSortIcon = (key: keyof Case) => {
+    if (sortConfig.key !== key) return null;
+    return sortConfig.direction === 'asc' ? 
+      <ArrowUp className="h-4 w-4 ml-1" /> : 
+      <ArrowDown className="h-4 w-4 ml-1" />;
   };
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'high':
-        return 'bg-red-100 text-red-800';
-      case 'medium':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'low':
-        return 'bg-green-100 text-green-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+  const getSLAStatus = (case_: Case) => {
+    if (!case_.sla_due_at || case_.status === 'closed' || case_.status === 'resolved') {
+      return 'none';
     }
+    
+    const dueDate = new Date(case_.sla_due_at);
+    const now = new Date();
+    const timeDiff = dueDate.getTime() - now.getTime();
+    const hoursRemaining = timeDiff / (1000 * 60 * 60);
+
+    if (hoursRemaining < 0) return 'breached';
+    if (hoursRemaining < 2) return 'critical';
+    if (hoursRemaining < 24) return 'warning';
+    return 'on_track';
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'open':
-        return 'bg-red-100 text-red-800';
-      case 'in_progress':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'closed':
-        return 'bg-green-100 text-green-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
+  const filteredCases = cases.filter(case_ => {
+    const matchesSearch = case_.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      case_.status.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      case_.priority.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesStatus = statusFilter === 'all' || case_.status === statusFilter;
+    const matchesPriority = priorityFilter === 'all' || case_.priority === priorityFilter;
+    
+    const slaStatus = getSLAStatus(case_);
+    const matchesSLA = slaFilter === 'all' || slaStatus === slaFilter;
+    
+    return matchesSearch && matchesStatus && matchesPriority && matchesSLA;
+  });
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -171,190 +141,236 @@ const Cases = () => {
     });
   };
 
-  const isOverdue = (slaDueAt: string | null) => {
-    if (!slaDueAt) return false;
-    return new Date(slaDueAt) < new Date();
+  const generateCaseNumber = (id: string, createdAt: string) => {
+    const year = new Date(createdAt).getFullYear();
+    const shortId = id.slice(-6).toUpperCase();
+    return `#${year}-${shortId}`;
   };
 
-  if (!isAdmin && !hasViewPermission) {
-    return (
-      <>
-        <Helmet>
-          <title>Access Denied - Cases</title>
-        </Helmet>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Access Denied</h3>
-            <p className="text-gray-500">You don't have permission to view cases.</p>
-          </div>
-        </div>
-      </>
+  const handleRowClick = (caseId: string) => {
+    navigate(`/cases/${caseId}`);
+  };
+
+  const handleEditClick = (event: React.MouseEvent, case_: Case) => {
+    event.stopPropagation();
+    setEditingCase(case_);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleCaseUpdate = (updatedCase: Case) => {
+    setCases(prevCases => 
+      prevCases.map(case_ => 
+        case_.id === updatedCase.id ? updatedCase : case_
+      )
     );
-  }
+    setIsEditDialogOpen(false);
+    setEditingCase(null);
+    toast({
+      title: "Success",
+      description: "Case updated successfully"
+    });
+  };
 
   if (loading) {
     return (
-      <>
-        <Helmet>
-          <title>Loading Cases...</title>
-        </Helmet>
-        <div className="flex items-center justify-center h-64">
-          <div className="w-8 h-8 border-4 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
-        </div>
-      </>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg">Loading cases...</div>
+      </div>
     );
   }
 
   return (
     <>
       <Helmet>
-        <title>Cases - Case Management System</title>
+        <title>Cases - IQCase</title>
       </Helmet>
-
-      <div className="container mx-auto p-6 space-y-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold">Cases</h1>
-            <p className="text-gray-600">Manage and track all cases</p>
-          </div>
-          {(isAdmin || hasEditPermission) && (
-            <Link to="/cases/new">
-              <Button className="bg-blue-600 hover:bg-blue-700">
-                <Plus className="h-4 w-4 mr-2" />
-                New Case
-              </Button>
-            </Link>
-          )}
+      
+      <div className="container mx-auto py-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold">Cases</h1>
+          <Button onClick={() => navigate('/cases/new')}>
+            <Plus className="h-4 w-4 mr-2" />
+            New Case
+          </Button>
         </div>
 
-        {/* Filters */}
         <Card>
-          <CardContent className="pt-6">
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Search cases..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>All Cases</CardTitle>
+              <div className="flex items-center space-x-2">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <Input
+                    placeholder="Search cases..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 w-64"
+                  />
+                </div>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="open">Open</SelectItem>
+                    <SelectItem value="in_progress">In Progress</SelectItem>
+                    <SelectItem value="resolved">Resolved</SelectItem>
+                    <SelectItem value="closed">Closed</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue placeholder="Priority" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Priority</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="low">Low</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={slaFilter} onValueChange={setSlaFilter}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue placeholder="SLA" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All SLA</SelectItem>
+                    <SelectItem value="breached">Breached</SelectItem>
+                    <SelectItem value="critical">Critical</SelectItem>
+                    <SelectItem value="warning">Warning</SelectItem>
+                    <SelectItem value="on_track">On Track</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full md:w-48">
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="open">Open</SelectItem>
-                  <SelectItem value="in_progress">In Progress</SelectItem>
-                  <SelectItem value="closed">Closed</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                <SelectTrigger className="w-full md:w-48">
-                  <SelectValue placeholder="Filter by priority" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Priorities</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="low">Low</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/30"
+                    onClick={() => handleSort('id')}
+                  >
+                    <div className="flex items-center">
+                      Case Number
+                      {getSortIcon('id')}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/30"
+                    onClick={() => handleSort('title')}
+                  >
+                    <div className="flex items-center">
+                      Title
+                      {getSortIcon('title')}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/30"
+                    onClick={() => handleSort('status')}
+                  >
+                    <div className="flex items-center">
+                      Status
+                      {getSortIcon('status')}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/30"
+                    onClick={() => handleSort('priority')}
+                  >
+                    <div className="flex items-center">
+                      Priority
+                      {getSortIcon('priority')}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/30"
+                    onClick={() => handleSort('sla_due_at')}
+                  >
+                    <div className="flex items-center">
+                      SLA Status
+                      {getSortIcon('sla_due_at')}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/30"
+                    onClick={() => handleSort('created_at')}
+                  >
+                    <div className="flex items-center">
+                      Created
+                      {getSortIcon('created_at')}
+                    </div>
+                  </TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredCases.map((case_) => (
+                  <TableRow 
+                    key={case_.id} 
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleRowClick(case_.id)}
+                  >
+                    <TableCell className="font-medium">
+                      {generateCaseNumber(case_.id, case_.created_at)}
+                    </TableCell>
+                    <TableCell>
+                      <div className="max-w-xs truncate">{case_.title}</div>
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge status={case_.status} />
+                    </TableCell>
+                    <TableCell>
+                      <PriorityBadge priority={case_.priority} />
+                    </TableCell>
+                    <TableCell>
+                      <SLABadge sla_due_at={case_.sla_due_at} status={case_.status} />
+                    </TableCell>
+                    <TableCell>{formatDate(case_.created_at)}</TableCell>
+                    <TableCell>
+                      <div className="flex space-x-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => navigate(`/cases/${case_.id}`)}
+                        >
+                          View
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => handleEditClick(e, case_)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            
+            {filteredCases.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground">
+                {searchTerm || statusFilter !== 'all' || priorityFilter !== 'all' || slaFilter !== 'all' ? 'No cases found matching your filters.' : 'No cases found.'}
+              </div>
+            )}
           </CardContent>
         </Card>
-
-        {/* Cases List */}
-        {filteredCases.length === 0 ? (
-          <Card>
-            <CardContent className="text-center py-12">
-              <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                {cases.length === 0 ? 'No cases accessible' : 'No cases match your filters'}
-              </h3>
-              <p className="text-gray-500 mb-4">
-                {cases.length === 0 
-                  ? 'You currently have access to no cases. Contact your administrator if this seems incorrect.'
-                  : 'Try adjusting your search or filter criteria'
-                }
-              </p>
-              {(isAdmin || hasEditPermission) && cases.length === 0 && (
-                <Link to="/cases/new">
-                  <Button>Create New Case</Button>
-                </Link>
-              )}
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-4">
-            {filteredCases.map((case_) => (
-              <Card key={case_.id} className="hover:shadow-md transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-3 mb-2">
-                        {getStatusIcon(case_.status)}
-                        <h3 className="text-lg font-semibold">{case_.title}</h3>
-                        {case_.sla_due_at && isOverdue(case_.sla_due_at) && (
-                          <Badge variant="destructive">Overdue</Badge>
-                        )}
-                      </div>
-                      
-                      <p className="text-gray-600 mb-3 line-clamp-2">{case_.description}</p>
-                      
-                      <div className="flex items-center space-x-4 text-sm text-gray-500">
-                        <div className="flex items-center">
-                          <Calendar className="h-4 w-4 mr-1" />
-                          Created {formatDate(case_.created_at)}
-                        </div>
-                        {case_.location && (
-                          <div className="flex items-center">
-                            <MapPin className="h-4 w-4 mr-1" />
-                            {case_.location}
-                          </div>
-                        )}
-                        {case_.assigned_to_user && (
-                          <div className="flex items-center">
-                            <User className="h-4 w-4 mr-1" />
-                            {case_.assigned_to_user.name}
-                          </div>
-                        )}
-                        {case_.sla_due_at && (
-                          <div className="flex items-center">
-                            <Clock className="h-4 w-4 mr-1" />
-                            Due {formatDate(case_.sla_due_at)}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <div className="flex flex-col items-end space-y-2">
-                      <div className="flex space-x-2">
-                        <Badge className={getPriorityColor(case_.priority)}>
-                          {case_.priority}
-                        </Badge>
-                        <Badge className={getStatusColor(case_.status)}>
-                          {case_.status.replace('_', ' ')}
-                        </Badge>
-                      </div>
-                      <Link to={`/cases/${case_.id}`}>
-                        <Button variant="outline" size="sm">
-                          View Details
-                        </Button>
-                      </Link>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
       </div>
+
+      <CaseEditDialog
+        case={editingCase}
+        isOpen={isEditDialogOpen}
+        onClose={() => {
+          setIsEditDialogOpen(false);
+          setEditingCase(null);
+        }}
+        onCaseUpdate={handleCaseUpdate}
+      />
     </>
   );
 };

@@ -1,199 +1,189 @@
 
+import { NavLink } from 'react-router-dom';
+import { cn } from '@/lib/utils';
+import { 
+  LayoutDashboard, 
+  FileText, 
+  BarChart3, 
+  Settings, 
+  BookOpen,
+  Bell,
+  Shield,
+  ChevronDown,
+  TrendingUp
+} from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
+  SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
-} from "@/components/ui/sidebar"
-import { 
-  LayoutDashboard, 
-  FileText, 
-  Users, 
-  BarChart3, 
-  BookOpen,
-  Bell,
-  Shield,
-  TrendingUp,
-  Calendar
-} from 'lucide-react';
-import { Link, useLocation } from 'react-router-dom';
-import { useRoleAccess } from '@/hooks/useRoleAccess';
+  SidebarTrigger,
+  useSidebar,
+} from "@/components/ui/sidebar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { useState } from 'react';
+
+const navigation = [
+  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'Cases', href: '/cases', icon: FileText },
+  { name: 'Knowledge Base', href: '/knowledge', icon: BookOpen },
+  { name: 'Notifications', href: '/notifications', icon: Bell },
+  { name: 'Insights', href: '/insights', icon: TrendingUp },
+];
+
+const reportNavigation = [
+  { name: 'Reports', href: '/reports' },
+  { name: 'Report Builder', href: '/reports/builder' },
+  { name: 'Dashboards', href: '/dashboards' },
+];
+
+const adminNavigation = [
+  { name: 'Users', href: '/admin/users' },
+  { name: 'Permissions', href: '/admin/permissions' },
+  { name: 'Roles', href: '/admin/roles' },
+];
 
 export function AppSidebar() {
-  const location = useLocation();
-  const { 
-    isAdmin, 
-    hasManagerAccess, 
-    hasCaseworkerAccess, 
-    hasViewerAccess,
-    roleName 
-  } = useRoleAccess();
-
-  // Main navigation items based on module registry
-  const navigationItems = [
-    {
-      title: "Dashboard",
-      url: "/dashboard",
-      icon: LayoutDashboard,
-      show: true // All internal users can access dashboard
-    },
-    {
-      title: "Cases",
-      url: "/cases",
-      icon: FileText,
-      show: hasViewerAccess // Admin, Manager, Caseworker, Viewer can access
-    },
-    {
-      title: "Knowledge Base",
-      url: "/knowledge",
-      icon: BookOpen,
-      show: true // All internal users can access
-    },
-    {
-      title: "Notifications",
-      url: "/notifications",
-      icon: Bell,
-      show: true // All internal users can access
-    },
-    {
-      title: "Insights",
-      url: "/insights",
-      icon: TrendingUp,
-      show: true // All internal users can access
-    },
-    {
-      title: "Dashboards",
-      url: "/dashboards",
-      icon: Calendar,
-      show: true // All internal users can access
-    }
-  ];
-
-  // Reports submenu - Only Admin and Manager can access
-  const reportsItems = [
-    {
-      title: "Reports",
-      url: "/reports",
-    },
-    {
-      title: "Report Builder",
-      url: "/reports/builder",
-    },
-    {
-      title: "Table Builder",
-      url: "/reports/table-builder",
-    }
-  ];
-
-  // Admin submenu - Only Admin can access
-  const adminItems = [
-    {
-      title: "Users",
-      url: "/admin/users",
-    },
-    {
-      title: "Roles",
-      url: "/admin/roles",
-    },
-    {
-      title: "Permissions",
-      url: "/admin/permissions",
-    }
-  ];
-
+  const { state } = useSidebar();
+  const [isReportsOpen, setIsReportsOpen] = useState(false);
+  const [isAdminOpen, setIsAdminOpen] = useState(false);
+  
   return (
-    <Sidebar>
+    <Sidebar collapsible="icon" className="font-inter">
+      <SidebarHeader>
+        <div className="flex items-center gap-2 px-2 py-1">
+          {state === "expanded" ? (
+            <img 
+              src="/lovable-uploads/ee388e32-d054-4367-b2ac-0dd3512cb8fd.png" 
+              alt="CivIQ Logo" 
+              className="w-8 h-8 flex-shrink-0"
+            />
+          ) : (
+            <img 
+              src="/lovable-uploads/ee388e32-d054-4367-b2ac-0dd3512cb8fd.png" 
+              alt="CivIQ" 
+              className="w-6 h-6 flex-shrink-0"
+            />
+          )}
+          {state === "expanded" && (
+            <div className="grid flex-1 text-left text-sm leading-tight min-w-0">
+              <span className="truncate font-semibold text-gray-900 font-inter">CivIQ</span>
+            </div>
+          )}
+        </div>
+        <SidebarTrigger className="ml-auto" />
+      </SidebarHeader>
+      
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Case Management</SidebarGroupLabel>
+          <SidebarGroupLabel>Application</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navigationItems.filter(item => item.show).map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={location.pathname === item.url}>
-                    <Link to={item.url}>
+              {navigation.map((item) => (
+                <SidebarMenuItem key={item.name}>
+                  <SidebarMenuButton asChild tooltip={item.name}>
+                    <NavLink
+                      to={item.href}
+                      className={({ isActive }) =>
+                        cn(isActive && "bg-blue-100 text-blue-900")
+                      }
+                    >
                       <item.icon />
-                      <span>{item.title}</span>
-                    </Link>
+                      <span>{item.name}</span>
+                    </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
-
-              {/* Reports Section - Only Admin and Manager */}
-              {hasManagerAccess && (
-                <Collapsible>
-                  <SidebarMenuItem>
-                    <CollapsibleTrigger asChild>
-                      <SidebarMenuButton>
-                        <BarChart3 />
-                        <span>Reports</span>
-                      </SidebarMenuButton>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <SidebarMenuSub>
-                        {reportsItems.map((item) => (
-                          <SidebarMenuSubItem key={item.title}>
-                            <SidebarMenuSubButton asChild isActive={location.pathname === item.url}>
-                              <Link to={item.url}>
-                                <span>{item.title}</span>
-                              </Link>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                        ))}
-                      </SidebarMenuSub>
-                    </CollapsibleContent>
-                  </SidebarMenuItem>
-                </Collapsible>
-              )}
-
-              {/* Admin Section - Only Admin */}
-              {isAdmin && (
-                <Collapsible>
-                  <SidebarMenuItem>
-                    <CollapsibleTrigger asChild>
-                      <SidebarMenuButton>
-                        <Shield />
-                        <span>Administration</span>
-                      </SidebarMenuButton>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <SidebarMenuSub>
-                        {adminItems.map((item) => (
-                          <SidebarMenuSubItem key={item.title}>
-                            <SidebarMenuSubButton asChild isActive={location.pathname === item.url}>
-                              <Link to={item.url}>
-                                <span>{item.title}</span>
-                              </Link>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                        ))}
-                      </SidebarMenuSub>
-                    </CollapsibleContent>
-                  </SidebarMenuItem>
-                </Collapsible>
-              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Role indicator */}
         <SidebarGroup>
-          <SidebarGroupLabel>User Info</SidebarGroupLabel>
+          <SidebarGroupLabel>Analytics</SidebarGroupLabel>
           <SidebarGroupContent>
-            <div className="px-2 py-1 text-xs text-muted-foreground">
-              Role: {roleName || 'Unknown'}
-            </div>
+            <SidebarMenu>
+              <Collapsible open={isReportsOpen} onOpenChange={setIsReportsOpen}>
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton tooltip="Analytics">
+                      <BarChart3 />
+                      <span>Analytics</span>
+                      <ChevronDown className={cn("ml-auto transition-transform", isReportsOpen && "rotate-180")} />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      {reportNavigation.map((item) => (
+                        <SidebarMenuSubItem key={item.name}>
+                          <SidebarMenuSubButton asChild>
+                            <NavLink to={item.href}>
+                              <span>{item.name}</span>
+                            </NavLink>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Administration</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <Collapsible open={isAdminOpen} onOpenChange={setIsAdminOpen}>
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton tooltip="Admin">
+                      <Shield />
+                      <span>Admin</span>
+                      <ChevronDown className={cn("ml-auto transition-transform", isAdminOpen && "rotate-180")} />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      {adminNavigation.map((item) => (
+                        <SidebarMenuSubItem key={item.name}>
+                          <SidebarMenuSubButton asChild>
+                            <NavLink to={item.href}>
+                              <span>{item.name}</span>
+                            </NavLink>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
+            </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      
+      <SidebarFooter>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild tooltip="Settings">
+              <NavLink to="/settings" className="font-inter">
+                <Settings />
+                <span>Settings</span>
+              </NavLink>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
     </Sidebar>
-  )
+  );
 }

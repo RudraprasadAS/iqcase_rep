@@ -1241,10 +1241,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      can_edit_case: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
       cleanup_duplicate_permissions: {
         Args: { p_role_id: string }
         Returns: undefined
@@ -1306,19 +1302,7 @@ export type Database = {
         Args: { query_text: string }
         Returns: Json
       }
-      get_current_internal_user_id: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
       get_current_user_id: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      get_current_user_role: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      get_current_user_role_name: {
         Args: Record<PropertyKey, never>
         Returns: string
       }
@@ -1339,26 +1323,6 @@ export type Database = {
           schema: string
           fields: string[]
         }[]
-      }
-      get_user_role: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      has_manager_access: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
-      is_admin_user: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
-      is_current_user_admin: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
-      is_internal_user: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
       }
       populate_data_sources: {
         Args: Record<PropertyKey, never>

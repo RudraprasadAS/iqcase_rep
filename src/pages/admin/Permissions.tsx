@@ -11,13 +11,12 @@ import { Label } from "@/components/ui/label";
 import { Save, Edit, Trash2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { CreateRoleDialog } from "@/components/permissions/CreateRoleDialog";
-import { ModulePermissionTable } from "@/components/permissions/ModulePermissionTable";
+import { PermissionTable } from "@/components/permissions/PermissionTable";
 import { usePermissions } from "@/hooks/usePermissions";
-import { Permission } from "@/types/permissions";
+import { Permission, TableInfo } from "@/types/permissions";
 import { DeleteRoleDialog } from "@/components/roles/DeleteRoleDialog";
 import { EditRoleDialog } from "@/components/roles/EditRoleDialog";
 import { toast } from "@/hooks/use-toast";
-import { moduleRegistry } from "@/config/moduleRegistry";
 
 const PermissionsPage = () => {
   const [selectedRoleId, setSelectedRoleId] = useState<string>("");
@@ -43,6 +42,35 @@ const PermissionsPage = () => {
       
       console.log("[PermissionsPage] Roles fetched successfully:", data);
       return data as Role[];
+    },
+  });
+  
+  // Fetch all database tables
+  const { data: tables, isLoading: tablesLoading } = useQuery({
+    queryKey: ["database_tables"],
+    queryFn: async () => {
+      console.log("[PermissionsPage] Fetching database tables");
+      try {
+        const { data, error } = await supabase.rpc('get_tables_info');
+          
+        if (error) {
+          console.error("[PermissionsPage] Error fetching tables:", error);
+          // Fallback to a predefined list of core tables
+          return [
+            { name: "cases", schema: "public", fields: ["id", "title", "description", "status"] },
+            { name: "users", schema: "public", fields: ["id", "name", "email"] },
+            { name: "roles", schema: "public", fields: ["id", "name", "description"] },
+            { name: "permissions", schema: "public", fields: ["id", "role_id", "module_name"] },
+            { name: "case_categories", schema: "public", fields: ["id", "name", "description"] }
+          ] as TableInfo[];
+        }
+        
+        console.log("[PermissionsPage] Tables fetched successfully:", data);
+        return data as TableInfo[];
+      } catch (e) {
+        console.error("[PermissionsPage] Exception fetching tables:", e);
+        throw e;
+      }
     },
   });
   
@@ -84,18 +112,20 @@ const PermissionsPage = () => {
     handleSelectAllForTable,
     getEffectivePermission,
     debugCurrentState
-  } = usePermissions(selectedRoleId, permissions, roles, []);
+  } = usePermissions(selectedRoleId, permissions, roles, tables);
 
   const handleSaveChanges = () => {
     console.log("[PermissionsPage] Save changes button clicked");
-    debugCurrentState();
+    debugCurrentState(); // Log current state before saving
     savePermissionsMutation.mutate();
   };
 
   const handleRoleUpdate = () => {
     console.log("[PermissionsPage] Role updated, refreshing roles list");
+    // Refresh roles list
     queryClient.invalidateQueries({ queryKey: ["roles"] });
     
+    // Also refresh permissions if a role is selected
     if (selectedRoleId) {
       console.log("[PermissionsPage] Refreshing permissions after role update");
       refetchPermissions();
@@ -118,22 +148,52 @@ const PermissionsPage = () => {
     }
   };
 
+  // Log when permissions data changes
   useEffect(() => {
     if (permissions) {
       console.log(`[PermissionsPage] Current permissions for role ${selectedRoleId}:`, permissions);
+      
+      // Check for permission conflicts (multiple permissions for same role/module/field)
+      const permissionMap = new Map<string, Permission[]>();
+      permissions.forEach(p => {
+        const key = `${p.role_id}|${p.module_name}|${p.field_name}`;
+        if (!permissionMap.has(key)) {
+          permissionMap.set(key, []);
+        }
+        permissionMap.get(key)?.push(p);
+      });
+      
+      // Log any permission conflicts
+      permissionMap.forEach((perms, key) => {
+        if (perms.length > 1) {
+          console.warn(`[PermissionsPage] DUPLICATE PERMISSION DETECTED: ${key}`, perms);
+        }
+      });
     }
   }, [permissions, selectedRoleId]);
 
   const selectedRole = roles?.find(role => role.id === selectedRoleId);
-  const isLoading = rolesLoading || (!!selectedRoleId && permissionsLoading);
+
+  // Define relevant modules/tables to show
+  const relevantTables = tables?.filter(t => 
+    !t.name.startsWith('pg_') && 
+    !t.name.includes('_audit_') && 
+    !t.name.includes('_log')
+  ) || [];
+
+  // Filter out system tables and sort by name
+  const sortedTables = [...relevantTables].sort((a, b) => a.name.localeCompare(b.name));
   
+  const isLoading = rolesLoading || tablesLoading || (!!selectedRoleId && permissionsLoading);
+  
+  // Debug render
   useEffect(() => {
     console.log("[PermissionsPage] Rendering with state:", {
       selectedRoleId,
       hasUnsavedChanges,
       isLoading,
       permissionsCount: permissions?.length,
-      moduleCount: moduleRegistry.modules.length
+      tablesCount: sortedTables.length
     });
   });
 
@@ -142,7 +202,7 @@ const PermissionsPage = () => {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">Roles & Permissions</h1>
-          <p className="text-muted-foreground">Manage roles and their permissions across frontend modules, screens, and fields</p>
+          <p className="text-muted-foreground">Manage roles and their permissions across the system</p>
         </div>
 
         <div className="flex items-center gap-4">
@@ -159,10 +219,9 @@ const PermissionsPage = () => {
       
       <Card>
         <CardHeader>
-          <CardTitle>Frontend Module Permissions</CardTitle>
+          <CardTitle>Role Management & Permissions</CardTitle>
           <CardDescription>
-            Configure role permissions for frontend modules, screens, and individual fields. 
-            Only features with frontend implementations are shown here.
+            Create roles and configure what they can access across your database tables and fields
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -232,41 +291,31 @@ const PermissionsPage = () => {
                 </div>
               ) : (
                 <div>
-                  <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
-                    <h3 className="font-semibold text-blue-900 mb-2">Frontend Module Registry</h3>
-                    <p className="text-sm text-blue-800">
-                      This permissions matrix shows only frontend modules, screens, and fields that have been implemented. 
-                      Total modules: <strong>{moduleRegistry.modules.length}</strong>
-                    </p>
-                    <div className="mt-2 flex gap-4 text-xs text-blue-700">
-                      <span>📁 Modules ({moduleRegistry.modules.length})</span>
-                      <span>📄 Screens ({moduleRegistry.modules.reduce((acc, m) => acc + m.screens.length, 0)})</span>
-                      <span>🔸 Fields ({moduleRegistry.modules.reduce((acc, m) => acc + m.screens.reduce((screenAcc, s) => screenAcc + s.fields.length, 0), 0)})</span>
-                    </div>
-                  </div>
-                  
-                  <ModulePermissionTable 
+                  <PermissionTable 
                     selectedRoleId={selectedRoleId}
+                    tables={sortedTables}
+                    roles={roles}
                     permissions={permissions}
+                    expandedTables={expandedTables}
+                    onToggleTable={handleToggleTable}
                     getEffectivePermission={getEffectivePermission}
                     handlePermissionChange={handlePermissionChange}
+                    handleSelectAllForTable={handleSelectAllForTable}
                     showSelectAll={showSelectAll}
                   />
                   
                   <div className="mt-6 text-sm text-muted-foreground">
-                    <p>• <strong>View</strong>: Controls whether the role can see the module/screen/field</p>
-                    <p>• <strong>Edit</strong>: Controls whether the role can modify the field or perform actions</p>
+                    <p>• <strong>View</strong>: Controls whether the role can see the table/field</p>
+                    <p>• <strong>Edit</strong>: Controls whether the role can modify the field</p>
                     <p className="mt-2 border-l-2 pl-3 border-primary/50">
                       <strong>Permission Rules:</strong><br/>
                       - Selecting Edit will automatically select View<br/>
                       - Deselecting View will deselect Edit<br/>
-                      - Module permissions cascade to screens and fields
                     </p>
-                    <p className="mt-2 border-l-2 pl-3 border-green-500/50">
-                      <strong>Frontend Registry:</strong><br/>
-                      - Only implemented frontend features are shown<br/>
-                      - New screens/fields are automatically added when implemented<br/>
-                      - No database-only tables without frontend are displayed
+                    <p className="mt-2 border-l-2 pl-3 border-primary/50">
+                      <strong>Bulk Toggles:</strong><br/>
+                      - Checking a table-level permission applies that permission to all fields<br/>
+                      - Individual field permissions can still be manually adjusted afterward
                     </p>
                   </div>
                 </div>
@@ -285,6 +334,7 @@ const PermissionsPage = () => {
         </CardFooter>
       </Card>
       
+      {/* Role management dialogs */}
       {selectedRole && (
         <>
           <EditRoleDialog 

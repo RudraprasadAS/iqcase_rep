@@ -1,29 +1,30 @@
 
-import { useAuth } from '@/hooks/useAuth';
-import { Navigate, useLocation } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 
-interface RequireAuthProps {
-  children: React.ReactNode;
-}
-
-const RequireAuth = ({ children }: RequireAuthProps) => {
-  const { user, loading } = useAuth();
+const RequireAuth = () => {
+  const { isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
 
-  if (loading) {
+  console.log('RequireAuth - isLoading:', isLoading, 'isAuthenticated:', isAuthenticated);
+
+  // Show loading state while checking authentication
+  if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      <div className="flex items-center justify-center h-screen">
+        <div className="w-16 h-16 border-4 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
       </div>
     );
   }
 
-  if (!user) {
-    // Redirect to login with the current location as state
+  // Redirect to login if not authenticated
+  if (!isAuthenticated) {
+    console.log('User not authenticated, redirecting to login');
     return <Navigate to="/auth/login" state={{ from: location }} replace />;
   }
 
-  return <>{children}</>;
+  console.log('User authenticated, rendering protected content');
+  return <Outlet />;
 };
 
 export default RequireAuth;
