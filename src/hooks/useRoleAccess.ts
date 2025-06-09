@@ -59,24 +59,38 @@ export const useRoleAccess = () => {
     },
   });
 
+  // Define role hierarchy and access patterns
+  const isAdmin = userInfo?.role?.name === 'admin';
+  const isManager = userInfo?.role?.name === 'manager';
+  const isCaseworker = userInfo?.role?.name === 'caseworker';
+  const isViewer = userInfo?.role?.name === 'viewer';
+  const isCitizen = userInfo?.role?.name === 'citizen';
+  
   const isInternal = userInfo?.user_type === 'internal';
   const isExternal = userInfo?.user_type === 'external';
-  const isCitizen = userInfo?.role?.name === 'citizen';
-  const isAdmin = userInfo?.role?.name === 'admin';
-  const isSuperAdmin = userInfo?.role?.name === 'super_admin';
-  const isSystemRole = userInfo?.role?.is_system;
 
-  // Super admin and admin should have full access
-  const hasAdminAccess = isSuperAdmin || isAdmin;
+  // Define access levels based on RBAC spec
+  const hasFullAccess = isAdmin;
+  const hasManagerAccess = isAdmin || isManager;
+  const hasCaseworkerAccess = isAdmin || isManager || isCaseworker;
+  const hasViewerAccess = isAdmin || isManager || isCaseworker || isViewer;
+  const canEditCases = isAdmin || isManager || isCaseworker;
+  const canViewInternalNotes = isAdmin || isManager;
+  const canEditInternalNotes = isAdmin;
 
-  console.log('Role access info:', {
+  console.log('Role access computed:', {
     userInfo,
+    isAdmin,
+    isManager,
+    isCaseworker,
+    isViewer,
+    isCitizen,
     isInternal,
     isExternal,
-    isCitizen,
-    isAdmin,
-    isSuperAdmin,
-    hasAdminAccess,
+    hasFullAccess,
+    hasManagerAccess,
+    hasCaseworkerAccess,
+    canEditCases,
     roleName: userInfo?.role?.name
   });
 
@@ -84,13 +98,27 @@ export const useRoleAccess = () => {
     userInfo,
     isLoading,
     error,
+    // Role checks
+    isAdmin,
+    isManager,
+    isCaseworker,
+    isViewer,
+    isCitizen,
+    // User type checks
     isInternal,
     isExternal,
-    isCitizen,
-    isAdmin,
-    isSuperAdmin,
-    hasAdminAccess,
-    isSystemRole,
+    // Access level checks
+    hasFullAccess,
+    hasManagerAccess,
+    hasCaseworkerAccess,
+    hasViewerAccess,
+    canEditCases,
+    canViewInternalNotes,
+    canEditInternalNotes,
+    // Legacy compatibility
+    hasAdminAccess: hasFullAccess,
+    isSuperAdmin: isAdmin,
+    isSystemRole: userInfo?.role?.is_system,
     roleName: userInfo?.role?.name,
     roleType: userInfo?.role?.role_type
   };

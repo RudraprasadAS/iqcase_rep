@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -36,222 +35,250 @@ import CitizenLayout from "./components/layout/CitizenLayout";
 import AuthLayout from "./components/layout/AuthLayout";
 import RequireAuth from "./components/auth/RequireAuth";
 import { RoleBasedRoute } from "./components/auth/RoleBasedRoute";
+import { AuthProvider } from "./hooks/useAuth";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <HelmetProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            {/* Auth Routes */}
-            <Route path="/auth" element={<AuthLayout />}>
-              <Route path="login" element={<Login />} />
-              <Route path="register" element={<Register />} />
-              <Route path="forgot-password" element={<ForgotPassword />} />
-              <Route path="reset-password" element={<ResetPassword />} />
-            </Route>
+    <AuthProvider>
+      <HelmetProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              {/* Auth Routes */}
+              <Route path="/auth" element={<AuthLayout />}>
+                <Route path="login" element={<Login />} />
+                <Route path="register" element={<Register />} />
+                <Route path="forgot-password" element={<ForgotPassword />} />
+                <Route path="reset-password" element={<ResetPassword />} />
+              </Route>
 
-            {/* Public Landing Page */}
-            <Route path="/landing" element={<Index />} />
+              {/* Public Landing Page */}
+              <Route path="/landing" element={<Index />} />
 
-            {/* Redirect root to appropriate dashboard */}
-            <Route path="/" element={
-              <RequireAuth>
-                <Navigate to="/dashboard" replace />
-              </RequireAuth>
-            } />
+              {/* Redirect root to appropriate dashboard based on role */}
+              <Route path="/" element={
+                <RequireAuth>
+                  <Navigate to="/dashboard" replace />
+                </RequireAuth>
+              } />
 
-            {/* Internal User Routes */}
-            <Route path="/dashboard" element={
-              <RequireAuth>
-                <Layout>
-                  <Dashboard />
-                </Layout>
-              </RequireAuth>
-            } />
+              {/* Internal User Routes - Dashboard (All internal users can access) */}
+              <Route path="/dashboard" element={
+                <RequireAuth>
+                  <RoleBasedRoute requireInternal>
+                    <Layout>
+                      <Dashboard />
+                    </Layout>
+                  </RoleBasedRoute>
+                </RequireAuth>
+              } />
 
-            <Route path="/cases" element={
-              <RequireAuth>
-                <Layout>
-                  <Cases />
-                </Layout>
-              </RequireAuth>
-            } />
+              {/* Cases Routes - Admin, Manager, Caseworker, Viewer can access */}
+              <Route path="/cases" element={
+                <RequireAuth>
+                  <RoleBasedRoute allowedRoles={['admin', 'manager', 'caseworker', 'viewer']}>
+                    <Layout>
+                      <Cases />
+                    </Layout>
+                  </RoleBasedRoute>
+                </RequireAuth>
+              } />
 
-            <Route path="/cases/new" element={
-              <RequireAuth>
-                <Layout>
-                  <NewCase />
-                </Layout>
-              </RequireAuth>
-            } />
+              <Route path="/cases/new" element={
+                <RequireAuth>
+                  <RoleBasedRoute allowedRoles={['admin', 'manager', 'caseworker']}>
+                    <Layout>
+                      <NewCase />
+                    </Layout>
+                  </RoleBasedRoute>
+                </RequireAuth>
+              } />
 
-            <Route path="/cases/:id" element={
-              <RequireAuth>
-                <Layout>
-                  <CaseDetail />
-                </Layout>
-              </RequireAuth>
-            } />
+              <Route path="/cases/:id" element={
+                <RequireAuth>
+                  <RoleBasedRoute allowedRoles={['admin', 'manager', 'caseworker', 'viewer']}>
+                    <Layout>
+                      <CaseDetail />
+                    </Layout>
+                  </RoleBasedRoute>
+                </RequireAuth>
+              } />
 
-            {/* Admin Routes - Updated to allow super_admin */}
-            <Route path="/admin/users" element={
-              <RequireAuth>
-                <RoleBasedRoute allowedRoles={['admin', 'super_admin']}>
-                  <Layout>
-                    <Users />
-                  </Layout>
-                </RoleBasedRoute>
-              </RequireAuth>
-            } />
+              {/* Admin Routes - Only admin can access */}
+              <Route path="/admin/users" element={
+                <RequireAuth>
+                  <RoleBasedRoute requireAdmin>
+                    <Layout>
+                      <Users />
+                    </Layout>
+                  </RoleBasedRoute>
+                </RequireAuth>
+              } />
 
-            <Route path="/admin/roles" element={
-              <RequireAuth>
-                <RoleBasedRoute allowedRoles={['admin', 'super_admin']}>
-                  <Layout>
-                    <Roles />
-                  </Layout>
-                </RoleBasedRoute>
-              </RequireAuth>
-            } />
+              <Route path="/admin/roles" element={
+                <RequireAuth>
+                  <RoleBasedRoute requireAdmin>
+                    <Layout>
+                      <Roles />
+                    </Layout>
+                  </RoleBasedRoute>
+                </RequireAuth>
+              } />
 
-            <Route path="/admin/permissions" element={
-              <RequireAuth>
-                <RoleBasedRoute allowedRoles={['admin', 'super_admin']}>
-                  <Layout>
-                    <Permissions />
-                  </Layout>
-                </RoleBasedRoute>
-              </RequireAuth>
-            } />
+              <Route path="/admin/permissions" element={
+                <RequireAuth>
+                  <RoleBasedRoute requireAdmin>
+                    <Layout>
+                      <Permissions />
+                    </Layout>
+                  </RoleBasedRoute>
+                </RequireAuth>
+              } />
 
-            {/* Reports Routes */}
-            <Route path="/reports" element={
-              <RequireAuth>
-                <Layout>
-                  <Reports />
-                </Layout>
-              </RequireAuth>
-            } />
+              {/* Reports Routes - Admin and Manager can access */}
+              <Route path="/reports" element={
+                <RequireAuth>
+                  <RoleBasedRoute allowedRoles={['admin', 'manager']}>
+                    <Layout>
+                      <Reports />
+                    </Layout>
+                  </RoleBasedRoute>
+                </RequireAuth>
+              } />
 
-            <Route path="/reports/builder" element={
-              <RequireAuth>
-                <Layout>
-                  <ReportBuilder />
-                </Layout>
-              </RequireAuth>
-            } />
+              <Route path="/reports/builder" element={
+                <RequireAuth>
+                  <RoleBasedRoute allowedRoles={['admin', 'manager']}>
+                    <Layout>
+                      <ReportBuilder />
+                    </Layout>
+                  </RoleBasedRoute>
+                </RequireAuth>
+              } />
 
-            <Route path="/reports/table-builder" element={
-              <RequireAuth>
-                <Layout>
-                  <TableReportBuilder />
-                </Layout>
-              </RequireAuth>
-            } />
+              <Route path="/reports/table-builder" element={
+                <RequireAuth>
+                  <RoleBasedRoute allowedRoles={['admin', 'manager']}>
+                    <Layout>
+                      <TableReportBuilder />
+                    </Layout>
+                  </RoleBasedRoute>
+                </RequireAuth>
+              } />
 
-            <Route path="/reports/standard" element={
-              <RequireAuth>
-                <Layout>
-                  <StandardReports />
-                </Layout>
-              </RequireAuth>
-            } />
+              <Route path="/reports/standard" element={
+                <RequireAuth>
+                  <RoleBasedRoute allowedRoles={['admin', 'manager']}>
+                    <Layout>
+                      <StandardReports />
+                    </Layout>
+                  </RoleBasedRoute>
+                </RequireAuth>
+              } />
 
-            {/* Other Internal Routes */}
-            <Route path="/insights" element={
-              <RequireAuth>
-                <Layout>
-                  <Insights />
-                </Layout>
-              </RequireAuth>
-            } />
+              {/* Other Internal Routes - All internal users can access */}
+              <Route path="/insights" element={
+                <RequireAuth>
+                  <RoleBasedRoute requireInternal>
+                    <Layout>
+                      <Insights />
+                    </Layout>
+                  </RoleBasedRoute>
+                </RequireAuth>
+              } />
 
-            <Route path="/knowledge" element={
-              <RequireAuth>
-                <Layout>
-                  <KnowledgeBase />
-                </Layout>
-              </RequireAuth>
-            } />
+              <Route path="/knowledge" element={
+                <RequireAuth>
+                  <RoleBasedRoute requireInternal>
+                    <Layout>
+                      <KnowledgeBase />
+                    </Layout>
+                  </RoleBasedRoute>
+                </RequireAuth>
+              } />
 
-            <Route path="/notifications" element={
-              <RequireAuth>
-                <Layout>
-                  <Notifications />
-                </Layout>
-              </RequireAuth>
-            } />
+              <Route path="/notifications" element={
+                <RequireAuth>
+                  <RoleBasedRoute requireInternal>
+                    <Layout>
+                      <Notifications />
+                    </Layout>
+                  </RoleBasedRoute>
+                </RequireAuth>
+              } />
 
-            <Route path="/dashboards" element={
-              <RequireAuth>
-                <Layout>
-                  <Dashboards />
-                </Layout>
-              </RequireAuth>
-            } />
+              <Route path="/dashboards" element={
+                <RequireAuth>
+                  <RoleBasedRoute requireInternal>
+                    <Layout>
+                      <Dashboards />
+                    </Layout>
+                  </RoleBasedRoute>
+                </RequireAuth>
+              } />
 
-            {/* Citizen Routes */}
-            <Route path="/citizen/dashboard" element={
-              <RequireAuth>
-                <RoleBasedRoute requireExternal>
-                  <CitizenLayout>
-                    <CitizenDashboard />
-                  </CitizenLayout>
-                </RoleBasedRoute>
-              </RequireAuth>
-            } />
+              {/* Citizen Routes - Only citizens can access */}
+              <Route path="/citizen/dashboard" element={
+                <RequireAuth>
+                  <RoleBasedRoute requireExternal>
+                    <CitizenLayout>
+                      <CitizenDashboard />
+                    </CitizenLayout>
+                  </RoleBasedRoute>
+                </RequireAuth>
+              } />
 
-            <Route path="/citizen/cases" element={
-              <RequireAuth>
-                <RoleBasedRoute requireExternal>
-                  <CitizenLayout>
-                    <CitizenCases />
-                  </CitizenLayout>
-                </RoleBasedRoute>
-              </RequireAuth>
-            } />
+              <Route path="/citizen/cases" element={
+                <RequireAuth>
+                  <RoleBasedRoute requireExternal>
+                    <CitizenLayout>
+                      <CitizenCases />
+                    </CitizenLayout>
+                  </RoleBasedRoute>
+                </RequireAuth>
+              } />
 
-            <Route path="/citizen/cases/new" element={
-              <RequireAuth>
-                <RoleBasedRoute requireExternal>
-                  <CitizenLayout>
-                    <CitizenNewCase />
-                  </CitizenLayout>
-                </RoleBasedRoute>
-              </RequireAuth>
-            } />
+              <Route path="/citizen/cases/new" element={
+                <RequireAuth>
+                  <RoleBasedRoute requireExternal>
+                    <CitizenLayout>
+                      <CitizenNewCase />
+                    </CitizenLayout>
+                  </RoleBasedRoute>
+                </RequireAuth>
+              } />
 
-            <Route path="/citizen/cases/:id" element={
-              <RequireAuth>
-                <RoleBasedRoute requireExternal>
-                  <CitizenLayout>
-                    <CitizenCaseDetail />
-                  </CitizenLayout>
-                </RoleBasedRoute>
-              </RequireAuth>
-            } />
+              <Route path="/citizen/cases/:id" element={
+                <RequireAuth>
+                  <RoleBasedRoute requireExternal>
+                    <CitizenLayout>
+                      <CitizenCaseDetail />
+                    </CitizenLayout>
+                  </RoleBasedRoute>
+                </RequireAuth>
+              } />
 
-            <Route path="/citizen/knowledge" element={
-              <RequireAuth>
-                <RoleBasedRoute requireExternal>
-                  <CitizenLayout>
-                    <CitizenKnowledgeBase />
-                  </CitizenLayout>
-                </RoleBasedRoute>
-              </RequireAuth>
-            } />
+              <Route path="/citizen/knowledge" element={
+                <RequireAuth>
+                  <RoleBasedRoute requireExternal>
+                    <CitizenLayout>
+                      <CitizenKnowledgeBase />
+                    </CitizenLayout>
+                  </RoleBasedRoute>
+                </RequireAuth>
+              } />
 
-            {/* 404 Page */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </HelmetProvider>
+              {/* 404 Page */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </HelmetProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 

@@ -11,6 +11,9 @@ interface RoleBasedRouteProps {
   allowedUserTypes?: string[];
   requireInternal?: boolean;
   requireExternal?: boolean;
+  requireAdmin?: boolean;
+  requireManager?: boolean;
+  requireCaseworker?: boolean;
   fallbackPath?: string;
 }
 
@@ -20,9 +23,24 @@ export const RoleBasedRoute: React.FC<RoleBasedRouteProps> = ({
   allowedUserTypes,
   requireInternal,
   requireExternal,
+  requireAdmin,
+  requireManager,
+  requireCaseworker,
   fallbackPath = '/'
 }) => {
-  const { userInfo, isLoading, error, isInternal, isExternal, isSuperAdmin, hasAdminAccess } = useRoleAccess();
+  const { 
+    userInfo, 
+    isLoading, 
+    error, 
+    isInternal, 
+    isExternal, 
+    isAdmin,
+    isManager,
+    isCaseworker,
+    hasFullAccess,
+    hasManagerAccess,
+    hasCaseworkerAccess
+  } = useRoleAccess();
 
   if (isLoading) {
     return (
@@ -44,10 +62,26 @@ export const RoleBasedRoute: React.FC<RoleBasedRouteProps> = ({
     );
   }
 
-  // Super admin bypasses all restrictions
-  if (isSuperAdmin) {
-    console.log('Super admin access granted, bypassing all restrictions');
+  // Admin bypasses all restrictions (as per RBAC spec)
+  if (hasFullAccess) {
+    console.log('Admin access granted, bypassing all restrictions');
     return <>{children}</>;
+  }
+
+  // Check specific role requirements
+  if (requireAdmin && !isAdmin) {
+    console.log('Admin access required but user is not admin');
+    return <Navigate to={isExternal ? "/citizen/dashboard" : "/dashboard"} replace />;
+  }
+
+  if (requireManager && !hasManagerAccess) {
+    console.log('Manager access required but user does not have manager access');
+    return <Navigate to={isExternal ? "/citizen/dashboard" : "/dashboard"} replace />;
+  }
+
+  if (requireCaseworker && !hasCaseworkerAccess) {
+    console.log('Caseworker access required but user does not have caseworker access');
+    return <Navigate to={isExternal ? "/citizen/dashboard" : "/dashboard"} replace />;
   }
 
   // Check user type restrictions

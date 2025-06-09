@@ -1,181 +1,151 @@
 
-import { NavLink } from 'react-router-dom';
-import { cn } from '@/lib/utils';
-import { 
-  LayoutDashboard, 
-  FileText, 
-  BarChart3, 
-  Settings, 
-  BookOpen,
-  Bell,
-  Shield,
-  ChevronDown,
-  TrendingUp,
-  Users
-} from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
-  SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
-  SidebarTrigger,
-  useSidebar,
-} from "@/components/ui/sidebar";
+} from "@/components/ui/sidebar"
+import { 
+  LayoutDashboard, 
+  FileText, 
+  Users, 
+  BarChart3, 
+  Settings, 
+  BookOpen,
+  Bell,
+  Shield,
+  PieChart,
+  Calendar
+} from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
+import { useRoleAccess } from '@/hooks/useRoleAccess';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { useState } from 'react';
-import { useAccessibleModules } from '@/hooks/useModulePermissions';
-import { moduleRegistry } from '@/config/moduleRegistry';
-
-// Icon mapping for the module registry
-const iconMap: Record<string, any> = {
-  'LayoutDashboard': LayoutDashboard,
-  'FileText': FileText,
-  'BookOpen': BookOpen,
-  'Bell': Bell,
-  'TrendingUp': TrendingUp,
-  'BarChart3': BarChart3,
-  'Shield': Shield,
-  'Users': Users,
-};
 
 export function AppSidebar() {
-  const { state } = useSidebar();
-  const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
-  const [isAdminOpen, setIsAdminOpen] = useState(false);
-  const { accessibleModules, isLoading } = useAccessibleModules();
-  
-  // Group accessible modules by category
-  const coreModules = accessibleModules.filter(m => m.category === 'core');
-  const analyticsModules = accessibleModules.filter(m => m.category === 'analytics');
-  const adminModules = accessibleModules.filter(m => m.category === 'admin');
-  
-  const getModuleIcon = (iconName: string) => {
-    return iconMap[iconName] || LayoutDashboard;
-  };
+  const location = useLocation();
+  const { 
+    isAdmin, 
+    hasManagerAccess, 
+    hasCaseworkerAccess, 
+    hasViewerAccess,
+    roleName 
+  } = useRoleAccess();
 
-  const getModulePath = (moduleName: string) => {
-    const module = moduleRegistry.modules.find(m => m.name === moduleName);
-    const firstScreen = module?.screens[0];
-    return firstScreen?.path || `/${moduleName}`;
-  };
+  // Main navigation items based on role
+  const navigationItems = [
+    {
+      title: "Dashboard",
+      url: "/dashboard",
+      icon: LayoutDashboard,
+      show: true // All internal users can access dashboard
+    },
+    {
+      title: "Cases",
+      url: "/cases",
+      icon: FileText,
+      show: hasViewerAccess // Admin, Manager, Caseworker, Viewer can access
+    },
+    {
+      title: "Knowledge Base",
+      url: "/knowledge",
+      icon: BookOpen,
+      show: true // All internal users can access
+    },
+    {
+      title: "Notifications",
+      url: "/notifications",
+      icon: Bell,
+      show: true // All internal users can access
+    },
+    {
+      title: "Insights",
+      url: "/insights",
+      icon: PieChart,
+      show: true // All internal users can access
+    },
+    {
+      title: "Dashboards",
+      url: "/dashboards",
+      icon: Calendar,
+      show: true // All internal users can access
+    }
+  ];
 
-  if (isLoading) {
-    return (
-      <Sidebar collapsible="icon" className="font-inter">
-        <SidebarHeader>
-          <div className="flex items-center gap-2 px-2 py-1">
-            <img 
-              src="/lovable-uploads/ee388e32-d054-4367-b2ac-0dd3512cb8fd.png" 
-              alt="CivIQ" 
-              className="w-6 h-6 flex-shrink-0"
-            />
-            {state === "expanded" && (
-              <div className="grid flex-1 text-left text-sm leading-tight min-w-0">
-                <span className="truncate font-semibold text-gray-900 font-inter">CivIQ</span>
-              </div>
-            )}
-          </div>
-          <SidebarTrigger className="ml-auto" />
-        </SidebarHeader>
-        <SidebarContent>
-          <div className="animate-pulse space-y-2 p-4">
-            <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-            <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-            <div className="h-4 bg-gray-200 rounded w-2/3"></div>
-          </div>
-        </SidebarContent>
-      </Sidebar>
-    );
-  }
-  
+  // Reports submenu - Only Admin and Manager can access
+  const reportsItems = [
+    {
+      title: "Standard Reports",
+      url: "/reports/standard",
+    },
+    {
+      title: "Report Builder",
+      url: "/reports/builder",
+    },
+    {
+      title: "Table Builder",
+      url: "/reports/table-builder",
+    }
+  ];
+
+  // Admin submenu - Only Admin can access
+  const adminItems = [
+    {
+      title: "Users",
+      url: "/admin/users",
+    },
+    {
+      title: "Roles",
+      url: "/admin/roles",
+    },
+    {
+      title: "Permissions",
+      url: "/admin/permissions",
+    }
+  ];
+
   return (
-    <Sidebar collapsible="icon" className="font-inter">
-      <SidebarHeader>
-        <div className="flex items-center gap-2 px-2 py-1">
-          {state === "expanded" ? (
-            <img 
-              src="/lovable-uploads/ee388e32-d054-4367-b2ac-0dd3512cb8fd.png" 
-              alt="CivIQ Logo" 
-              className="w-8 h-8 flex-shrink-0"
-            />
-          ) : (
-            <img 
-              src="/lovable-uploads/ee388e32-d054-4367-b2ac-0dd3512cb8fd.png" 
-              alt="CivIQ" 
-              className="w-6 h-6 flex-shrink-0"
-            />
-          )}
-          {state === "expanded" && (
-            <div className="grid flex-1 text-left text-sm leading-tight min-w-0">
-              <span className="truncate font-semibold text-gray-900 font-inter">CivIQ</span>
-            </div>
-          )}
-        </div>
-        <SidebarTrigger className="ml-auto" />
-      </SidebarHeader>
-      
+    <Sidebar>
       <SidebarContent>
-        {/* Core Application Modules */}
-        {coreModules.length > 0 && (
-          <SidebarGroup>
-            <SidebarGroupLabel>Application</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {coreModules.map((module) => {
-                  const IconComponent = getModuleIcon(module.icon);
-                  return (
-                    <SidebarMenuItem key={module.name}>
-                      <SidebarMenuButton asChild tooltip={module.label}>
-                        <NavLink
-                          to={getModulePath(module.name)}
-                          className={({ isActive }) =>
-                            cn(isActive && "bg-blue-100 text-blue-900")
-                          }
-                        >
-                          <IconComponent />
-                          <span>{module.label}</span>
-                        </NavLink>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  );
-                })}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
+        <SidebarGroup>
+          <SidebarGroupLabel>Case Management</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {navigationItems.filter(item => item.show).map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild isActive={location.pathname === item.url}>
+                    <Link to={item.url}>
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
 
-        {/* Analytics Modules */}
-        {analyticsModules.length > 0 && (
-          <SidebarGroup>
-            <SidebarGroupLabel>Analytics</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <Collapsible open={isAnalyticsOpen} onOpenChange={setIsAnalyticsOpen}>
+              {/* Reports Section - Only Admin and Manager */}
+              {hasManagerAccess && (
+                <Collapsible>
                   <SidebarMenuItem>
                     <CollapsibleTrigger asChild>
-                      <SidebarMenuButton tooltip="Analytics">
+                      <SidebarMenuButton>
                         <BarChart3 />
-                        <span>Analytics</span>
-                        <ChevronDown className={cn("ml-auto transition-transform", isAnalyticsOpen && "rotate-180")} />
+                        <span>Reports</span>
                       </SidebarMenuButton>
                     </CollapsibleTrigger>
                     <CollapsibleContent>
                       <SidebarMenuSub>
-                        {analyticsModules.map((module) => (
-                          <SidebarMenuSubItem key={module.name}>
-                            <SidebarMenuSubButton asChild>
-                              <NavLink to={getModulePath(module.name)}>
-                                <span>{module.label}</span>
-                              </NavLink>
+                        {reportsItems.map((item) => (
+                          <SidebarMenuSubItem key={item.title}>
+                            <SidebarMenuSubButton asChild isActive={location.pathname === item.url}>
+                              <Link to={item.url}>
+                                <span>{item.title}</span>
+                              </Link>
                             </SidebarMenuSubButton>
                           </SidebarMenuSubItem>
                         ))}
@@ -183,34 +153,26 @@ export function AppSidebar() {
                     </CollapsibleContent>
                   </SidebarMenuItem>
                 </Collapsible>
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
+              )}
 
-        {/* Admin Modules */}
-        {adminModules.length > 0 && (
-          <SidebarGroup>
-            <SidebarGroupLabel>Administration</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <Collapsible open={isAdminOpen} onOpenChange={setIsAdminOpen}>
+              {/* Admin Section - Only Admin */}
+              {isAdmin && (
+                <Collapsible>
                   <SidebarMenuItem>
                     <CollapsibleTrigger asChild>
-                      <SidebarMenuButton tooltip="Admin">
+                      <SidebarMenuButton>
                         <Shield />
-                        <span>Admin</span>
-                        <ChevronDown className={cn("ml-auto transition-transform", isAdminOpen && "rotate-180")} />
+                        <span>Administration</span>
                       </SidebarMenuButton>
                     </CollapsibleTrigger>
                     <CollapsibleContent>
                       <SidebarMenuSub>
-                        {adminModules.map((module) => (
-                          <SidebarMenuSubItem key={module.name}>
-                            <SidebarMenuSubButton asChild>
-                              <NavLink to={getModulePath(module.name)}>
-                                <span>{module.label}</span>
-                              </NavLink>
+                        {adminItems.map((item) => (
+                          <SidebarMenuSubItem key={item.title}>
+                            <SidebarMenuSubButton asChild isActive={location.pathname === item.url}>
+                              <Link to={item.url}>
+                                <span>{item.title}</span>
+                              </Link>
                             </SidebarMenuSubButton>
                           </SidebarMenuSubItem>
                         ))}
@@ -218,24 +180,21 @@ export function AppSidebar() {
                     </CollapsibleContent>
                   </SidebarMenuItem>
                 </Collapsible>
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
+              )}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* Role indicator */}
+        <SidebarGroup>
+          <SidebarGroupLabel>User Info</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <div className="px-2 py-1 text-xs text-muted-foreground">
+              Role: {roleName || 'Unknown'}
+            </div>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
-      
-      <SidebarFooter>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild tooltip="Settings">
-              <NavLink to="/settings" className="font-inter">
-                <Settings />
-                <span>Settings</span>
-              </NavLink>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarFooter>
     </Sidebar>
-  );
+  )
 }
