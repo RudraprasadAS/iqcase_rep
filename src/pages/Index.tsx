@@ -11,7 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Loader2, Eye, EyeOff } from "lucide-react";
+import { Loader2, Eye, EyeOff, Lock } from "lucide-react";
 
 const formSchema = z.object({
   email: z.string().email({
@@ -57,7 +57,7 @@ const Index = () => {
       } else {
         toast({
           title: "Login successful",
-          description: "Welcome to Case Management System.",
+          description: "Welcome to CivIQ.",
         });
         navigate("/dashboard", { replace: true });
       }
@@ -97,7 +97,7 @@ const Index = () => {
           <div className="max-w-lg">
             <div className="text-6xl text-gray-300 mb-4">"</div>
             <blockquote className="text-xl font-light text-gray-900 mb-8 leading-relaxed">
-              And thanks to Case Management System, I was able to go from idea to launched civic platform in a matter of hours. Absolutely amazing!
+              And thanks to CivIQ, I was able to go from idea to launched civic platform in a matter of hours. Absolutely amazing!
             </blockquote>
             <div className="flex items-center space-x-3">
               <div className="w-12 h-12 bg-gray-800 rounded-full flex items-center justify-center">
@@ -105,7 +105,7 @@ const Index = () => {
               </div>
               <div>
                 <div className="font-medium text-gray-900">@RohitShashank</div>
-                <div className="text-gray-500 text-sm">#casemanagement #civictech</div>
+                <div className="text-gray-500 text-sm">#civiq #civictech</div>
               </div>
             </div>
           </div>
@@ -119,17 +119,17 @@ const Index = () => {
           <div className="flex lg:hidden items-center justify-center mb-12">
             <img 
               src="/lovable-uploads/ee388e32-d054-4367-b2ac-0dd3512cb8fd.png" 
-              alt="Case Management Logo" 
+              alt="CivIQ Logo" 
               className="w-8 h-8 mr-2"
             />
-            <h1 className="text-2xl font-light text-black">Case Management</h1>
+            <h1 className="text-2xl font-light text-black font-inter">CivIQ</h1>
           </div>
 
           <div className="mb-8 text-center">
-            <h2 className="text-3xl font-semibold text-black mb-2">
+            <h2 className="text-3xl font-semibold text-black mb-2 font-inter">
               Welcome back
             </h2>
-            <p className="text-gray-600 font-light text-sm">
+            <p className="text-gray-600 font-light text-sm font-inter">
               Sign in to your account
             </p>
           </div>
@@ -138,7 +138,7 @@ const Index = () => {
           <div className="space-y-3 mb-6">
             <Button 
               variant="outline" 
-              className="w-full h-10 font-normal text-sm border-gray-300 hover:border-gray-400 hover:bg-gray-50 justify-start px-4"
+              className="w-full h-10 font-normal text-sm border-gray-300 hover:border-gray-400 hover:bg-gray-50 justify-start px-4 font-inter"
               onClick={handleGoogleSignIn}
             >
               <svg className="w-4 h-4 mr-3" viewBox="0 0 24 24">
@@ -151,20 +151,20 @@ const Index = () => {
             </Button>
             <Button 
               variant="outline" 
-              className="w-full h-10 font-normal text-sm border-gray-300 hover:border-gray-400 hover:bg-gray-50 justify-start px-4"
+              className="w-full h-10 font-normal text-sm border-gray-300 hover:border-gray-400 hover:bg-gray-50 justify-start px-4 font-inter"
             >
-              <svg className="w-4 h-4 mr-3" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M23.15 2.587L23.15 21.413L0.85 21.413L0.85 2.587L23.15 2.587ZM21.15 4.587L2.85 4.587L2.85 19.413L21.15 19.413L21.15 4.587ZM11.109 14.558L11.109 9.442L15.858 9.442L15.858 8.092L9.759 8.092L9.759 15.908L15.858 15.908L15.858 14.558L11.109 14.558Z"/>
-              </svg>
+              <img 
+                src="/lovable-uploads/57e6859d-fefb-4bf3-ba91-21bbf8218217.png" 
+                alt="Microsoft Logo" 
+                className="w-4 h-4 mr-3"
+              />
               Continue with Microsoft
             </Button>
             <Button 
               variant="outline" 
-              className="w-full h-10 font-normal text-sm border-gray-300 hover:border-gray-400 hover:bg-gray-50 justify-start px-4"
+              className="w-full h-10 font-normal text-sm border-gray-300 hover:border-gray-400 hover:bg-gray-50 justify-start px-4 font-inter"
             >
-              <svg className="w-4 h-4 mr-3" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-              </svg>
+              <Lock className="w-4 h-4 mr-3" />
               Continue with SSO
             </Button>
           </div>
@@ -172,7 +172,7 @@ const Index = () => {
           <div className="relative mb-6">
             <Separator className="bg-gray-200" />
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className="bg-white px-2 text-xs text-gray-500">or</span>
+              <span className="bg-white px-2 text-xs text-gray-500 font-inter">or</span>
             </div>
           </div>
 
@@ -180,7 +180,7 @@ const Index = () => {
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               {loginError && (
-                <div className="p-3 bg-red-50 border border-red-200 text-red-800 rounded-md text-sm">
+                <div className="p-3 bg-red-50 border border-red-200 text-red-800 rounded-md text-sm font-inter">
                   {loginError}
                 </div>
               )}
@@ -190,11 +190,11 @@ const Index = () => {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-sm font-normal text-gray-700">Email</FormLabel>
+                    <FormLabel className="text-sm font-normal text-gray-700 font-inter">Email</FormLabel>
                     <FormControl>
                       <Input
                         placeholder="you@example.com"
-                        className="h-10 font-normal border-gray-300 focus:border-black focus:ring-1 focus:ring-black text-sm"
+                        className="h-10 font-normal border-gray-300 focus:border-black focus:ring-1 focus:ring-black text-sm font-inter"
                         {...field} 
                       />
                     </FormControl>
@@ -209,10 +209,10 @@ const Index = () => {
                 render={({ field }) => (
                   <FormItem>
                     <div className="flex items-center justify-between">
-                      <FormLabel className="text-sm font-normal text-gray-700">Password</FormLabel>
+                      <FormLabel className="text-sm font-normal text-gray-700 font-inter">Password</FormLabel>
                       <Link
                         to="/auth/forgot-password"
-                        className="text-xs text-gray-500 hover:text-gray-700"
+                        className="text-xs text-gray-500 hover:text-gray-700 font-inter"
                       >
                         Forgot Password?
                       </Link>
@@ -222,7 +222,7 @@ const Index = () => {
                         <Input
                           type={showPassword ? "text" : "password"}
                           placeholder="••••••••"
-                          className="h-10 pr-10 font-normal border-gray-300 focus:border-black focus:ring-1 focus:ring-black text-sm"
+                          className="h-10 pr-10 font-normal border-gray-300 focus:border-black focus:ring-1 focus:ring-black text-sm font-inter"
                           {...field}
                         />
                         <button
@@ -241,7 +241,7 @@ const Index = () => {
 
               <Button 
                 type="submit" 
-                className="w-full h-10 bg-black hover:bg-gray-800 text-white font-normal text-sm mt-6"
+                className="w-full h-10 bg-black hover:bg-gray-800 text-white font-normal text-sm mt-6 font-inter"
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -255,19 +255,19 @@ const Index = () => {
           </Form>
 
           <div className="text-center mt-6">
-            <span className="text-sm text-gray-600">
+            <span className="text-sm text-gray-600 font-inter">
               Don't have an account?
             </span>
             <Link
               to="/auth/register"
-              className="ml-1 text-sm text-black hover:underline font-medium"
+              className="ml-1 text-sm text-black hover:underline font-medium font-inter"
             >
               Sign Up Now
             </Link>
           </div>
 
           <div className="text-center mt-8">
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-gray-500 font-inter">
               By continuing, you agree to our{' '}
               <a href="#" className="underline hover:text-gray-700">Terms of Service</a>
               {' '}and{' '}

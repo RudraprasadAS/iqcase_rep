@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { Loader2, Eye, EyeOff } from "lucide-react";
+import { Loader2, Eye, EyeOff, Lock } from "lucide-react";
 
 const Register = () => {
   const { toast } = useToast();
@@ -90,16 +90,16 @@ const Register = () => {
         <div className="flex flex-col justify-center w-full px-16">
           <div className="max-w-lg">
             <div className="text-6xl text-gray-300 mb-4">"</div>
-            <blockquote className="text-xl font-light text-gray-900 mb-8 leading-relaxed">
-              Join thousands of organizations streamlining their case management with our powerful platform.
+            <blockquote className="text-xl font-light text-gray-900 mb-8 leading-relaxed font-inter">
+              Join thousands of organizations streamlining their civic engagement with our powerful platform.
             </blockquote>
             <div className="flex items-center space-x-3">
               <div className="w-12 h-12 bg-gray-800 rounded-full flex items-center justify-center">
-                <span className="text-white font-medium text-sm">CM</span>
+                <span className="text-white font-medium text-sm font-inter">CQ</span>
               </div>
               <div>
-                <div className="font-medium text-gray-900">Case Management Team</div>
-                <div className="text-gray-500 text-sm">#efficiency #organization</div>
+                <div className="font-medium text-gray-900 font-inter">CivIQ Team</div>
+                <div className="text-gray-500 text-sm font-inter">#efficiency #civictech</div>
               </div>
             </div>
           </div>
@@ -113,17 +113,17 @@ const Register = () => {
           <div className="flex lg:hidden items-center justify-center mb-12">
             <img 
               src="/lovable-uploads/ee388e32-d054-4367-b2ac-0dd3512cb8fd.png" 
-              alt="Case Management Logo" 
+              alt="CivIQ Logo" 
               className="w-8 h-8 mr-2"
             />
-            <h1 className="text-2xl font-light text-black">Case Management</h1>
+            <h1 className="text-2xl font-light text-black font-inter">CivIQ</h1>
           </div>
 
           <div className="mb-8 text-center">
-            <h2 className="text-3xl font-semibold text-black mb-2">
+            <h2 className="text-3xl font-semibold text-black mb-2 font-inter">
               Create account
             </h2>
-            <p className="text-gray-600 font-light text-sm">
+            <p className="text-gray-600 font-light text-sm font-inter">
               Sign up for your account
             </p>
           </div>
@@ -132,7 +132,7 @@ const Register = () => {
           <div className="space-y-3 mb-6">
             <Button 
               variant="outline" 
-              className="w-full h-10 font-normal text-sm border-gray-300 hover:border-gray-400 hover:bg-gray-50 justify-start px-4"
+              className="w-full h-10 font-normal text-sm border-gray-300 hover:border-gray-400 hover:bg-gray-50 justify-start px-4 font-inter"
               onClick={handleGoogleSignUp}
             >
               <svg className="w-4 h-4 mr-3" viewBox="0 0 24 24">
@@ -145,20 +145,20 @@ const Register = () => {
             </Button>
             <Button 
               variant="outline" 
-              className="w-full h-10 font-normal text-sm border-gray-300 hover:border-gray-400 hover:bg-gray-50 justify-start px-4"
+              className="w-full h-10 font-normal text-sm border-gray-300 hover:border-gray-400 hover:bg-gray-50 justify-start px-4 font-inter"
             >
-              <svg className="w-4 h-4 mr-3" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M23.15 2.587L23.15 21.413L0.85 21.413L0.85 2.587L23.15 2.587ZM21.15 4.587L2.85 4.587L2.85 19.413L21.15 19.413L21.15 4.587ZM11.109 14.558L11.109 9.442L15.858 9.442L15.858 8.092L9.759 8.092L9.759 15.908L15.858 15.908L15.858 14.558L11.109 14.558Z"/>
-              </svg>
+              <img 
+                src="/lovable-uploads/57e6859d-fefb-4bf3-ba91-21bbf8218217.png" 
+                alt="Microsoft Logo" 
+                className="w-4 h-4 mr-3"
+              />
               Continue with Microsoft
             </Button>
             <Button 
               variant="outline" 
-              className="w-full h-10 font-normal text-sm border-gray-300 hover:border-gray-400 hover:bg-gray-50 justify-start px-4"
+              className="w-full h-10 font-normal text-sm border-gray-300 hover:border-gray-400 hover:bg-gray-50 justify-start px-4 font-inter"
             >
-              <svg className="w-4 h-4 mr-3" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-              </svg>
+              <Lock className="w-4 h-4 mr-3" />
               Continue with SSO
             </Button>
           </div>
@@ -166,33 +166,33 @@ const Register = () => {
           <div className="relative mb-6">
             <Separator className="bg-gray-200" />
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className="bg-white px-2 text-xs text-gray-500">or</span>
+              <span className="bg-white px-2 text-xs text-gray-500 font-inter">or</span>
             </div>
           </div>
 
           {/* Email/Password Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
-              <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm">
+              <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm font-inter">
                 {error}
               </div>
             )}
             
             <div className="space-y-1">
-              <Label htmlFor="name" className="text-sm font-normal text-gray-700">Full Name</Label>
+              <Label htmlFor="name" className="text-sm font-normal text-gray-700 font-inter">Full Name</Label>
               <Input
                 id="name"
                 name="name"
                 placeholder="John Doe"
                 value={formData.name}
                 onChange={handleChange}
-                className="h-10 font-normal border-gray-300 focus:border-black focus:ring-1 focus:ring-black text-sm"
+                className="h-10 font-normal border-gray-300 focus:border-black focus:ring-1 focus:ring-black text-sm font-inter"
                 disabled={isLoading}
               />
             </div>
             
             <div className="space-y-1">
-              <Label htmlFor="email" className="text-sm font-normal text-gray-700">Email</Label>
+              <Label htmlFor="email" className="text-sm font-normal text-gray-700 font-inter">Email</Label>
               <Input
                 id="email"
                 name="email"
@@ -200,14 +200,14 @@ const Register = () => {
                 placeholder="you@example.com"
                 value={formData.email}
                 onChange={handleChange}
-                className="h-10 font-normal border-gray-300 focus:border-black focus:ring-1 focus:ring-black text-sm"
+                className="h-10 font-normal border-gray-300 focus:border-black focus:ring-1 focus:ring-black text-sm font-inter"
                 required
                 disabled={isLoading}
               />
             </div>
             
             <div className="space-y-1">
-              <Label htmlFor="password" className="text-sm font-normal text-gray-700">Password</Label>
+              <Label htmlFor="password" className="text-sm font-normal text-gray-700 font-inter">Password</Label>
               <div className="relative">
                 <Input
                   id="password"
@@ -216,7 +216,7 @@ const Register = () => {
                   placeholder="••••••••"
                   value={formData.password}
                   onChange={handleChange}
-                  className="h-10 pr-10 font-normal border-gray-300 focus:border-black focus:ring-1 focus:ring-black text-sm"
+                  className="h-10 pr-10 font-normal border-gray-300 focus:border-black focus:ring-1 focus:ring-black text-sm font-inter"
                   required
                   disabled={isLoading}
                 />
@@ -231,7 +231,7 @@ const Register = () => {
             </div>
             
             <div className="space-y-1">
-              <Label htmlFor="confirmPassword" className="text-sm font-normal text-gray-700">Confirm Password</Label>
+              <Label htmlFor="confirmPassword" className="text-sm font-normal text-gray-700 font-inter">Confirm Password</Label>
               <div className="relative">
                 <Input
                   id="confirmPassword"
@@ -240,7 +240,7 @@ const Register = () => {
                   placeholder="••••••••"
                   value={formData.confirmPassword}
                   onChange={handleChange}
-                  className="h-10 pr-10 font-normal border-gray-300 focus:border-black focus:ring-1 focus:ring-black text-sm"
+                  className="h-10 pr-10 font-normal border-gray-300 focus:border-black focus:ring-1 focus:ring-black text-sm font-inter"
                   required
                   disabled={isLoading}
                 />
@@ -256,7 +256,7 @@ const Register = () => {
             
             <Button 
               type="submit" 
-              className="w-full h-10 bg-black hover:bg-gray-800 text-white font-normal text-sm mt-6"
+              className="w-full h-10 bg-black hover:bg-gray-800 text-white font-normal text-sm mt-6 font-inter"
               disabled={isLoading}
             >
               {isLoading ? (
@@ -269,19 +269,19 @@ const Register = () => {
           </form>
           
           <div className="text-center mt-6">
-            <span className="text-sm text-gray-600">
+            <span className="text-sm text-gray-600 font-inter">
               Already have an account?
             </span>
             <Link
               to="/"
-              className="ml-1 text-sm text-black hover:underline font-medium"
+              className="ml-1 text-sm text-black hover:underline font-medium font-inter"
             >
               Sign In
             </Link>
           </div>
 
           <div className="text-center mt-8">
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-gray-500 font-inter">
               By continuing, you agree to our{' '}
               <a href="#" className="underline hover:text-gray-700">Terms of Service</a>
               {' '}and{' '}
