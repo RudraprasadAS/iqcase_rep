@@ -11,8 +11,6 @@ interface UserRole {
 
 interface UserInfo {
   id: string;
-  name: string;
-  email: string;
   user_type: string;
   role: UserRole;
 }
@@ -33,9 +31,9 @@ export const useRoleAccess = () => {
         .from('users')
         .select(`
           id,
-          name,
-          email,
           user_type,
+          email,
+          name,
           roles:role_id (
             id,
             name,
@@ -55,8 +53,6 @@ export const useRoleAccess = () => {
 
       return {
         id: data.id,
-        name: data.name,
-        email: data.email,
         user_type: data.user_type,
         role: data.roles as UserRole
       } as UserInfo;
@@ -68,7 +64,7 @@ export const useRoleAccess = () => {
   const isCitizen = userInfo?.role?.name === 'citizen';
   const isAdmin = userInfo?.role?.name === 'admin';
   const isSuperAdmin = userInfo?.role?.name === 'super_admin';
-  const isSystemRole = userInfo?.role?.is_system ?? false;
+  const isSystemRole = userInfo?.role?.is_system;
 
   // Super admin and admin should have full access
   const hasAdminAccess = isSuperAdmin || isAdmin;
@@ -81,8 +77,7 @@ export const useRoleAccess = () => {
     isAdmin,
     isSuperAdmin,
     hasAdminAccess,
-    roleName: userInfo?.role?.name,
-    isSystemRole
+    roleName: userInfo?.role?.name
   });
 
   return {

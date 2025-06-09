@@ -1302,15 +1302,7 @@ export type Database = {
         Args: { query_text: string }
         Returns: Json
       }
-      get_current_internal_user_id: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
       get_current_user_id: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      get_current_user_role: {
         Args: Record<PropertyKey, never>
         Returns: string
       }
@@ -1331,18 +1323,6 @@ export type Database = {
           schema: string
           fields: string[]
         }[]
-      }
-      has_manager_access: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
-      is_admin_user: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
-      is_internal_user: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
       }
       populate_data_sources: {
         Args: Record<PropertyKey, never>
