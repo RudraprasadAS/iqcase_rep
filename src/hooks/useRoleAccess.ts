@@ -22,10 +22,11 @@ export const useRoleAccess = () => {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
+        console.log('❌ No authenticated user found');
         throw new Error('No authenticated user');
       }
 
-      console.log('Fetching user info for:', user.email);
+      console.log('🔍 Fetching user info for auth user:', user.email, 'Auth ID:', user.id);
 
       const { data, error } = await supabase
         .from('users')
@@ -34,6 +35,7 @@ export const useRoleAccess = () => {
           user_type,
           email,
           name,
+          auth_user_id,
           roles:role_id (
             id,
             name,
@@ -45,11 +47,48 @@ export const useRoleAccess = () => {
         .single();
 
       if (error) {
-        console.error('Error fetching user info:', error);
-        throw error;
+        console.error('❌ Error fetching user info:', error);
+        console.log('🔍 Trying to find user by email as fallback...');
+        
+        // Fallback: try to find by email
+        const { data: emailData, error: emailError } = await supabase
+          .from('users')
+          .select(`
+            id,
+            user_type,
+            email,
+            name,
+            auth_user_id,
+            roles:role_id (
+              id,
+              name,
+              role_type,
+              is_system
+            )
+          `)
+          .eq('email', user.email)
+          .single();
+
+        if (emailError) {
+          console.error('❌ Error fetching user by email:', emailError);
+          throw emailError;
+        }
+
+        console.log('✅ Found user by email:', emailData);
+        return {
+          id: emailData.id,
+          user_type: emailData.user_type,
+          role: emailData.roles as UserRole
+        } as UserInfo;
       }
 
-      console.log('User info fetched:', data);
+      console.log('✅ User info fetched:', {
+        id: data.id,
+        email: data.email,
+        user_type: data.user_type,
+        role: data.roles,
+        auth_user_id: data.auth_user_id
+      });
 
       return {
         id: data.id,
@@ -60,7 +99,7 @@ export const useRoleAccess = () => {
   });
 
   // Define role hierarchy and access patterns - admin should have full access
-  const isAdmin = userInfo?.role?.name === 'admin';
+  const isAdmin = userInfo?.role?.name === 'admin' || userInfo?.role?.name === 'super_admin';
   const isManager = userInfo?.role?.name === 'manager';
   const isCaseworker = userInfo?.role?.name === 'caseworker';
   const isViewer = userInfo?.role?.name === 'viewer';
@@ -78,7 +117,7 @@ export const useRoleAccess = () => {
   const canViewInternalNotes = isAdmin || isManager;
   const canEditInternalNotes = isAdmin;
 
-  console.log('Role access computed:', {
+  console.log('🔑 Role access computed:', {
     userInfo,
     isAdmin,
     isManager,
