@@ -69,38 +69,44 @@ function App() {
                   <Route path="/cases/new" element={<NewCase />} />
                   <Route path="/knowledge" element={<KnowledgeBase />} />
                   <Route path="/notifications" element={<Notifications />} />
-                  <Route path="/insights" element={<Insights />} />
                   
-                  {/* Analytics - Only for users with analytics access */}
+                  {/* Insights - Permission-based access */}
+                  <Route path="/insights" element={
+                    <RoleBasedRoute requiredPermission={{ moduleName: 'insights', permissionType: 'view' }}>
+                      <Insights />
+                    </RoleBasedRoute>
+                  } />
+                  
+                  {/* Analytics - Permission-based access */}
                   <Route path="/reports" element={
-                    <RoleBasedRoute allowedRoles={['admin', 'manager', 'analyst']}>
+                    <RoleBasedRoute requiredPermission={{ moduleName: 'reports', permissionType: 'view' }}>
                       <Reports />
                     </RoleBasedRoute>
                   } />
                   <Route path="/reports/builder" element={
-                    <RoleBasedRoute allowedRoles={['admin', 'manager', 'analyst']}>
+                    <RoleBasedRoute requiredPermission={{ moduleName: 'reports', permissionType: 'view' }}>
                       <ReportBuilder />
                     </RoleBasedRoute>
                   } />
                   <Route path="/dashboards" element={
-                    <RoleBasedRoute allowedRoles={['admin', 'manager', 'analyst']}>
+                    <RoleBasedRoute requiredPermission={{ moduleName: 'dashboards', permissionType: 'view' }}>
                       <Dashboards />
                     </RoleBasedRoute>
                   } />
                   
-                  {/* Admin routes - Only for admin users */}
+                  {/* Admin routes - Permission-based access */}
                   <Route path="/admin/users" element={
-                    <RoleBasedRoute allowedRoles={['admin']}>
+                    <RoleBasedRoute requiredPermission={{ moduleName: 'users', permissionType: 'view' }}>
                       <Users />
                     </RoleBasedRoute>
                   } />
                   <Route path="/admin/permissions" element={
-                    <RoleBasedRoute allowedRoles={['admin']}>
+                    <RoleBasedRoute requiredPermission={{ moduleName: 'permissions', permissionType: 'view' }}>
                       <Permissions />
                     </RoleBasedRoute>
                   } />
                   <Route path="/admin/roles" element={
-                    <RoleBasedRoute allowedRoles={['admin']}>
+                    <RoleBasedRoute requiredPermission={{ moduleName: 'roles', permissionType: 'view' }}>
                       <Roles />
                     </RoleBasedRoute>
                   } />

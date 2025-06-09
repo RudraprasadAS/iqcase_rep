@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useState } from 'react';
-import { useRoleAccess } from '@/hooks/useRoleAccess';
+import { useMenuPermissions } from '@/hooks/usePermissionCheck';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -55,12 +55,72 @@ const adminNavigation = [
 
 export function AppSidebar() {
   const { state } = useSidebar();
-  const { isAdmin, roleName } = useRoleAccess();
   const [isReportsOpen, setIsReportsOpen] = useState(false);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   
-  // Check if user has analytics access
-  const hasAnalyticsAccess = ['admin', 'manager', 'analyst'].includes(roleName || '');
+  const {
+    canViewAnalytics,
+    canViewReports,
+    canViewAdmin,
+    canViewUsers,
+    canViewPermissions,
+    canViewRoles,
+    canViewDashboards,
+    canViewInsights,
+    isLoading
+  } = useMenuPermissions();
+
+  // Filter navigation items based on permissions
+  const filteredNavigation = navigation.filter(item => {
+    if (item.name === 'Insights') return canViewInsights;
+    return true; // Allow dashboard, cases, knowledge base, and notifications for all authenticated users
+  });
+
+  // Filter admin navigation based on specific permissions
+  const filteredAdminNavigation = adminNavigation.filter(item => {
+    switch (item.name) {
+      case 'Users':
+        return canViewUsers;
+      case 'Permissions':
+        return canViewPermissions;
+      case 'Roles':
+        return canViewRoles;
+      default:
+        return false;
+    }
+  });
+
+  // Filter reports navigation based on specific permissions
+  const filteredReportNavigation = reportNavigation.filter(item => {
+    if (item.name === 'Dashboards') return canViewDashboards;
+    return canViewReports; // Reports and Report Builder both need reports permission
+  });
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <Sidebar collapsible="icon" className="font-inter">
+        <SidebarHeader>
+          <div className="flex items-center gap-2 px-2 py-1">
+            <img 
+              src="/lovable-uploads/ee388e32-d054-4367-b2ac-0dd3512cb8fd.png" 
+              alt="CivIQ" 
+              className="w-6 h-6 flex-shrink-0"
+            />
+            {state === "expanded" && (
+              <div className="grid flex-1 text-left text-sm leading-tight min-w-0">
+                <span className="truncate font-semibold text-gray-900 font-inter">CivIQ</span>
+              </div>
+            )}
+          </div>
+          <SidebarTrigger className="ml-auto" />
+        </SidebarHeader>
+        <SidebarContent>
+          <div className="p-4 text-sm text-muted-foreground">Loading permissions...</div>
+        </SidebarContent>
+      </Sidebar>
+    );
+  }
   
   return (
     <Sidebar collapsible="icon" className="font-inter">
@@ -93,7 +153,7 @@ export function AppSidebar() {
           <SidebarGroupLabel>Application</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navigation.map((item) => (
+              {filteredNavigation.map((item) => (
                 <SidebarMenuItem key={item.name}>
                   <SidebarMenuButton asChild tooltip={item.name}>
                     <NavLink
@@ -112,8 +172,8 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Analytics section - only show if user has access */}
-        {hasAnalyticsAccess && (
+        {/* Analytics section - only show if user has permission */}
+        {(canViewAnalytics || canViewReports || canViewDashboards) && filteredReportNavigation.length > 0 && (
           <SidebarGroup>
             <SidebarGroupLabel>Analytics</SidebarGroupLabel>
             <SidebarGroupContent>
@@ -129,7 +189,7 @@ export function AppSidebar() {
                     </CollapsibleTrigger>
                     <CollapsibleContent>
                       <SidebarMenuSub>
-                        {reportNavigation.map((item) => (
+                        {filteredReportNavigation.map((item) => (
                           <SidebarMenuSubItem key={item.name}>
                             <SidebarMenuSubButton asChild>
                               <NavLink to={item.href}>
@@ -147,8 +207,8 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
 
-        {/* Admin section - only show if user is admin */}
-        {isAdmin && (
+        {/* Admin section - only show if user has admin permissions */}
+        {canViewAdmin && filteredAdminNavigation.length > 0 && (
           <SidebarGroup>
             <SidebarGroupLabel>Administration</SidebarGroupLabel>
             <SidebarGroupContent>
@@ -164,7 +224,7 @@ export function AppSidebar() {
                     </CollapsibleTrigger>
                     <CollapsibleContent>
                       <SidebarMenuSub>
-                        {adminNavigation.map((item) => (
+                        {filteredAdminNavigation.map((item) => (
                           <SidebarMenuSubItem key={item.name}>
                             <SidebarMenuSubButton asChild>
                               <NavLink to={item.href}>

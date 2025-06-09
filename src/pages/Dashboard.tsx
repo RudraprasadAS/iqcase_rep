@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import CalendarView from '@/components/dashboard/CalendarView';
+import { PermissionDebugger } from '@/components/debug/PermissionDebugger';
 
 interface DashboardStats {
   totalCases: number;
@@ -180,6 +181,9 @@ const Dashboard = () => {
           Welcome back! Here's an overview of your case management system.
         </p>
       </div>
+
+      {/* Debug component - remove in production */}
+      {process.env.NODE_ENV === 'development' && <PermissionDebugger />}
 
       <Tabs defaultValue="overview" className="space-y-6">
         <TabsList className="grid w-full grid-cols-2">
