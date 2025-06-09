@@ -10,7 +10,8 @@ import { Plus, Search, FileText, Filter, Edit } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { 
   PermissionGuard, 
-  ButtonPermissionWrapper 
+  ButtonPermissionWrapper,
+  FieldPermissionWrapper 
 } from "@/components/auth";
 import {
   Table,
@@ -23,6 +24,7 @@ import {
 import PriorityBadge from "@/components/cases/PriorityBadge";
 import StatusBadge from "@/components/cases/StatusBadge";
 import { useRoleAccess } from "@/hooks/useRoleAccess";
+import { useFieldPermissions } from "@/hooks/useFieldPermissions";
 
 const Cases = () => {
   const navigate = useNavigate();
@@ -30,6 +32,25 @@ const Cases = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
   const { userInfo } = useRoleAccess();
+
+  // Get field-level permissions for the cases module
+  const {
+    canViewField,
+    canEditField,
+    getVisibleFields,
+    isLoading: permissionsLoading
+  } = useFieldPermissions('cases', [
+    'title',
+    'description', 
+    'status',
+    'priority',
+    'category',
+    'submitted_by',
+    'assigned_to',
+    'location',
+    'created_at',
+    'actions'
+  ]);
 
   // Fetch cases data with role-based filtering
   const { data: cases, isLoading } = useQuery({
@@ -69,6 +90,10 @@ const Cases = () => {
     },
     enabled: !!userInfo,
   });
+
+  if (permissionsLoading) {
+    return <div className="animate-pulse bg-gray-200 h-4 w-full rounded"></div>;
+  }
 
   return (
     <PermissionGuard elementKey="cases" permissionType="view">
@@ -112,37 +137,41 @@ const Cases = () => {
                 </div>
               </div>
               
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[150px]">
-                  <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="open">Open</SelectItem>
-                  <SelectItem value="in_progress">In Progress</SelectItem>
-                  <SelectItem value="resolved">Resolved</SelectItem>
-                  <SelectItem value="closed">Closed</SelectItem>
-                </SelectContent>
-              </Select>
+              <FieldPermissionWrapper elementKey="cases.status" permissionType="view">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-[150px]">
+                    <Filter className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="open">Open</SelectItem>
+                    <SelectItem value="in_progress">In Progress</SelectItem>
+                    <SelectItem value="resolved">Resolved</SelectItem>
+                    <SelectItem value="closed">Closed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </FieldPermissionWrapper>
 
-              <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                <SelectTrigger className="w-[150px]">
-                  <SelectValue placeholder="Priority" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Priority</SelectItem>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="urgent">Urgent</SelectItem>
-                </SelectContent>
-              </Select>
+              <FieldPermissionWrapper elementKey="cases.priority" permissionType="view">
+                <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                  <SelectTrigger className="w-[150px]">
+                    <SelectValue placeholder="Priority" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Priority</SelectItem>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="urgent">Urgent</SelectItem>
+                  </SelectContent>
+                </Select>
+              </FieldPermissionWrapper>
             </div>
           </CardContent>
         </Card>
 
-        {/* Cases Table */}
+        {/* Cases Table with Field-Level Permissions */}
         <Card>
           <CardHeader>
             <CardTitle>Cases List</CardTitle>
@@ -175,15 +204,15 @@ const Cases = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Title</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Priority</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Submitted By</TableHead>
-                    <TableHead>Assigned To</TableHead>
-                    <TableHead>Location</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead>Actions</TableHead>
+                    {canViewField('title') && <TableHead>Title</TableHead>}
+                    {canViewField('status') && <TableHead>Status</TableHead>}
+                    {canViewField('priority') && <TableHead>Priority</TableHead>}
+                    {canViewField('category') && <TableHead>Category</TableHead>}
+                    {canViewField('submitted_by') && <TableHead>Submitted By</TableHead>}
+                    {canViewField('assigned_to') && <TableHead>Assigned To</TableHead>}
+                    {canViewField('location') && <TableHead>Location</TableHead>}
+                    {canViewField('created_at') && <TableHead>Created</TableHead>}
+                    {canViewField('actions') && <TableHead>Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -193,47 +222,120 @@ const Cases = () => {
                       className="cursor-pointer hover:bg-muted/50"
                       onClick={() => navigate(`/cases/${caseItem.id}`)}
                     >
-                      <TableCell className="font-medium">
-                        <div>
-                          <div className="font-semibold">{caseItem.title}</div>
-                          <div className="text-sm text-muted-foreground truncate max-w-xs">
-                            {caseItem.description}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <StatusBadge status={caseItem.status} />
-                      </TableCell>
-                      <TableCell>
-                        <PriorityBadge priority={caseItem.priority} />
-                      </TableCell>
-                      <TableCell>
-                        {caseItem.category?.name || 'Uncategorized'}
-                      </TableCell>
-                      <TableCell>
-                        {caseItem.submitted_by_user?.name || 'Unknown'}
-                      </TableCell>
-                      <TableCell>
-                        {caseItem.assigned_to_user?.name || 'Unassigned'}
-                      </TableCell>
-                      <TableCell className="max-w-xs truncate">
-                        {caseItem.location || 'Not specified'}
-                      </TableCell>
-                      <TableCell>
-                        {new Date(caseItem.created_at).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/cases/${caseItem.id}`);
-                          }}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
+                      {canViewField('title') && (
+                        <TableCell className="font-medium">
+                          <FieldPermissionWrapper 
+                            elementKey="cases.title" 
+                            permissionType="view"
+                          >
+                            <div>
+                              <div className="font-semibold">{caseItem.title}</div>
+                              {canViewField('description') && (
+                                <div className="text-sm text-muted-foreground truncate max-w-xs">
+                                  {caseItem.description}
+                                </div>
+                              )}
+                            </div>
+                          </FieldPermissionWrapper>
+                        </TableCell>
+                      )}
+                      
+                      {canViewField('status') && (
+                        <TableCell>
+                          <FieldPermissionWrapper 
+                            elementKey="cases.status" 
+                            permissionType="view"
+                          >
+                            <StatusBadge status={caseItem.status} />
+                          </FieldPermissionWrapper>
+                        </TableCell>
+                      )}
+                      
+                      {canViewField('priority') && (
+                        <TableCell>
+                          <FieldPermissionWrapper 
+                            elementKey="cases.priority" 
+                            permissionType="view"
+                          >
+                            <PriorityBadge priority={caseItem.priority} />
+                          </FieldPermissionWrapper>
+                        </TableCell>
+                      )}
+                      
+                      {canViewField('category') && (
+                        <TableCell>
+                          <FieldPermissionWrapper 
+                            elementKey="cases.category" 
+                            permissionType="view"
+                          >
+                            {caseItem.category?.name || 'Uncategorized'}
+                          </FieldPermissionWrapper>
+                        </TableCell>
+                      )}
+                      
+                      {canViewField('submitted_by') && (
+                        <TableCell>
+                          <FieldPermissionWrapper 
+                            elementKey="cases.submitted_by" 
+                            permissionType="view"
+                          >
+                            {caseItem.submitted_by_user?.name || 'Unknown'}
+                          </FieldPermissionWrapper>
+                        </TableCell>
+                      )}
+                      
+                      {canViewField('assigned_to') && (
+                        <TableCell>
+                          <FieldPermissionWrapper 
+                            elementKey="cases.assigned_to" 
+                            permissionType="view"
+                          >
+                            {caseItem.assigned_to_user?.name || 'Unassigned'}
+                          </FieldPermissionWrapper>
+                        </TableCell>
+                      )}
+                      
+                      {canViewField('location') && (
+                        <TableCell className="max-w-xs truncate">
+                          <FieldPermissionWrapper 
+                            elementKey="cases.location" 
+                            permissionType="view"
+                          >
+                            {caseItem.location || 'Not specified'}
+                          </FieldPermissionWrapper>
+                        </TableCell>
+                      )}
+                      
+                      {canViewField('created_at') && (
+                        <TableCell>
+                          <FieldPermissionWrapper 
+                            elementKey="cases.created_at" 
+                            permissionType="view"
+                          >
+                            {new Date(caseItem.created_at).toLocaleDateString()}
+                          </FieldPermissionWrapper>
+                        </TableCell>
+                      )}
+                      
+                      {canViewField('actions') && (
+                        <TableCell>
+                          <FieldPermissionWrapper 
+                            elementKey="cases.actions" 
+                            permissionType="edit"
+                          >
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/cases/${caseItem.id}`);
+                              }}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          </FieldPermissionWrapper>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
