@@ -6,7 +6,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import { Plus, Search, FileText, Filter, Edit } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { 
@@ -21,16 +20,20 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import PriorityBadge from "@/components/cases/PriorityBadge";
+import StatusBadge from "@/components/cases/StatusBadge";
+import { useRoleAccess } from "@/hooks/useRoleAccess";
 
 const Cases = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
+  const { userInfo } = useRoleAccess();
 
-  // Fetch cases data
+  // Fetch cases data with role-based filtering
   const { data: cases, isLoading } = useQuery({
-    queryKey: ["cases", searchQuery, statusFilter, priorityFilter],
+    queryKey: ["cases", searchQuery, statusFilter, priorityFilter, userInfo?.id],
     queryFn: async () => {
       let query = supabase
         .from("cases")
@@ -41,6 +44,12 @@ const Cases = () => {
           assigned_to_user:users!cases_assigned_to_fkey(name)
         `)
         .order("created_at", { ascending: false });
+
+      // Filter cases based on user role
+      if (userInfo && userInfo.role.name !== 'super_admin' && userInfo.role.name !== 'admin') {
+        // For non-admin users, only show cases they're assigned to or submitted by them
+        query = query.or(`assigned_to.eq.${userInfo.id},submitted_by.eq.${userInfo.id}`);
+      }
 
       if (searchQuery) {
         query = query.or(`title.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`);
@@ -58,27 +67,8 @@ const Cases = () => {
       if (error) throw error;
       return data;
     },
+    enabled: !!userInfo,
   });
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case "urgent": return "destructive";
-      case "high": return "destructive";
-      case "medium": return "default";
-      case "low": return "secondary";
-      default: return "outline";
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "open": return "default";
-      case "in_progress": return "secondary";
-      case "resolved": return "outline";
-      case "closed": return "outline";
-      default: return "outline";
-    }
-  };
 
   return (
     <PermissionGuard elementKey="cases" permissionType="view">
@@ -212,14 +202,10 @@ const Cases = () => {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={getStatusColor(caseItem.status)}>
-                          {caseItem.status.replace('_', ' ')}
-                        </Badge>
+                        <StatusBadge status={caseItem.status} />
                       </TableCell>
                       <TableCell>
-                        <Badge variant={getPriorityColor(caseItem.priority)}>
-                          {caseItem.priority}
-                        </Badge>
+                        <PriorityBadge priority={caseItem.priority} />
                       </TableCell>
                       <TableCell>
                         {caseItem.category?.name || 'Uncategorized'}
