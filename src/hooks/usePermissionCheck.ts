@@ -8,16 +8,18 @@ interface PermissionCheckResult {
   error: Error | null;
 }
 
-// Hook to check if current user has permission for a specific frontend element
+// Hook to check if current user has permission for a specific module/field
 export const usePermissionCheck = (
-  elementKey: string,
+  moduleName: string,
+  fieldName?: string | null,
   permissionType: 'view' | 'edit' = 'view'
 ): PermissionCheckResult => {
   const { data: hasPermission = false, isLoading, error } = useQuery({
-    queryKey: ['frontend_permission', elementKey, permissionType],
+    queryKey: ['permission', moduleName, fieldName, permissionType],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('current_user_has_frontend_permission', {
-        p_element_key: elementKey,
+      const { data, error } = await supabase.rpc('current_user_can_access', {
+        p_module_name: moduleName,
+        p_field_name: fieldName,
         p_permission_type: permissionType
       });
       
@@ -28,7 +30,7 @@ export const usePermissionCheck = (
       
       return data as boolean;
     },
-    enabled: !!elementKey,
+    enabled: !!moduleName,
   });
 
   return {
@@ -40,19 +42,21 @@ export const usePermissionCheck = (
 
 // Hook to check multiple permissions at once
 export const useBulkPermissionCheck = (permissions: Array<{
-  elementKey: string;
+  moduleName: string;
+  fieldName?: string | null;
   permissionType?: 'view' | 'edit';
 }>) => {
   const { data: permissionResults = {}, isLoading, error } = useQuery({
-    queryKey: ['bulk_frontend_permissions', permissions],
+    queryKey: ['bulk_permissions', permissions],
     queryFn: async () => {
       const results: Record<string, boolean> = {};
       
       for (const perm of permissions) {
-        const key = `${perm.elementKey}.${perm.permissionType || 'view'}`;
+        const key = `${perm.moduleName}${perm.fieldName ? `.${perm.fieldName}` : ''}.${perm.permissionType || 'view'}`;
         
-        const { data, error } = await supabase.rpc('current_user_has_frontend_permission', {
-          p_element_key: perm.elementKey,
+        const { data, error } = await supabase.rpc('current_user_can_access', {
+          p_module_name: perm.moduleName,
+          p_field_name: perm.fieldName,
           p_permission_type: perm.permissionType || 'view'
         });
         

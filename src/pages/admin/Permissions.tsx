@@ -1,182 +1,357 @@
 
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import React, { useState, useEffect } from "react";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Save, Loader2 } from "lucide-react";
 import { Role } from "@/types/roles";
-import { FrontendRegistryItem } from "@/types/frontend-registry";
-import { FrontendPermissionGuard } from "@/components/auth/FrontendPermissionGuard";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Save, Edit, Trash2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { CreateRoleDialog } from "@/components/permissions/CreateRoleDialog";
 import { PermissionTable } from "@/components/permissions/PermissionTable";
 import { usePermissions } from "@/hooks/usePermissions";
+import { Permission, TableInfo } from "@/types/permissions";
+import { DeleteRoleDialog } from "@/components/roles/DeleteRoleDialog";
+import { EditRoleDialog } from "@/components/roles/EditRoleDialog";
+import { toast } from "@/hooks/use-toast";
 
 const PermissionsPage = () => {
-  const { toast } = useToast();
   const [selectedRoleId, setSelectedRoleId] = useState<string>("");
-  const [expandedModules, setExpandedModules] = useState<Record<string, boolean>>({});
-
-  // Fetch roles
-  const { data: roles = [] } = useQuery({
+  const [showSelectAll, setShowSelectAll] = useState<boolean>(false);
+  const [editRoleOpen, setEditRoleOpen] = useState<boolean>(false);
+  const [deleteRoleOpen, setDeleteRoleOpen] = useState<boolean>(false);
+  const queryClient = useQueryClient();
+  
+  // Fetch all roles
+  const { data: roles, isLoading: rolesLoading } = useQuery({
     queryKey: ["roles"],
     queryFn: async () => {
+      console.log("[PermissionsPage] Fetching roles from database");
       const { data, error } = await supabase
         .from("roles")
         .select("*")
-        .eq("is_active", true)
         .order("name");
         
-      if (error) throw error;
+      if (error) {
+        console.error("[PermissionsPage] Error fetching roles:", error);
+        throw error;
+      }
+      
+      console.log("[PermissionsPage] Roles fetched successfully:", data);
       return data as Role[];
     },
   });
-
-  // Fetch frontend registry items
-  const { data: registryItems = [] } = useQuery({
-    queryKey: ["frontend_registry"],
+  
+  // Fetch all database tables
+  const { data: tables, isLoading: tablesLoading } = useQuery({
+    queryKey: ["database_tables"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("frontend_registry")
-        .select("*")
-        .eq("is_active", true)
-        .order("module", { ascending: true })
-        .order("screen", { ascending: true })
-        .order("element_key", { ascending: true });
+      console.log("[PermissionsPage] Fetching database tables");
+      try {
+        const { data, error } = await supabase.rpc('get_tables_info');
+          
+        if (error) {
+          console.error("[PermissionsPage] Error fetching tables:", error);
+          // Fallback to a predefined list of core tables
+          return [
+            { name: "cases", schema: "public", fields: ["id", "title", "description", "status"] },
+            { name: "users", schema: "public", fields: ["id", "name", "email"] },
+            { name: "roles", schema: "public", fields: ["id", "name", "description"] },
+            { name: "permissions", schema: "public", fields: ["id", "role_id", "module_name"] },
+            { name: "case_categories", schema: "public", fields: ["id", "name", "description"] }
+          ] as TableInfo[];
+        }
         
-      if (error) throw error;
-      return data as FrontendRegistryItem[];
+        console.log("[PermissionsPage] Tables fetched successfully:", data);
+        return data as TableInfo[];
+      } catch (e) {
+        console.error("[PermissionsPage] Exception fetching tables:", e);
+        throw e;
+      }
     },
   });
-
+  
   // Fetch permissions for selected role
-  const { data: permissions = [], isLoading: permissionsLoading } = useQuery({
-    queryKey: ["role_permissions", selectedRoleId],
+  const { data: permissions, isLoading: permissionsLoading, refetch: refetchPermissions } = useQuery({
+    queryKey: ["permissions", selectedRoleId],
     queryFn: async () => {
-      if (!selectedRoleId) return [];
+      if (!selectedRoleId) return [] as Permission[];
       
-      const { data, error } = await supabase
-        .from("permissions")
-        .select(`
-          *,
-          frontend_registry:frontend_registry_id (*)
-        `)
-        .eq("role_id", selectedRoleId);
+      console.log(`[PermissionsPage] Fetching permissions for role: ${selectedRoleId}`);
+      try {
+        const { data, error } = await supabase
+          .from("permissions")
+          .select("*")
+          .eq("role_id", selectedRoleId);
+          
+        if (error) {
+          console.error("[PermissionsPage] Error fetching permissions:", error);
+          throw error;
+        }
         
-      if (error) throw error;
-      return data;
+        console.log(`[PermissionsPage] Permissions fetched for role ${selectedRoleId}:`, data);
+        return (data || []) as Permission[];
+      } catch (e) {
+        console.error("[PermissionsPage] Exception fetching permissions:", e);
+        throw e;
+      }
     },
     enabled: !!selectedRoleId,
   });
-
-  // Use the permissions hook
+  
   const {
     hasUnsavedChanges,
+    expandedTables,
     savePermissionsMutation,
+    handleToggleTable,
     handlePermissionChange,
+    handleBulkToggleForTable,
+    handleSelectAllForTable,
     getEffectivePermission,
-    expandedTables: expandedTablesFromHook,
-    handleToggleTable
-  } = usePermissions(selectedRoleId, permissions, roles);
+    debugCurrentState
+  } = usePermissions(selectedRoleId, permissions, roles, tables);
 
-  const handleToggleModule = (moduleName: string) => {
-    setExpandedModules(prev => ({
-      ...prev,
-      [moduleName]: !prev[moduleName]
-    }));
-  };
-
-  const handleSave = () => {
+  const handleSaveChanges = () => {
+    console.log("[PermissionsPage] Save changes button clicked");
+    debugCurrentState(); // Log current state before saving
     savePermissionsMutation.mutate();
   };
 
+  const handleRoleUpdate = () => {
+    console.log("[PermissionsPage] Role updated, refreshing roles list");
+    // Refresh roles list
+    queryClient.invalidateQueries({ queryKey: ["roles"] });
+    
+    // Also refresh permissions if a role is selected
+    if (selectedRoleId) {
+      console.log("[PermissionsPage] Refreshing permissions after role update");
+      refetchPermissions();
+    }
+    
+    toast({
+      title: "Role updated",
+      description: "The role has been updated successfully."
+    });
+  };
+
+  const handleRoleSelected = (roleId: string) => {
+    console.log(`[PermissionsPage] Role selected: ${roleId}`);
+    if (hasUnsavedChanges) {
+      if (confirm("You have unsaved changes. Do you want to discard them?")) {
+        setSelectedRoleId(roleId);
+      }
+    } else {
+      setSelectedRoleId(roleId);
+    }
+  };
+
+  // Log when permissions data changes
+  useEffect(() => {
+    if (permissions) {
+      console.log(`[PermissionsPage] Current permissions for role ${selectedRoleId}:`, permissions);
+      
+      // Check for permission conflicts (multiple permissions for same role/module/field)
+      const permissionMap = new Map<string, Permission[]>();
+      permissions.forEach(p => {
+        const key = `${p.role_id}|${p.module_name}|${p.field_name}`;
+        if (!permissionMap.has(key)) {
+          permissionMap.set(key, []);
+        }
+        permissionMap.get(key)?.push(p);
+      });
+      
+      // Log any permission conflicts
+      permissionMap.forEach((perms, key) => {
+        if (perms.length > 1) {
+          console.warn(`[PermissionsPage] DUPLICATE PERMISSION DETECTED: ${key}`, perms);
+        }
+      });
+    }
+  }, [permissions, selectedRoleId]);
+
+  const selectedRole = roles?.find(role => role.id === selectedRoleId);
+
+  // Define relevant modules/tables to show
+  const relevantTables = tables?.filter(t => 
+    !t.name.startsWith('pg_') && 
+    !t.name.includes('_audit_') && 
+    !t.name.includes('_log')
+  ) || [];
+
+  // Filter out system tables and sort by name
+  const sortedTables = [...relevantTables].sort((a, b) => a.name.localeCompare(b.name));
+  
+  const isLoading = rolesLoading || tablesLoading || (!!selectedRoleId && permissionsLoading);
+  
+  // Debug render
+  useEffect(() => {
+    console.log("[PermissionsPage] Rendering with state:", {
+      selectedRoleId,
+      hasUnsavedChanges,
+      isLoading,
+      permissionsCount: permissions?.length,
+      tablesCount: sortedTables.length
+    });
+  });
+
   return (
-    <FrontendPermissionGuard elementKey="permission_matrix">
-      <div className="container mx-auto py-6 space-y-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold">Frontend Permissions</h1>
-            <p className="text-muted-foreground">
-              Manage role-based permissions for UI elements using the frontend registry
-            </p>
-          </div>
-          
-          <div className="flex items-center gap-4">
-            {hasUnsavedChanges && (
-              <Badge variant="secondary">
-                Unsaved changes
-              </Badge>
-            )}
-            <Button 
-              onClick={handleSave}
-              disabled={!hasUnsavedChanges || savePermissionsMutation.isPending}
-            >
-              {savePermissionsMutation.isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="mr-2 h-4 w-4" />
-              )}
-              Save Changes
-            </Button>
-          </div>
+    <div className="container mx-auto py-6 space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold">Roles & Permissions</h1>
+          <p className="text-muted-foreground">Manage roles and their permissions across the system</p>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Role Selection</CardTitle>
-            <CardDescription>
-              Select a role to manage its frontend permissions
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Select value={selectedRoleId} onValueChange={setSelectedRoleId}>
-              <SelectTrigger className="w-full max-w-md">
-                <SelectValue placeholder="Select a role" />
-              </SelectTrigger>
-              <SelectContent>
-                {roles.map((role) => (
-                  <SelectItem key={role.id} value={role.id}>
-                    {role.name}
-                    {role.is_system && <Badge variant="secondary" className="ml-2">System</Badge>}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </CardContent>
-        </Card>
-
-        {selectedRoleId && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Frontend Element Permissions</CardTitle>
-              <CardDescription>
-                Configure view and edit permissions for UI elements organized by module and screen
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {permissionsLoading ? (
-                <div className="flex justify-center items-center h-40">
-                  <Loader2 className="h-6 w-6 animate-spin" />
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Label htmlFor="select-all-toggle">Show "Select All" options</Label>
+            <Switch 
+              id="select-all-toggle"
+              checked={showSelectAll} 
+              onCheckedChange={setShowSelectAll} 
+            />
+          </div>
+        </div>
+      </div>
+      
+      <Card>
+        <CardHeader>
+          <CardTitle>Role Management & Permissions</CardTitle>
+          <CardDescription>
+            Create roles and configure what they can access across your database tables and fields
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="space-y-2">
+              <Skeleton className="h-8 w-full" />
+              <Skeleton className="h-64 w-full" />
+            </div>
+          ) : (
+            <div>
+              <div className="flex justify-between items-end mb-6">
+                <div className="w-full flex items-end gap-2">
+                  <div className="flex-1 max-w-[300px]">
+                    <Label htmlFor="role-select" className="mb-2 block">Select Role</Label>
+                    <Select 
+                      value={selectedRoleId} 
+                      onValueChange={handleRoleSelected}
+                    >
+                      <SelectTrigger id="role-select" className="flex-1">
+                        <SelectValue placeholder="Select a role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {roles?.map(role => (
+                          <SelectItem key={role.id} value={role.id}>
+                            {role.name} {role.is_system === true && "(System)"}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <CreateRoleDialog onRoleCreated={setSelectedRoleId} />
+                  
+                  {selectedRole && (
+                    <>
+                      <Button 
+                        variant="outline" 
+                        size="icon" 
+                        onClick={() => setEditRoleOpen(true)}
+                        disabled={selectedRole?.is_system}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="icon"
+                        onClick={() => setDeleteRoleOpen(true)}
+                        disabled={selectedRole?.is_system}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </>
+                  )}
+                  
+                  <Button
+                    onClick={handleSaveChanges}
+                    disabled={savePermissionsMutation.isPending || !hasUnsavedChanges}
+                    className={`ml-auto ${hasUnsavedChanges ? 'animate-pulse' : ''}`}
+                  >
+                    <Save className="h-4 w-4 mr-2" /> Save Changes
+                  </Button>
+                </div>
+              </div>
+              
+              {!selectedRoleId ? (
+                <div className="text-center py-12 border rounded-md bg-muted/10">
+                  <p className="text-muted-foreground">Select a role to manage permissions</p>
                 </div>
               ) : (
-                <PermissionTable
-                  selectedRoleId={selectedRoleId}
-                  registryItems={registryItems}
-                  roles={roles}
-                  permissions={permissions}
-                  expandedModules={expandedModules}
-                  onToggleModule={handleToggleModule}
-                  getEffectivePermission={getEffectivePermission}
-                  handlePermissionChange={handlePermissionChange}
-                />
+                <div>
+                  <PermissionTable 
+                    selectedRoleId={selectedRoleId}
+                    tables={sortedTables}
+                    roles={roles}
+                    permissions={permissions}
+                    expandedTables={expandedTables}
+                    onToggleTable={handleToggleTable}
+                    getEffectivePermission={getEffectivePermission}
+                    handlePermissionChange={handlePermissionChange}
+                    handleSelectAllForTable={handleSelectAllForTable}
+                    showSelectAll={showSelectAll}
+                  />
+                  
+                  <div className="mt-6 text-sm text-muted-foreground">
+                    <p>• <strong>View</strong>: Controls whether the role can see the table/field</p>
+                    <p>• <strong>Edit</strong>: Controls whether the role can modify the field</p>
+                    <p className="mt-2 border-l-2 pl-3 border-primary/50">
+                      <strong>Permission Rules:</strong><br/>
+                      - Selecting Edit will automatically select View<br/>
+                      - Deselecting View will deselect Edit<br/>
+                    </p>
+                    <p className="mt-2 border-l-2 pl-3 border-primary/50">
+                      <strong>Bulk Toggles:</strong><br/>
+                      - Checking a table-level permission applies that permission to all fields<br/>
+                      - Individual field permissions can still be manually adjusted afterward
+                    </p>
+                  </div>
+                </div>
               )}
-            </CardContent>
-          </Card>
-        )}
-      </div>
-    </FrontendPermissionGuard>
+            </div>
+          )}
+        </CardContent>
+        <CardFooter>
+          <Button
+            onClick={handleSaveChanges}
+            disabled={savePermissionsMutation.isPending || !hasUnsavedChanges}
+            className="w-full"
+          >
+            <Save className="h-4 w-4 mr-2" /> Save All Permission Changes
+          </Button>
+        </CardFooter>
+      </Card>
+      
+      {/* Role management dialogs */}
+      {selectedRole && (
+        <>
+          <EditRoleDialog 
+            role={selectedRole}
+            open={editRoleOpen}
+            onOpenChange={setEditRoleOpen}
+            onSuccess={handleRoleUpdate}
+          />
+          <DeleteRoleDialog
+            role={selectedRole}
+            open={deleteRoleOpen}
+            onOpenChange={setDeleteRoleOpen}
+            onSuccess={handleRoleUpdate}
+          />
+        </>
+      )}
+    </div>
   );
 };
 

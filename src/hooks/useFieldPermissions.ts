@@ -1,24 +1,23 @@
 
-import { useBulkFrontendPermissionCheck } from './useFrontendPermissions';
+import { useBulkPermissionCheck } from './usePermissionCheck';
 
 // Hook specifically for checking field-level permissions in forms and tables
 export const useFieldPermissions = (moduleName: string, fields: string[]) => {
-  // Create element keys for each field (assuming convention: moduleName.fieldName)
-  const elementKeys = fields.flatMap(field => [
-    `${moduleName}.${field}`, // Create element key from module and field
+  const permissions = fields.flatMap(field => [
+    { moduleName, fieldName: field, permissionType: 'view' as const },
+    { moduleName, fieldName: field, permissionType: 'edit' as const }
   ]);
 
-  const { permissionResults: viewResults, isLoading: viewLoading } = useBulkFrontendPermissionCheck(elementKeys, 'view');
-  const { permissionResults: editResults, isLoading: editLoading } = useBulkFrontendPermissionCheck(elementKeys, 'edit');
+  const { permissionResults, isLoading, error } = useBulkPermissionCheck(permissions);
 
   const canViewField = (fieldName: string) => {
-    const elementKey = `${moduleName}.${fieldName}`;
-    return viewResults[elementKey] || false;
+    const key = `${moduleName}.${fieldName}.view`;
+    return permissionResults[key] || false;
   };
 
   const canEditField = (fieldName: string) => {
-    const elementKey = `${moduleName}.${fieldName}`;
-    return editResults[elementKey] || false;
+    const key = `${moduleName}.${fieldName}.edit`;
+    return permissionResults[key] || false;
   };
 
   const getVisibleFields = () => {
@@ -34,7 +33,7 @@ export const useFieldPermissions = (moduleName: string, fields: string[]) => {
     canEditField,
     getVisibleFields,
     getEditableFields,
-    isLoading: viewLoading || editLoading,
-    error: null
+    isLoading,
+    error
   };
 };
