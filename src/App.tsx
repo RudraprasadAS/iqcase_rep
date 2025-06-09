@@ -17,6 +17,9 @@ import Reports from '@/pages/Reports';
 import CitizenDashboard from '@/pages/citizen/CitizenDashboard';
 import CitizenCases from '@/pages/citizen/CitizenCases';
 import CitizenNewCase from '@/pages/citizen/NewCase';
+import AdminUsers from '@/pages/admin/Users';
+import AdminRoles from '@/pages/admin/Roles';
+import AdminPermissions from '@/pages/admin/Permissions';
 import { HelmetProvider } from 'react-helmet-async';
 
 const queryClient = new QueryClient();
@@ -94,14 +97,42 @@ function App() {
                 </RequireAuth>
               } />
 
-              <Route path="/admin/*" element={
+              {/* Admin routes - using your existing admin pages */}
+              <Route path="/admin" element={
                 <RequireAuth>
                   <RoleBasedRoute requireAdmin>
                     <Layout>
-                      <div className="p-6">
-                        <h1 className="text-2xl font-bold">Admin Panel</h1>
-                        <p className="text-muted-foreground">Admin functionality coming soon...</p>
-                      </div>
+                      <AdminUsers />
+                    </Layout>
+                  </RoleBasedRoute>
+                </RequireAuth>
+              } />
+
+              <Route path="/admin/users" element={
+                <RequireAuth>
+                  <RoleBasedRoute requireAdmin>
+                    <Layout>
+                      <AdminUsers />
+                    </Layout>
+                  </RoleBasedRoute>
+                </RequireAuth>
+              } />
+
+              <Route path="/admin/roles" element={
+                <RequireAuth>
+                  <RoleBasedRoute requireAdmin>
+                    <Layout>
+                      <AdminRoles />
+                    </Layout>
+                  </RoleBasedRoute>
+                </RequireAuth>
+              } />
+
+              <Route path="/admin/permissions" element={
+                <RequireAuth>
+                  <RoleBasedRoute requireAdmin>
+                    <Layout>
+                      <AdminPermissions />
                     </Layout>
                   </RoleBasedRoute>
                 </RequireAuth>
