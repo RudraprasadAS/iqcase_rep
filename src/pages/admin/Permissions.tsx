@@ -17,47 +17,215 @@ import { DeleteRoleDialog } from "@/components/roles/DeleteRoleDialog";
 import { EditRoleDialog } from "@/components/roles/EditRoleDialog";
 import { toast } from "@/hooks/use-toast";
 
-// Define frontend elements structure
+// Comprehensive frontend elements structure covering all application features
 const frontendElements = [
   {
     name: "Dashboard",
     type: "page",
-    fields: ["view_dashboard", "export_dashboard", "customize_dashboard"]
+    fields: [
+      "view_dashboard", 
+      "export_dashboard", 
+      "customize_dashboard", 
+      "view_dashboard_metrics",
+      "edit_dashboard_layout",
+      "create_dashboard_widgets"
+    ]
   },
   {
     name: "Cases",
     type: "page", 
-    fields: ["view_cases", "create_case", "edit_case", "delete_case", "assign_case", "export_cases"]
+    fields: [
+      "view_cases", 
+      "create_case", 
+      "edit_case", 
+      "delete_case", 
+      "assign_case", 
+      "export_cases",
+      "view_case_details",
+      "edit_case_title",
+      "edit_case_description", 
+      "edit_case_status",
+      "edit_case_priority",
+      "edit_case_category",
+      "edit_case_location",
+      "edit_case_tags",
+      "close_case",
+      "reopen_case",
+      "archive_case"
+    ]
   },
   {
-    name: "Case Detail",
+    name: "Case Tasks",
     type: "page",
-    fields: ["view_case_details", "edit_case_title", "edit_case_description", "edit_case_status", "edit_case_priority", "add_case_notes", "view_case_notes", "add_case_messages", "view_case_messages", "upload_attachments", "view_attachments"]
+    fields: [
+      "view_case_tasks",
+      "create_case_task",
+      "edit_case_task", 
+      "delete_case_task",
+      "assign_case_task",
+      "complete_case_task",
+      "set_task_due_date",
+      "view_task_history"
+    ]
+  },
+  {
+    name: "Case Notes",
+    type: "page",
+    fields: [
+      "view_case_notes",
+      "add_case_note",
+      "edit_case_note",
+      "delete_case_note",
+      "pin_case_note",
+      "view_internal_notes",
+      "create_internal_notes"
+    ]
+  },
+  {
+    name: "Case Messages",
+    type: "page", 
+    fields: [
+      "view_case_messages",
+      "send_internal_message",
+      "send_external_message", 
+      "edit_message",
+      "delete_message",
+      "pin_message",
+      "view_message_history"
+    ]
+  },
+  {
+    name: "Case Attachments",
+    type: "page",
+    fields: [
+      "view_case_attachments",
+      "upload_attachment",
+      "download_attachment",
+      "delete_attachment",
+      "mark_attachment_private",
+      "share_attachment"
+    ]
+  },
+  {
+    name: "Case Feedback",
+    type: "page",
+    fields: [
+      "view_case_feedback",
+      "submit_feedback",
+      "edit_feedback",
+      "view_feedback_analytics",
+      "export_feedback"
+    ]
+  },
+  {
+    name: "Notifications", 
+    type: "page",
+    fields: [
+      "view_notifications",
+      "mark_notification_read",
+      "delete_notification",
+      "create_notification",
+      "send_bulk_notifications",
+      "configure_notification_settings"
+    ]
   },
   {
     name: "Users Management",
     type: "page",
-    fields: ["view_users", "create_user", "edit_user", "delete_user", "manage_user_roles"]
+    fields: [
+      "view_users", 
+      "create_user", 
+      "edit_user", 
+      "delete_user", 
+      "activate_user",
+      "deactivate_user",
+      "reset_user_password",
+      "manage_user_roles",
+      "view_user_activity"
+    ]
   },
   {
     name: "Roles & Permissions",
     type: "page",
-    fields: ["view_permissions", "edit_permissions", "create_roles", "delete_roles"]
+    fields: [
+      "view_permissions", 
+      "edit_permissions", 
+      "create_roles", 
+      "delete_roles",
+      "edit_roles",
+      "assign_permissions",
+      "view_role_hierarchy"
+    ]
   },
   {
     name: "Reports",
     type: "page",
-    fields: ["view_reports", "create_reports", "edit_reports", "delete_reports", "export_reports"]
+    fields: [
+      "view_reports", 
+      "create_reports", 
+      "edit_reports", 
+      "delete_reports", 
+      "export_reports",
+      "schedule_reports",
+      "share_reports",
+      "view_report_analytics"
+    ]
   },
   {
     name: "Knowledge Base",
     type: "page",
-    fields: ["view_knowledge", "create_articles", "edit_articles", "delete_articles"]
+    fields: [
+      "view_knowledge", 
+      "create_articles", 
+      "edit_articles", 
+      "delete_articles",
+      "publish_articles",
+      "approve_articles",
+      "search_knowledge_base"
+    ]
   },
   {
-    name: "Notifications",
+    name: "Case Categories",
     type: "page",
-    fields: ["view_notifications", "mark_read", "delete_notifications"]
+    fields: [
+      "view_case_categories",
+      "create_case_category",
+      "edit_case_category", 
+      "delete_case_category",
+      "manage_category_hierarchy"
+    ]
+  },
+  {
+    name: "SLA Management",
+    type: "page",
+    fields: [
+      "view_sla_policies",
+      "create_sla_policy",
+      "edit_sla_policy",
+      "delete_sla_policy",
+      "view_sla_reports"
+    ]
+  },
+  {
+    name: "Audit Logs",
+    type: "page", 
+    fields: [
+      "view_audit_logs",
+      "export_audit_logs",
+      "search_audit_logs",
+      "view_user_activity_logs"
+    ]
+  },
+  {
+    name: "System Settings",
+    type: "page",
+    fields: [
+      "view_system_settings",
+      "edit_system_settings",
+      "manage_integrations",
+      "configure_email_settings",
+      "manage_templates"
+    ]
   }
 ];
 
@@ -92,35 +260,37 @@ const PermissionsPage = () => {
   useEffect(() => {
     const populateFrontendRegistry = async () => {
       try {
-        console.log("[PermissionsPage] Populating frontend registry with frontend elements");
+        console.log("[PermissionsPage] Populating frontend registry with comprehensive frontend elements");
         
         // Clear existing frontend registry entries
         await supabase.from("frontend_registry").delete().neq('id', '00000000-0000-0000-0000-000000000000');
         
-        // Insert frontend elements
+        // Insert comprehensive frontend elements
         const registryEntries = [];
         
         frontendElements.forEach(element => {
           // Add page-level entry
           registryEntries.push({
-            element_key: element.name.toLowerCase().replace(/\s+/g, '_'),
+            element_key: element.name.toLowerCase().replace(/\s+/g, '_').replace(/&/g, 'and'),
             label: element.name,
-            module: element.name.toLowerCase().replace(/\s+/g, '_'),
-            screen: element.name.toLowerCase().replace(/\s+/g, '_'),
+            module: element.name.toLowerCase().replace(/\s+/g, '_').replace(/&/g, 'and'),
+            screen: element.name.toLowerCase().replace(/\s+/g, '_').replace(/&/g, 'and'),
             element_type: element.type
           });
           
-          // Add field-level entries
+          // Add field-level entries for each capability
           element.fields.forEach(field => {
             registryEntries.push({
-              element_key: `${element.name.toLowerCase().replace(/\s+/g, '_')}.${field}`,
+              element_key: `${element.name.toLowerCase().replace(/\s+/g, '_').replace(/&/g, 'and')}.${field}`,
               label: field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-              module: element.name.toLowerCase().replace(/\s+/g, '_'),
-              screen: element.name.toLowerCase().replace(/\s+/g, '_'),
+              module: element.name.toLowerCase().replace(/\s+/g, '_').replace(/&/g, 'and'),
+              screen: element.name.toLowerCase().replace(/\s+/g, '_').replace(/&/g, 'and'),
               element_type: 'field'
             });
           });
         });
+        
+        console.log("[PermissionsPage] Inserting", registryEntries.length, "registry entries");
         
         const { error } = await supabase
           .from("frontend_registry")
@@ -129,7 +299,7 @@ const PermissionsPage = () => {
         if (error) {
           console.error("[PermissionsPage] Error populating frontend registry:", error);
         } else {
-          console.log("[PermissionsPage] Frontend registry populated successfully");
+          console.log("[PermissionsPage] Frontend registry populated successfully with comprehensive elements");
         }
       } catch (error) {
         console.error("[PermissionsPage] Exception populating frontend registry:", error);
@@ -143,7 +313,7 @@ const PermissionsPage = () => {
   const { data: frontendRegistry, isLoading: registryLoading } = useQuery({
     queryKey: ["frontend_registry"],
     queryFn: async () => {
-      console.log("[PermissionsPage] Fetching frontend registry");
+      console.log("[PermissionsPage] Fetching comprehensive frontend registry");
       try {
         const { data, error } = await supabase
           .from("frontend_registry")
@@ -157,7 +327,7 @@ const PermissionsPage = () => {
           throw error;
         }
         
-        console.log("[PermissionsPage] Frontend registry fetched successfully:", data);
+        console.log("[PermissionsPage] Frontend registry fetched successfully:", data?.length, "elements");
         return data || [];
       } catch (e) {
         console.error("[PermissionsPage] Exception fetching frontend registry:", e);
@@ -187,7 +357,7 @@ const PermissionsPage = () => {
           throw error;
         }
         
-        console.log(`[PermissionsPage] Permissions fetched for role ${selectedRoleId}:`, data);
+        console.log(`[PermissionsPage] Permissions fetched for role ${selectedRoleId}:`, data?.length, "permissions");
         return (data || []);
       } catch (e) {
         console.error("[PermissionsPage] Exception fetching permissions:", e);
@@ -243,7 +413,7 @@ const PermissionsPage = () => {
   // Log when permissions data changes
   useEffect(() => {
     if (permissions) {
-      console.log(`[PermissionsPage] Current permissions for role ${selectedRoleId}:`, permissions);
+      console.log(`[PermissionsPage] Current permissions for role ${selectedRoleId}:`, permissions.length, "permissions loaded");
     }
   }, [permissions, selectedRoleId]);
 
@@ -266,7 +436,7 @@ const PermissionsPage = () => {
 
   // Convert to table format for PermissionTable component
   const frontendTables = Object.entries(groupedRegistry).map(([module, data]) => ({
-    name: data.page?.label || module,
+    name: data.page?.label || module.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
     schema: 'frontend',
     fields: data.fields.map(field => field.element_key.split('.').pop() || field.element_key),
     module: module,
@@ -282,7 +452,8 @@ const PermissionsPage = () => {
       hasUnsavedChanges,
       isLoading,
       permissionsCount: permissions?.length,
-      frontendTablesCount: frontendTables.length
+      frontendTablesCount: frontendTables.length,
+      registryElementsCount: frontendRegistry?.length
     });
   });
 
@@ -291,7 +462,7 @@ const PermissionsPage = () => {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">Roles & Permissions</h1>
-          <p className="text-muted-foreground">Manage roles and their permissions across frontend elements</p>
+          <p className="text-muted-foreground">Manage roles and their permissions across all application features</p>
         </div>
 
         <div className="flex items-center gap-4">
@@ -310,7 +481,7 @@ const PermissionsPage = () => {
         <CardHeader>
           <CardTitle>Role Management & Permissions</CardTitle>
           <CardDescription>
-            Create roles and configure what they can access across your application's pages, buttons, and fields
+            Configure comprehensive permissions for all application features including Cases, Tasks, Messages, Notifications, Reports, and Administration
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -377,6 +548,9 @@ const PermissionsPage = () => {
               {!selectedRoleId ? (
                 <div className="text-center py-12 border rounded-md bg-muted/10">
                   <p className="text-muted-foreground">Select a role to manage permissions</p>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Registry loaded: {frontendRegistry?.length || 0} elements across {frontendTables.length} modules
+                  </p>
                 </div>
               ) : (
                 <div>
@@ -395,12 +569,16 @@ const PermissionsPage = () => {
                   />
                   
                   <div className="mt-6 text-sm text-muted-foreground">
-                    <p>• <strong>View</strong>: Controls whether the role can see the page/element</p>
-                    <p>• <strong>Edit</strong>: Controls whether the role can interact with buttons/fields</p>
+                    <p>• <strong>View</strong>: Controls whether the role can see the page/feature</p>
+                    <p>• <strong>Edit</strong>: Controls whether the role can interact with buttons/actions</p>
                     <p className="mt-2 border-l-2 pl-3 border-primary/50">
                       <strong>Permission Rules:</strong><br/>
                       - Selecting Edit will automatically select View<br/>
                       - Deselecting View will deselect Edit<br/>
+                      - System roles have all permissions by default
+                    </p>
+                    <p className="mt-2 text-xs">
+                      Loaded {frontendRegistry?.length || 0} frontend elements | {permissions?.length || 0} saved permissions
                     </p>
                   </div>
                 </div>
