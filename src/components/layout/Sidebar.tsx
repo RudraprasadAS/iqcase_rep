@@ -1,7 +1,7 @@
 
 import { Home, FileText, Users, Settings, BarChart3, Bell, BookOpen, Layers, UserCog } from "lucide-react";
 import { NavItem } from "./NavItem";
-import { PermissionGuard } from "@/components/auth/PermissionGuard";
+import { PermissionGuard } from "@/components/auth";
 
 export const Sidebar = () => {
   return (

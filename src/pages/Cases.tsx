@@ -9,8 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Plus, Search, FileText, Filter } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { PermissionGuard } from "@/components/auth/PermissionGuard";
-import { FieldPermissionWrapper } from "@/components/auth/FieldPermissionWrapper";
+import { 
+  PermissionGuard, 
+  FieldPermissionWrapper, 
+  ButtonPermissionWrapper 
+} from "@/components/auth";
 import { useFieldPermissions } from "@/hooks/useFieldPermissions";
 
 const Cases = () => {
@@ -102,19 +105,19 @@ const Cases = () => {
           </div>
           
           <div className="flex gap-2">
-            <PermissionGuard elementKey="cases.export_cases" permissionType="view">
+            <ButtonPermissionWrapper elementKey="cases.export_cases">
               <Button variant="outline">
                 <FileText className="h-4 w-4 mr-2" />
                 Export
               </Button>
-            </PermissionGuard>
+            </ButtonPermissionWrapper>
             
-            <PermissionGuard elementKey="cases.create_case" permissionType="edit">
+            <ButtonPermissionWrapper elementKey="cases.create_case">
               <Button onClick={() => navigate("/cases/new")}>
                 <Plus className="h-4 w-4 mr-2" />
                 New Case
               </Button>
-            </PermissionGuard>
+            </ButtonPermissionWrapper>
           </div>
         </div>
 
@@ -191,12 +194,12 @@ const Cases = () => {
                       ? "Try adjusting your search or filters"
                       : "Get started by creating your first case"}
                   </p>
-                  <PermissionGuard elementKey="cases.create_case" permissionType="edit">
+                  <ButtonPermissionWrapper elementKey="cases.create_case">
                     <Button onClick={() => navigate("/cases/new")}>
                       <Plus className="h-4 w-4 mr-2" />
                       Create Case
                     </Button>
-                  </PermissionGuard>
+                  </ButtonPermissionWrapper>
                 </div>
               </CardContent>
             </Card>
@@ -265,7 +268,7 @@ const Cases = () => {
                     </div>
                     
                     <div className="flex gap-2">
-                      <PermissionGuard elementKey="cases.edit_case" permissionType="edit">
+                      <ButtonPermissionWrapper elementKey="cases.edit_case">
                         <Button 
                           variant="outline" 
                           size="sm"
@@ -276,7 +279,7 @@ const Cases = () => {
                         >
                           Edit
                         </Button>
-                      </PermissionGuard>
+                      </ButtonPermissionWrapper>
                     </div>
                   </div>
                 </CardContent>
