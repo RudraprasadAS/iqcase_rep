@@ -54,6 +54,7 @@ const NewCase = () => {
   });
 
   useEffect(() => {
+    console.log('🔍 NewCase component mounted. User:', user?.id, user?.email);
     if (user) {
       fetchInternalUserId();
     }
@@ -62,39 +63,78 @@ const NewCase = () => {
   }, [user]);
 
   const fetchInternalUserId = async () => {
-    if (!user) return;
+    if (!user) {
+      console.log('❌ No user available for internal ID lookup');
+      return;
+    }
 
     try {
+      console.log('🔍 Fetching internal user ID for auth user:', user.id, user.email);
+      
       const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('id')
+        .select('id, name, email, role_id, user_type, roles(name)')
         .eq('auth_user_id', user.id)
         .single();
 
+      console.log('📊 User lookup result:', { userData, userError });
+
       if (userError) {
-        console.error('User lookup error:', userError);
+        console.error('❌ User lookup error:', userError);
+        
+        // Try fallback lookup by email
+        console.log('🔄 Trying fallback lookup by email...');
+        const { data: emailUser, error: emailError } = await supabase
+          .from('users')
+          .select('id, name, email, role_id, user_type, roles(name)')
+          .eq('email', user.email)
+          .single();
+          
+        console.log('📊 Email lookup result:', { emailUser, emailError });
+        
+        if (emailError) {
+          toast({
+            title: 'Authentication Error',
+            description: 'Could not find your user profile. Please contact support.',
+            variant: 'destructive'
+          });
+          return;
+        }
+        
+        setInternalUserId(emailUser.id);
+        console.log('✅ Internal user ID set from email lookup:', emailUser.id);
         return;
       }
 
       setInternalUserId(userData.id);
+      console.log('✅ Internal user ID set:', userData.id, 'Role:', userData.roles?.name);
     } catch (error) {
-      console.error('Error fetching internal user ID:', error);
+      console.error('❌ Error fetching internal user ID:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load user information',
+        variant: 'destructive'
+      });
     }
   };
 
   const fetchCategories = async () => {
     try {
+      console.log('📋 Fetching categories...');
       const { data: categoriesData, error: categoriesError } = await supabase
         .from('case_categories')
         .select('id, name, description')
         .eq('is_active', true)
         .order('name');
 
+      console.log('📋 Categories result:', { categoriesData, categoriesError });
+
       if (categoriesError) throw categoriesError;
       setCategories(categoriesData || []);
+      console.log('✅ Categories loaded:', categoriesData?.length || 0);
 
     } catch (error) {
-      console.error('Error fetching categories:', error);
+      console.error('❌ Error fetching categories:', error);
       toast({
         title: 'Error',
         description: 'Failed to load categories',
@@ -270,7 +310,13 @@ const NewCase = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    console.log('🚀 Starting case submission...');
+    console.log('📊 Form data:', formData);
+    console.log('👤 User:', user?.id, user?.email);
+    console.log('🆔 Internal user ID:', internalUserId);
+    
     if (!user || !internalUserId) {
+      console.error('❌ Missing authentication data');
       toast({
         title: 'Error',
         description: 'You must be logged in to submit a case',
@@ -280,6 +326,7 @@ const NewCase = () => {
     }
 
     if (!formData.title.trim() || !formData.description.trim()) {
+      console.error('❌ Missing required form data');
       toast({
         title: 'Error',
         description: 'Please fill in all required fields',
@@ -307,7 +354,7 @@ const NewCase = () => {
         tags: tags.length > 0 ? tags : null
       };
 
-      console.log('Submitting case with data:', caseData);
+      console.log('📝 Case data to insert:', caseData);
 
       const { data: newCase, error } = await supabase
         .from('cases')
@@ -315,35 +362,43 @@ const NewCase = () => {
         .select()
         .single();
 
+      console.log('📝 Case insert result:', { newCase, error });
+
       if (error) {
-        console.error('Case creation error:', error);
+        console.error('❌ Case creation error:', error);
         throw error;
       }
 
-      console.log('Case created successfully:', newCase);
+      console.log('✅ Case created successfully:', newCase.id);
 
       // Upload files after case creation
       if (files.length > 0) {
         try {
           await uploadFiles(newCase.id);
         } catch (uploadError) {
-          console.error('File upload failed:', uploadError);
+          console.error('⚠️ File upload failed:', uploadError);
           // Continue even if file upload fails
         }
       }
 
       // Log activity
       try {
+        const activityData = {
+          case_id: newCase.id,
+          activity_type: 'case_created',
+          description: 'Case created',
+          performed_by: internalUserId
+        };
+        
+        console.log('📝 Logging activity:', activityData);
+        
         await supabase
           .from('case_activities')
-          .insert({
-            case_id: newCase.id,
-            activity_type: 'case_created',
-            description: 'Case created',
-            performed_by: internalUserId
-          });
+          .insert(activityData);
+          
+        console.log('✅ Activity logged');
       } catch (activityError) {
-        console.error('Activity logging failed:', activityError);
+        console.error('⚠️ Activity logging failed:', activityError);
         // Continue even if activity logging fails
       }
 
@@ -352,13 +407,13 @@ const NewCase = () => {
         description: 'Case created successfully'
       });
 
-      navigate(`/cases/${newCase.id}`);
+      navigate('/cases');
 
-    } catch (error) {
-      console.error('Error creating case:', error);
+    } catch (error: any) {
+      console.error('❌ Error creating case:', error);
       toast({
         title: 'Error',
-        description: 'Failed to create case. Please try again.',
+        description: `Failed to create case: ${error.message || 'Unknown error'}`,
         variant: 'destructive'
       });
     } finally {
