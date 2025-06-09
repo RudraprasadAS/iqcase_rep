@@ -1,6 +1,6 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { CalendarView } from "@/components/dashboard/CalendarView";
+import CalendarView from "@/components/dashboard/CalendarView";
 import { PermissionDemo } from "@/components/demo/PermissionDemo";
 import { useRoleAccess } from "@/hooks/useRoleAccess";
 
