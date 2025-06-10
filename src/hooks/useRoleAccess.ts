@@ -54,9 +54,11 @@ export const useRoleAccess = () => {
 
   // Treat citizens as external users for access control
   const isCitizen = userInfo?.role?.name === 'citizen';
+  const isCaseWorker = userInfo?.role?.name === 'case_worker';
   const isInternal = userInfo?.user_type === 'internal' && !isCitizen;
   const isExternal = userInfo?.user_type === 'external' || isCitizen;
   const isAdmin = userInfo?.role?.name === 'admin';
+  const isSuperAdmin = userInfo?.role?.name === 'super_admin';
   const isSystemRole = userInfo?.role?.is_system;
 
   return {
@@ -66,7 +68,9 @@ export const useRoleAccess = () => {
     isInternal,
     isExternal,
     isCitizen,
+    isCaseWorker,
     isAdmin,
+    isSuperAdmin,
     isSystemRole,
     roleName: userInfo?.role?.name,
     roleType: userInfo?.role?.role_type

@@ -1,4 +1,4 @@
-//Cases
+
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,11 +29,12 @@ const Cases = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
-  const { userInfo, isCitizen } = useRoleAccess();
+  const { userInfo, isCitizen, isCaseWorker, isAdmin, isSuperAdmin } = useRoleAccess();
 
   console.log("🔍 [Cases] Current user info:", userInfo);
   console.log("🔍 [Cases] User role:", userInfo?.role?.name);
   console.log("🔍 [Cases] Is citizen:", isCitizen);
+  console.log("🔍 [Cases] Is case worker:", isCaseWorker);
 
   // Block citizen access to internal cases page
   if (isCitizen) {
@@ -42,7 +43,7 @@ const Cases = () => {
     return null;
   }
 
-  // Fetch cases data with role-based filtering - exclude citizens from seeing any internal data
+  // Fetch cases data with role-based filtering
   const { data: cases, isLoading } = useQuery({
     queryKey: ["cases", searchQuery, statusFilter, priorityFilter, userInfo?.id],
     queryFn: async () => {
@@ -58,13 +59,18 @@ const Cases = () => {
         `)
         .order("created_at", { ascending: false });
 
-      // Filter cases based on user role - only internal users can see cases
-      if (userInfo && userInfo.role.name !== 'super_admin' && userInfo.role.name !== 'admin') {
-        console.log("🔍 [Cases] Applying role-based filtering for non-admin user");
-        // For non-admin users, only show cases they're assigned to or submitted by them
-        query = query.or(`assigned_to.eq.${userInfo.id},submitted_by.eq.${userInfo.id}`);
-      } else {
+      // Apply role-based filtering
+      if (isSuperAdmin || isAdmin) {
         console.log("🔍 [Cases] Admin user - showing all cases");
+        // Show all cases for admins
+      } else if (isCaseWorker) {
+        console.log("🔍 [Cases] Case worker - showing assigned cases");
+        // Case workers can only see cases assigned to them
+        query = query.eq('assigned_to', userInfo.id);
+      } else if (userInfo && !isCitizen) {
+        console.log("🔍 [Cases] Regular internal user - showing related cases");
+        // For other internal users, show cases they're assigned to or submitted by them
+        query = query.or(`assigned_to.eq.${userInfo.id},submitted_by.eq.${userInfo.id}`);
       }
 
       if (searchQuery) {
@@ -97,23 +103,29 @@ const Cases = () => {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold">Cases</h1>
-            <p className="text-muted-foreground">Manage and track all cases</p>
+            <p className="text-muted-foreground">
+              {isCaseWorker ? "Manage your assigned cases" : "Manage and track all cases"}
+            </p>
           </div>
           
           <div className="flex gap-2">
-            <ButtonPermissionWrapper elementKey="cases.export_cases">
-              <Button variant="outline">
-                <FileText className="h-4 w-4 mr-2" />
-                Export
-              </Button>
-            </ButtonPermissionWrapper>
+            {(isAdmin || isSuperAdmin) && (
+              <ButtonPermissionWrapper elementKey="cases.export_cases">
+                <Button variant="outline">
+                  <FileText className="h-4 w-4 mr-2" />
+                  Export
+                </Button>
+              </ButtonPermissionWrapper>
+            )}
             
-            <ButtonPermissionWrapper elementKey="cases.create_case">
-              <Button onClick={() => navigate("/cases/new")}>
-                <Plus className="h-4 w-4 mr-2" />
-                New Case
-              </Button>
-            </ButtonPermissionWrapper>
+            {(isAdmin || isSuperAdmin) && (
+              <ButtonPermissionWrapper elementKey="cases.create_case">
+                <Button onClick={() => navigate("/cases/new")}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  New Case
+                </Button>
+              </ButtonPermissionWrapper>
+            )}
           </div>
         </div>
 
@@ -166,9 +178,14 @@ const Cases = () => {
         {/* Cases Table */}
         <Card>
           <CardHeader>
-            <CardTitle>Cases List</CardTitle>
+            <CardTitle>
+              {isCaseWorker ? "My Assigned Cases" : "Cases List"}
+            </CardTitle>
             <CardDescription>
-              A comprehensive list of all cases in the system
+              {isCaseWorker 
+                ? "Cases that have been assigned to you"
+                : "A comprehensive list of all cases in the system"
+              }
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -183,14 +200,18 @@ const Cases = () => {
                 <p className="text-muted-foreground mb-4">
                   {searchQuery || statusFilter !== "all" || priorityFilter !== "all"
                     ? "Try adjusting your search or filters"
-                    : "Get started by creating your first case"}
+                    : isCaseWorker 
+                      ? "No cases have been assigned to you yet"
+                      : "Get started by creating your first case"}
                 </p>
-                <ButtonPermissionWrapper elementKey="cases.create_case">
-                  <Button onClick={() => navigate("/cases/new")}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create Case
-                  </Button>
-                </ButtonPermissionWrapper>
+                {(isAdmin || isSuperAdmin) && (
+                  <ButtonPermissionWrapper elementKey="cases.create_case">
+                    <Button onClick={() => navigate("/cases/new")}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create Case
+                    </Button>
+                  </ButtonPermissionWrapper>
+                )}
               </div>
             ) : (
               <Table>
@@ -201,7 +222,7 @@ const Cases = () => {
                     <TableHead>Priority</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead>Submitted By</TableHead>
-                    <TableHead>Assigned To</TableHead>
+                    {!isCaseWorker && <TableHead>Assigned To</TableHead>}
                     <TableHead>Location</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead>Actions</TableHead>
@@ -234,9 +255,11 @@ const Cases = () => {
                       <TableCell>
                         {caseItem.submitted_by_user?.name || 'Unknown'}
                       </TableCell>
-                      <TableCell>
-                        {caseItem.assigned_to_user?.name || 'Unassigned'}
-                      </TableCell>
+                      {!isCaseWorker && (
+                        <TableCell>
+                          {caseItem.assigned_to_user?.name || 'Unassigned'}
+                        </TableCell>
+                      )}
                       <TableCell className="max-w-xs truncate">
                         {caseItem.location || 'Not specified'}
                       </TableCell>
