@@ -61,6 +61,12 @@ export const useRoleAccess = () => {
   const isSuperAdmin = userInfo?.role?.name === 'super_admin';
   const isSystemRole = userInfo?.role?.is_system;
 
+  // Check if user has management access (can create cases, export, etc.)
+  const hasManagementAccess = isAdmin || isSuperAdmin;
+  
+  // Check if user has full cases access (can see all cases)
+  const hasFullCasesAccess = isAdmin || isSuperAdmin;
+
   return {
     userInfo,
     isLoading,
@@ -72,6 +78,8 @@ export const useRoleAccess = () => {
     isAdmin,
     isSuperAdmin,
     isSystemRole,
+    hasManagementAccess,
+    hasFullCasesAccess,
     roleName: userInfo?.role?.name,
     roleType: userInfo?.role?.role_type
   };

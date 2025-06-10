@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -37,6 +36,19 @@ const queryClient = new QueryClient();
 const helmetContext = {};
 
 function App() {
+  useEffect(() => {
+    // Initialize frontend registry on app load
+    const initializeRegistry = async () => {
+      try {
+        await initializeFrontendRegistry();
+      } catch (error) {
+        console.error("Failed to initialize frontend registry:", error);
+      }
+    };
+
+    initializeRegistry();
+  }, []);
+
   return (
     <HelmetProvider context={helmetContext}>
       <QueryClientProvider client={queryClient}>
