@@ -657,40 +657,40 @@ export type Database = {
       }
       category_sla_matrix: {
         Row: {
-          category_id: string | null
+          category_id: string
           created_at: string | null
           id: string
           is_active: boolean | null
-          sla_high: number | null
-          sla_low: number | null
-          sla_medium: number | null
-          sla_urgent: number | null
+          sla_high: number
+          sla_low: number
+          sla_medium: number
+          updated_at: string | null
         }
         Insert: {
-          category_id?: string | null
+          category_id: string
           created_at?: string | null
           id?: string
           is_active?: boolean | null
-          sla_high?: number | null
-          sla_low?: number | null
-          sla_medium?: number | null
-          sla_urgent?: number | null
+          sla_high?: number
+          sla_low?: number
+          sla_medium?: number
+          updated_at?: string | null
         }
         Update: {
-          category_id?: string | null
+          category_id?: string
           created_at?: string | null
           id?: string
           is_active?: boolean | null
-          sla_high?: number | null
-          sla_low?: number | null
-          sla_medium?: number | null
-          sla_urgent?: number | null
+          sla_high?: number
+          sla_low?: number
+          sla_medium?: number
+          updated_at?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "category_sla_matrix_category_id_fkey"
             columns: ["category_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "case_categories"
             referencedColumns: ["id"]
           },
@@ -1402,6 +1402,14 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      has_admin_access: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      has_full_access: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       has_manager_access: {
         Args: Record<PropertyKey, never>
         Returns: boolean
@@ -1410,8 +1418,28 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
+      is_case_visible_to_caseworker: {
+        Args: { p_case_id: string }
+        Returns: boolean
+      }
+      is_case_visible_to_current_user: {
+        Args: { p_case_id: string }
+        Returns: boolean
+      }
+      is_case_visible_to_user: {
+        Args: { p_case_id: string }
+        Returns: boolean
+      }
       is_case_worker_user: {
         Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      is_caseworker_case_owner: {
+        Args: { case_row: Database["public"]["Tables"]["cases"]["Row"] }
+        Returns: boolean
+      }
+      is_caseworker_case_owner_by_id: {
+        Args: { cid: string }
         Returns: boolean
       }
       is_current_user_admin: {

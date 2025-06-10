@@ -20,8 +20,7 @@ const CasePrioritySelector = ({ caseId, currentPriority, currentCategoryId, onUp
   const { toast } = useToast();
 
   const priorityOptions = [
-    { value: 'urgent', label: 'Urgent', icon: AlertTriangle, color: 'text-red-600' },
-    { value: 'high', label: 'High', icon: AlertTriangle, color: 'text-orange-600' },
+    { value: 'high', label: 'High', icon: AlertTriangle, color: 'text-red-600' },
     { value: 'medium', label: 'Medium', icon: Clock, color: 'text-yellow-600' },
     { value: 'low', label: 'Low', icon: CheckCircle, color: 'text-green-600' }
   ];

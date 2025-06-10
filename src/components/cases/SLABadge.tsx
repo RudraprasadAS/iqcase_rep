@@ -21,13 +21,13 @@ const SLABadge = ({ sla_due_at, status, category_id, priority }: SLABadgeProps) 
       try {
         const { data: slaData, error } = await supabase
           .from('category_sla_matrix')
-          .select('sla_low, sla_medium, sla_high, sla_urgent')
+          .select('sla_low, sla_medium, sla_high')
           .eq('category_id', category_id)
           .eq('is_active', true)
           .single();
 
         if (error || !slaData) {
-          console.log('No SLA configuration found');
+          console.log('No SLA configuration found for category:', category_id);
           return;
         }
 
@@ -41,9 +41,6 @@ const SLABadge = ({ sla_due_at, status, category_id, priority }: SLABadgeProps) 
             break;
           case 'high':
             hours = slaData.sla_high || 24;
-            break;
-          case 'urgent':
-            hours = slaData.sla_urgent || 4;
             break;
         }
 

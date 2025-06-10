@@ -49,7 +49,8 @@ const NewCase = () => {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    category_id: ''
+    category_id: '',
+    priority: 'medium' // Default priority
   });
 
   useEffect(() => {
@@ -421,20 +422,45 @@ const NewCase = () => {
     setLoading(true);
     
     try {
+      // Calculate SLA due date based on category and priority
+      let slaDueAt = null;
+      if (formData.category_id && formData.priority) {
+        console.log('[NewCase] Looking up SLA for category:', formData.category_id, 'priority:', formData.priority);
+        
+        const { data: slaData, error: slaError } = await supabase
+          .from('category_sla_matrix')
+          .select(`sla_${formData.priority}`)
+          .eq('category_id', formData.category_id)
+          .eq('is_active', true)
+          .single();
+
+        if (slaError) {
+          console.log('[NewCase] No SLA configuration found for category, using default 72 hours');
+        } else if (slaData) {
+          const slaHours = slaData[`sla_${formData.priority}`];
+          if (slaHours) {
+            const dueDate = new Date();
+            dueDate.setHours(dueDate.getHours() + slaHours);
+            slaDueAt = dueDate.toISOString();
+            console.log('[NewCase] SLA due date calculated:', slaDueAt, 'from', slaHours, 'hours');
+          }
+        }
+      }
+
       const caseData = {
         title: formData.title.trim(),
         description: formData.description.trim(),
         category_id: formData.category_id || null,
         location: locationData.formatted_address || null,
-        priority: 'medium', // Default priority for citizen submissions
+        priority: formData.priority,
         status: 'open',
         submitted_by: internalUserId,
-        sla_due_at: null, // Will be set when internal team assigns priority
+        sla_due_at: slaDueAt,
         visibility: 'public',
         tags: tags.length > 0 ? tags : null
       };
 
-      console.log('[NewCase] Case data:', caseData);
+      console.log('[NewCase] Submitting case with data:', caseData);
 
       const { data: newCase, error: caseError } = await supabase
         .from('cases')
@@ -512,7 +538,7 @@ const NewCase = () => {
         <CardHeader>
           <CardTitle>Submit New Case</CardTitle>
           <CardDescription>
-            Describe your issue or request. Our team will review and respond within 72 hours.
+            Describe your issue or request. Our team will review and respond based on priority level.
           </CardDescription>
         </CardHeader>
         
@@ -581,7 +607,7 @@ const NewCase = () => {
               <div className="space-y-2">
                 <Label htmlFor="priority">Priority</Label>
                 <Select
-                  value="medium"
+                  value={formData.priority}
                   onValueChange={(value) => handleInputChange('priority', value)}
                   disabled={loading || uploadingFiles}
                 >
