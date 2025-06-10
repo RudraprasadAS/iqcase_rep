@@ -1,4 +1,3 @@
-
 //Cases
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -30,12 +29,20 @@ const Cases = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
-  const { userInfo } = useRoleAccess();
+  const { userInfo, isCitizen } = useRoleAccess();
 
   console.log("🔍 [Cases] Current user info:", userInfo);
   console.log("🔍 [Cases] User role:", userInfo?.role?.name);
+  console.log("🔍 [Cases] Is citizen:", isCitizen);
 
-  // Fetch cases data with role-based filtering
+  // Block citizen access to internal cases page
+  if (isCitizen) {
+    console.log("🔍 [Cases] Citizen detected, redirecting to citizen portal");
+    navigate("/citizen/dashboard", { replace: true });
+    return null;
+  }
+
+  // Fetch cases data with role-based filtering - exclude citizens from seeing any internal data
   const { data: cases, isLoading } = useQuery({
     queryKey: ["cases", searchQuery, statusFilter, priorityFilter, userInfo?.id],
     queryFn: async () => {
@@ -51,7 +58,7 @@ const Cases = () => {
         `)
         .order("created_at", { ascending: false });
 
-      // Filter cases based on user role
+      // Filter cases based on user role - only internal users can see cases
       if (userInfo && userInfo.role.name !== 'super_admin' && userInfo.role.name !== 'admin') {
         console.log("🔍 [Cases] Applying role-based filtering for non-admin user");
         // For non-admin users, only show cases they're assigned to or submitted by them
@@ -81,7 +88,7 @@ const Cases = () => {
       console.log("🔍 [Cases] Fetched cases:", data?.length, "cases");
       return data;
     },
-    enabled: !!userInfo,
+    enabled: !!userInfo && !isCitizen,
   });
 
   return (

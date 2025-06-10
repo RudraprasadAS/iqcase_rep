@@ -30,7 +30,9 @@ const RequireAuth = () => {
   if (userInfo) {
     const isCitizen = userInfo.role?.name === 'citizen';
     const isOnCitizenRoute = location.pathname.startsWith('/citizen');
-    const isOnInternalRoute = !location.pathname.startsWith('/citizen') && location.pathname !== '/' && location.pathname !== '/auth/login';
+    const isOnInternalRoute = !location.pathname.startsWith('/citizen') && 
+                              !location.pathname.startsWith('/auth') && 
+                              location.pathname !== '/';
     const isOnRoot = location.pathname === '/';
     
     console.log('Role-based routing check:', {
@@ -48,20 +50,20 @@ const RequireAuth = () => {
         console.log('Citizen on root, redirecting to citizen dashboard');
         return <Navigate to="/citizen/dashboard" replace />;
       } else {
-        console.log('Internal user on root, redirecting to dashboard');
+        console.log('Internal user on root, redirecting to internal dashboard');
         return <Navigate to="/dashboard" replace />;
       }
     }
 
-    // Citizens should only access citizen routes
+    // Citizens should ONLY access citizen routes - block all internal access
     if (isCitizen && isOnInternalRoute) {
-      console.log('Citizen accessing internal route, redirecting to citizen dashboard');
+      console.log('Citizen trying to access internal route, redirecting to citizen dashboard');
       return <Navigate to="/citizen/dashboard" replace />;
     }
 
     // Internal users should not access citizen routes
     if (!isCitizen && isOnCitizenRoute) {
-      console.log('Internal user accessing citizen route, redirecting to dashboard');
+      console.log('Internal user accessing citizen route, redirecting to internal dashboard');
       return <Navigate to="/dashboard" replace />;
     }
   }

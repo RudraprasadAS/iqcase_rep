@@ -43,23 +43,33 @@ export const RoleBasedRoute: React.FC<RoleBasedRouteProps> = ({
     );
   }
 
+  // Citizens should be treated as external users and redirected to citizen portal
+  const isCitizen = userInfo.role?.name === 'citizen';
+  
+  if (isCitizen) {
+    // Force citizens to citizen portal if they try to access internal routes
+    if (requireInternal) {
+      return <Navigate to="/citizen/dashboard" replace />;
+    }
+  }
+
   // Check user type restrictions
-  if (requireInternal && !isInternal) {
+  if (requireInternal && !isInternal && !isCitizen) {
     return <Navigate to="/citizen/dashboard" replace />;
   }
 
-  if (requireExternal && !isExternal) {
+  if (requireExternal && !isExternal && !isCitizen) {
     return <Navigate to="/dashboard" replace />;
   }
 
-  // Check allowed user types
-  if (allowedUserTypes && !allowedUserTypes.includes(userInfo.user_type)) {
-    return <Navigate to={fallbackPath} replace />;
+  // Check allowed user types - treat citizens as external for permission purposes
+  if (allowedUserTypes && !allowedUserTypes.includes(isCitizen ? 'external' : userInfo.user_type)) {
+    return <Navigate to={isCitizen ? "/citizen/dashboard" : fallbackPath} replace />;
   }
 
   // Check allowed roles
   if (allowedRoles && !allowedRoles.includes(userInfo.role.name)) {
-    return <Navigate to={fallbackPath} replace />;
+    return <Navigate to={isCitizen ? "/citizen/dashboard" : fallbackPath} replace />;
   }
 
   return <>{children}</>;

@@ -52,9 +52,10 @@ export const useRoleAccess = () => {
     },
   });
 
-  const isInternal = userInfo?.user_type === 'internal';
-  const isExternal = userInfo?.user_type === 'external';
+  // Treat citizens as external users for access control
   const isCitizen = userInfo?.role?.name === 'citizen';
+  const isInternal = userInfo?.user_type === 'internal' && !isCitizen;
+  const isExternal = userInfo?.user_type === 'external' || isCitizen;
   const isAdmin = userInfo?.role?.name === 'admin';
   const isSystemRole = userInfo?.role?.is_system;
 
