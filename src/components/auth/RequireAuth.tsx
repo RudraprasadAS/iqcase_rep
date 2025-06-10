@@ -30,15 +30,28 @@ const RequireAuth = () => {
   if (userInfo) {
     const isCitizen = userInfo.role?.name === 'citizen';
     const isOnCitizenRoute = location.pathname.startsWith('/citizen');
-    const isOnInternalRoute = !location.pathname.startsWith('/citizen') && location.pathname !== '/';
+    const isOnInternalRoute = !location.pathname.startsWith('/citizen') && location.pathname !== '/' && location.pathname !== '/auth/login';
+    const isOnRoot = location.pathname === '/';
     
     console.log('Role-based routing check:', {
       isCitizen,
       isOnCitizenRoute,
       isOnInternalRoute,
+      isOnRoot,
       currentPath: location.pathname,
       roleName: userInfo.role?.name
     });
+
+    // Handle initial redirect from root based on role
+    if (isOnRoot) {
+      if (isCitizen) {
+        console.log('Citizen on root, redirecting to citizen dashboard');
+        return <Navigate to="/citizen/dashboard" replace />;
+      } else {
+        console.log('Internal user on root, redirecting to dashboard');
+        return <Navigate to="/dashboard" replace />;
+      }
+    }
 
     // Citizens should only access citizen routes
     if (isCitizen && isOnInternalRoute) {
