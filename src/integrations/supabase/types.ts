@@ -1446,6 +1446,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
+      is_external_user: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       is_internal_user: {
         Args: Record<PropertyKey, never>
         Returns: boolean
