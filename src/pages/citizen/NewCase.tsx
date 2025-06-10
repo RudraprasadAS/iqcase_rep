@@ -422,6 +422,11 @@ const NewCase = () => {
     setLoading(true);
     
     try {
+      // First, let's test if the user can access the RPC function
+      console.log('[NewCase] Testing user info access...');
+      const { data: userInfoTest, error: userInfoError } = await supabase.rpc('get_current_user_info');
+      console.log('[NewCase] User info test result:', { userInfoTest, userInfoError });
+
       // Calculate SLA due date based on category and priority
       let slaDueAt = null;
       if (formData.category_id && formData.priority) {
@@ -460,7 +465,9 @@ const NewCase = () => {
         tags: tags.length > 0 ? tags : null
       };
 
-      console.log('[NewCase] Submitting case with data:', caseData);
+      console.log('[NewCase] About to submit case with data:', caseData);
+      console.log('[NewCase] Auth user ID:', user.id);
+      console.log('[NewCase] Internal user ID:', internalUserId);
 
       const { data: newCase, error: caseError } = await supabase
         .from('cases')
@@ -470,6 +477,12 @@ const NewCase = () => {
 
       if (caseError) {
         console.error('[NewCase] Case creation error:', caseError);
+        console.error('[NewCase] Error details:', {
+          code: caseError.code,
+          message: caseError.message,
+          details: caseError.details,
+          hint: caseError.hint
+        });
         throw new Error(`Failed to create case: ${caseError.message}`);
       }
 
