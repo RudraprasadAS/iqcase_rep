@@ -35,6 +35,8 @@ export const initializeFrontendRegistry = async () => {
       { element_key: 'case_detail.edit_case', module: 'cases', screen: 'case_detail', element_type: 'button', label: 'Edit Case Button' },
       { element_key: 'case_detail.close_case', module: 'cases', screen: 'case_detail', element_type: 'button', label: 'Close Case Button' },
       { element_key: 'case_detail.add_notes', module: 'cases', screen: 'case_detail', element_type: 'feature', label: 'Add Case Notes' },
+      { element_key: 'case_detail.view_internal_notes', module: 'cases', screen: 'case_detail', element_type: 'feature', label: 'View Internal Notes' },
+      { element_key: 'case_detail.manage_tasks', module: 'cases', screen: 'case_detail', element_type: 'feature', label: 'Manage Case Tasks' },
       
       // Users module
       { element_key: 'users', module: 'users', screen: 'users_list', element_type: 'page', label: 'Users Management Page' },
@@ -53,6 +55,9 @@ export const initializeFrontendRegistry = async () => {
       
       // Dashboard module
       { element_key: 'dashboard', module: 'dashboard', screen: 'main_dashboard', element_type: 'page', label: 'Dashboard Page' },
+      
+      // Notifications module
+      { element_key: 'notifications', module: 'notifications', screen: 'notifications_list', element_type: 'page', label: 'Notifications Page' },
       
       // Citizen portal pages
       { element_key: 'citizen_dashboard', module: 'citizen', screen: 'citizen_dashboard', element_type: 'page', label: 'Citizen Dashboard' },
@@ -98,7 +103,7 @@ const setupCaseWorkerPermissions = async () => {
       return;
     }
 
-    // Get relevant frontend registry elements
+    // Get relevant frontend registry elements for case workers
     const { data: registryElements, error: registryError } = await supabase
       .from('frontend_registry')
       .select('id, element_key')
@@ -106,7 +111,10 @@ const setupCaseWorkerPermissions = async () => {
         'cases',
         'case_detail',
         'case_detail.add_notes',
-        'dashboard'
+        'case_detail.view_internal_notes',
+        'case_detail.manage_tasks',
+        'dashboard',
+        'notifications'
       ]);
 
     if (registryError || !registryElements) {
@@ -114,24 +122,43 @@ const setupCaseWorkerPermissions = async () => {
       return;
     }
 
-    // Create permissions for case workers - they can view assigned cases and dashboard
+    // Create permissions for case workers
     const permissions = registryElements.map(element => ({
       role_id: caseWorkerRole.id,
       frontend_registry_id: element.id,
       can_view: true,
-      can_edit: element.element_key.includes('add_notes') // Only allow editing notes
+      can_edit: ['case_detail.add_notes', 'case_detail.manage_tasks'].includes(element.element_key)
     }));
 
-    const { error: permissionError } = await supabase
+    // Check if permissions already exist
+    const { data: existingPermissions, error: existingError } = await supabase
       .from('permissions')
-      .insert(permissions);
+      .select('frontend_registry_id')
+      .eq('role_id', caseWorkerRole.id);
 
-    if (permissionError) {
-      console.error("[Frontend Registry] Error setting case worker permissions:", permissionError);
+    if (existingError) {
+      console.error("[Frontend Registry] Error checking existing permissions:", existingError);
       return;
     }
 
-    console.log("[Frontend Registry] Case worker permissions set successfully");
+    // Filter out permissions that already exist
+    const existingRegistryIds = new Set(existingPermissions?.map(p => p.frontend_registry_id) || []);
+    const newPermissions = permissions.filter(p => !existingRegistryIds.has(p.frontend_registry_id));
+
+    if (newPermissions.length > 0) {
+      const { error: permissionError } = await supabase
+        .from('permissions')
+        .insert(newPermissions);
+
+      if (permissionError) {
+        console.error("[Frontend Registry] Error setting case worker permissions:", permissionError);
+        return;
+      }
+
+      console.log("[Frontend Registry] Case worker permissions set successfully for", newPermissions.length, "elements");
+    } else {
+      console.log("[Frontend Registry] Case worker permissions already exist, skipping");
+    }
 
   } catch (error) {
     console.error("[Frontend Registry] Error setting up case worker permissions:", error);

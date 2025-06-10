@@ -29,12 +29,20 @@ const Cases = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
-  const { userInfo, isCitizen, isCaseWorker, isAdmin, isSuperAdmin } = useRoleAccess();
+  const { 
+    userInfo, 
+    isCitizen, 
+    isCaseWorker, 
+    hasFullCasesAccess, 
+    canViewCases,
+    canCreateCases 
+  } = useRoleAccess();
 
   console.log("🔍 [Cases] Current user info:", userInfo);
   console.log("🔍 [Cases] User role:", userInfo?.role?.name);
   console.log("🔍 [Cases] Is citizen:", isCitizen);
   console.log("🔍 [Cases] Is case worker:", isCaseWorker);
+  console.log("🔍 [Cases] Can view cases:", canViewCases);
 
   // Block citizen access to internal cases page
   if (isCitizen) {
@@ -43,8 +51,24 @@ const Cases = () => {
     return null;
   }
 
+  // Block access if user cannot view cases
+  if (!canViewCases) {
+    return (
+      <div className="container mx-auto py-6">
+        <Card>
+          <CardContent className="p-8 text-center">
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Access Denied</h3>
+            <p className="text-gray-500">
+              You don't have permission to view cases.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   // Fetch cases data with role-based filtering
-  const { data: cases, isLoading } = useQuery({
+  const { data: cases, isLoading, error } = useQuery({
     queryKey: ["cases", searchQuery, statusFilter, priorityFilter, userInfo?.id],
     queryFn: async () => {
       console.log("🔍 [Cases] Fetching cases for user:", userInfo?.id, "role:", userInfo?.role?.name);
@@ -59,20 +83,7 @@ const Cases = () => {
         `)
         .order("created_at", { ascending: false });
 
-      // Apply role-based filtering
-      if (isSuperAdmin || isAdmin) {
-        console.log("🔍 [Cases] Admin user - showing all cases");
-        // Show all cases for admins
-      } else if (isCaseWorker) {
-        console.log("🔍 [Cases] Case worker - showing assigned cases");
-        // Case workers can only see cases assigned to them
-        query = query.eq('assigned_to', userInfo.id);
-      } else if (userInfo && !isCitizen) {
-        console.log("🔍 [Cases] Regular internal user - showing related cases");
-        // For other internal users, show cases they're assigned to or submitted by them
-        query = query.or(`assigned_to.eq.${userInfo.id},submitted_by.eq.${userInfo.id}`);
-      }
-
+      // Apply search filters
       if (searchQuery) {
         query = query.or(`title.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`);
       }
@@ -86,6 +97,7 @@ const Cases = () => {
       }
 
       const { data, error } = await query;
+      
       if (error) {
         console.error("🔍 [Cases] Error fetching cases:", error);
         throw error;
@@ -94,8 +106,24 @@ const Cases = () => {
       console.log("🔍 [Cases] Fetched cases:", data?.length, "cases");
       return data;
     },
-    enabled: !!userInfo && !isCitizen,
+    enabled: !!userInfo && canViewCases,
   });
+
+  if (error) {
+    console.error("🔍 [Cases] Query error:", error);
+    return (
+      <div className="container mx-auto py-6">
+        <Card>
+          <CardContent className="p-8 text-center">
+            <h3 className="text-lg font-medium text-red-600 mb-2">Error Loading Cases</h3>
+            <p className="text-gray-500">
+              {error.message || "There was an error loading the cases. Please try again."}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <PermissionGuard elementKey="cases" permissionType="view">
@@ -104,12 +132,17 @@ const Cases = () => {
           <div>
             <h1 className="text-3xl font-bold">Cases</h1>
             <p className="text-muted-foreground">
-              {isCaseWorker ? "Manage your assigned cases" : "Manage and track all cases"}
+              {isCaseWorker 
+                ? "Manage your assigned cases and tasks" 
+                : hasFullCasesAccess 
+                  ? "Manage and track all cases" 
+                  : "View your related cases"
+              }
             </p>
           </div>
           
           <div className="flex gap-2">
-            {(isAdmin || isSuperAdmin) && (
+            {hasFullCasesAccess && (
               <ButtonPermissionWrapper elementKey="cases.export_cases">
                 <Button variant="outline">
                   <FileText className="h-4 w-4 mr-2" />
@@ -118,7 +151,7 @@ const Cases = () => {
               </ButtonPermissionWrapper>
             )}
             
-            {(isAdmin || isSuperAdmin) && (
+            {canCreateCases && (
               <ButtonPermissionWrapper elementKey="cases.create_case">
                 <Button onClick={() => navigate("/cases/new")}>
                   <Plus className="h-4 w-4 mr-2" />
@@ -179,12 +212,19 @@ const Cases = () => {
         <Card>
           <CardHeader>
             <CardTitle>
-              {isCaseWorker ? "My Assigned Cases" : "Cases List"}
+              {isCaseWorker 
+                ? "My Cases & Tasks" 
+                : hasFullCasesAccess 
+                  ? "Cases List" 
+                  : "My Related Cases"
+              }
             </CardTitle>
             <CardDescription>
               {isCaseWorker 
-                ? "Cases that have been assigned to you"
-                : "A comprehensive list of all cases in the system"
+                ? "Cases assigned to you, tasks you're responsible for, and cases where you're involved"
+                : hasFullCasesAccess 
+                  ? "A comprehensive list of all cases in the system"
+                  : "Cases you're involved with or have access to"
               }
             </CardDescription>
           </CardHeader>
@@ -201,10 +241,10 @@ const Cases = () => {
                   {searchQuery || statusFilter !== "all" || priorityFilter !== "all"
                     ? "Try adjusting your search or filters"
                     : isCaseWorker 
-                      ? "No cases have been assigned to you yet"
+                      ? "No cases have been assigned to you yet or you haven't been involved in any cases"
                       : "Get started by creating your first case"}
                 </p>
-                {(isAdmin || isSuperAdmin) && (
+                {canCreateCases && (
                   <ButtonPermissionWrapper elementKey="cases.create_case">
                     <Button onClick={() => navigate("/cases/new")}>
                       <Plus className="h-4 w-4 mr-2" />
@@ -222,7 +262,7 @@ const Cases = () => {
                     <TableHead>Priority</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead>Submitted By</TableHead>
-                    {!isCaseWorker && <TableHead>Assigned To</TableHead>}
+                    {hasFullCasesAccess && <TableHead>Assigned To</TableHead>}
                     <TableHead>Location</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead>Actions</TableHead>
@@ -255,7 +295,7 @@ const Cases = () => {
                       <TableCell>
                         {caseItem.submitted_by_user?.name || 'Unknown'}
                       </TableCell>
-                      {!isCaseWorker && (
+                      {hasFullCasesAccess && (
                         <TableCell>
                           {caseItem.assigned_to_user?.name || 'Unassigned'}
                         </TableCell>

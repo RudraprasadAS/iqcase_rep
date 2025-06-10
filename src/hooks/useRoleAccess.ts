@@ -41,8 +41,11 @@ export const useRoleAccess = () => {
         .single();
 
       if (error) {
+        console.error('🔍 [useRoleAccess] Error fetching user info:', error);
         throw error;
       }
+
+      console.log('🔍 [useRoleAccess] User info fetched:', data);
 
       return {
         id: data.id,
@@ -67,6 +70,21 @@ export const useRoleAccess = () => {
   // Check if user has full cases access (can see all cases)
   const hasFullCasesAccess = isAdmin || isSuperAdmin;
 
+  // Case workers have limited access - they can see assigned cases but not all management features
+  const canViewCases = hasFullCasesAccess || isCaseWorker;
+  const canCreateCases = hasManagementAccess; // Only admins can create cases
+  const canAssignCases = hasManagementAccess;
+
+  console.log('🔍 [useRoleAccess] Role evaluation:', {
+    roleName: userInfo?.role?.name,
+    isCaseWorker,
+    isAdmin,
+    isSuperAdmin,
+    canViewCases,
+    canCreateCases,
+    hasFullCasesAccess
+  });
+
   return {
     userInfo,
     isLoading,
@@ -80,6 +98,9 @@ export const useRoleAccess = () => {
     isSystemRole,
     hasManagementAccess,
     hasFullCasesAccess,
+    canViewCases,
+    canCreateCases,
+    canAssignCases,
     roleName: userInfo?.role?.name,
     roleType: userInfo?.role?.role_type
   };
