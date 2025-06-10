@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
@@ -149,7 +148,7 @@ const NewCase = () => {
       // Look up SLA hours from category_sla_matrix table
       const { data: slaData, error: slaError } = await supabase
         .from('category_sla_matrix')
-        .select('sla_low, sla_medium, sla_high, sla_urgent')
+        .select('sla_low, sla_medium, sla_high')
         .eq('category_id', categoryId)
         .eq('is_active', true)
         .single();
@@ -170,9 +169,6 @@ const NewCase = () => {
           break;
         case 'high':
           slaHours = slaData.sla_high || 24;
-          break;
-        case 'urgent':
-          slaHours = slaData.sla_urgent || 4;
           break;
         default:
           slaHours = slaData.sla_medium || 48;
