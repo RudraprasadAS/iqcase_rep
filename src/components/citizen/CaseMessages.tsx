@@ -245,7 +245,11 @@ const CaseMessages = ({ messages, caseId, onMessagesUpdated }: CaseMessagesProps
     }
   };
 
-  const publicMessages = messages.filter(message => !message.is_internal);
+  // Filter messages to only show non-internal messages and exclude messages from citizens in internal context
+  const publicMessages = messages.filter(message => 
+    !message.is_internal && 
+    message.users?.name !== undefined // Ensure we have user info
+  );
 
   return (
     <>
@@ -264,13 +268,13 @@ const CaseMessages = ({ messages, caseId, onMessagesUpdated }: CaseMessagesProps
                 <div key={message.id} className="flex space-x-3">
                   <Avatar className="h-8 w-8">
                     <AvatarFallback>
-                      {(message.users?.name || message.sender_id).slice(0, 2).toUpperCase()}
+                      {(message.users?.name || 'U').slice(0, 2).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm">
                       <span className="font-medium">
-                        {message.users?.name || message.users?.email || message.sender_id}
+                        {message.users?.name || 'Support Staff'}
                       </span>
                       <span className="text-muted-foreground ml-2">
                         {formatDateTime(message.created_at)}

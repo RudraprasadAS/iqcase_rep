@@ -16,13 +16,12 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { PermissionGuard } from "@/components/auth";
 
 const navigation = [
-  { name: 'Dashboard', href: '/citizen/dashboard', icon: LayoutDashboard, elementKey: 'citizen.dashboard' },
-  { name: 'My Cases', href: '/citizen/cases', icon: FileText, elementKey: 'citizen.cases' },
-  { name: 'Notifications', href: '/citizen/notifications', icon: Bell, elementKey: 'citizen.notifications' },
-  { name: 'Knowledge Base', href: '/citizen/knowledge', icon: MessageCircle, elementKey: 'citizen.knowledge' },
+  { name: 'Dashboard', href: '/citizen/dashboard', icon: LayoutDashboard },
+  { name: 'My Cases', href: '/citizen/cases', icon: FileText },
+  { name: 'Notifications', href: '/citizen/notifications', icon: Bell },
+  { name: 'Knowledge Base', href: '/citizen/knowledge', icon: MessageCircle },
 ];
 
 const CitizenSidebar = () => {
@@ -61,19 +60,17 @@ const CitizenSidebar = () => {
             <SidebarMenu>
               {navigation.map((item) => (
                 <SidebarMenuItem key={item.name}>
-                  <PermissionGuard elementKey={item.elementKey}>
-                    <SidebarMenuButton asChild tooltip={item.name}>
-                      <NavLink
-                        to={item.href}
-                        className={({ isActive }) =>
-                          cn(isActive && "bg-blue-100 text-blue-900")
-                        }
-                      >
-                        <item.icon />
-                        <span>{item.name}</span>
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </PermissionGuard>
+                  <SidebarMenuButton asChild tooltip={item.name}>
+                    <NavLink
+                      to={item.href}
+                      className={({ isActive }) =>
+                        cn(isActive && "bg-blue-100 text-blue-900")
+                      }
+                    >
+                      <item.icon />
+                      <span>{item.name}</span>
+                    </NavLink>
+                  </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>

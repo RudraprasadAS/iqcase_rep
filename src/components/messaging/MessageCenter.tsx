@@ -310,8 +310,26 @@ const MessageCenter = ({ caseId, isInternal = false }: MessageCenterProps) => {
 
   useEffect(() => {
     const fetchUsers = async () => {
-      const { data, error } = await supabase.from('users').select('id, name');
-      if (!error && data) setMentionUsers(data);
+      // Only fetch internal users for mentions in internal messages
+      const { data, error } = await supabase
+        .from('users')
+        .select(`
+          id, 
+          name,
+          roles:role_id (
+            name,
+            role_type
+          )
+        `)
+        .eq('user_type', 'internal'); // Only internal users
+
+      if (!error && data) {
+        // Filter out citizens from mention suggestions
+        const internalUsers = data.filter(user => 
+          user.roles && user.roles.name !== 'citizen'
+        );
+        setMentionUsers(internalUsers.map(u => ({ id: u.id, name: u.name })));
+      }
     };
     if (isInternal) fetchUsers();
   }, [isInternal]);
