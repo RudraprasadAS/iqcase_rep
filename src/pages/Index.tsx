@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate, Link } from "react-router-dom";
 import { z } from "zod";
@@ -26,10 +27,20 @@ type FormValues = z.infer<typeof formSchema>;
 const Index = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { login } = useAuth();
+  const { login, isAuthenticated } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState("");
+
+  console.log('🔍 [Index] - Component loaded, isAuthenticated:', isAuthenticated);
+
+  // If already authenticated, redirect to dashboard
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      console.log('🔍 [Index] - User already authenticated, redirecting to dashboard');
+      navigate("/dashboard", { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -40,6 +51,7 @@ const Index = () => {
   });
 
   const onSubmit = async (data: FormValues) => {
+    console.log('🔍 [Index] - Login attempt with email:', data.email);
     setIsLoading(true);
     setLoginError("");
     
@@ -47,6 +59,7 @@ const Index = () => {
       const { error } = await login(data.email, data.password);
       
       if (error) {
+        console.log('🔍 [Index] - Login error:', error.message);
         setLoginError(error.message);
         toast({
           title: "Login failed",
@@ -54,6 +67,7 @@ const Index = () => {
           variant: "destructive",
         });
       } else {
+        console.log('🔍 [Index] - Login successful');
         toast({
           title: "Login successful",
           description: "Welcome to CivIQ.",
@@ -61,6 +75,7 @@ const Index = () => {
         navigate("/dashboard", { replace: true });
       }
     } catch (error: any) {
+      console.error('🔍 [Index] - Login exception:', error);
       toast({
         title: "Login failed",
         description: error.message || "Please check your credentials and try again.",
