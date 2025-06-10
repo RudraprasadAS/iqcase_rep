@@ -19,11 +19,16 @@ export const useRoleAccess = () => {
   const { data: userInfo, isLoading, error } = useQuery({
     queryKey: ['current_user_info'],
     queryFn: async () => {
+      console.log('🔍 [useRoleAccess] Starting to fetch user info...');
+      
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
+        console.log('🔍 [useRoleAccess] No authenticated user found');
         throw new Error('No authenticated user');
       }
+
+      console.log('🔍 [useRoleAccess] Authenticated user found:', user.id);
 
       const { data, error } = await supabase
         .from('users')
@@ -45,7 +50,12 @@ export const useRoleAccess = () => {
         throw error;
       }
 
-      console.log('🔍 [useRoleAccess] User info fetched:', data);
+      console.log('🔍 [useRoleAccess] User info fetched successfully:', {
+        userId: data.id,
+        userType: data.user_type,
+        roleName: data.roles?.name,
+        roleType: data.roles?.role_type
+      });
 
       return {
         id: data.id,
@@ -75,14 +85,19 @@ export const useRoleAccess = () => {
   const canCreateCases = hasManagementAccess; // Only admins can create cases
   const canAssignCases = hasManagementAccess;
 
-  console.log('🔍 [useRoleAccess] Role evaluation:', {
+  console.log('🔍 [useRoleAccess] Final role evaluation:', {
     roleName: userInfo?.role?.name,
+    userType: userInfo?.user_type,
+    isCitizen,
     isCaseWorker,
     isAdmin,
     isSuperAdmin,
+    isInternal,
+    isExternal,
     canViewCases,
     canCreateCases,
-    hasFullCasesAccess
+    hasFullCasesAccess,
+    hasManagementAccess
   });
 
   return {

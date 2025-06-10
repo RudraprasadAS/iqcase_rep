@@ -35,14 +35,52 @@ const Cases = () => {
     isCaseWorker, 
     hasFullCasesAccess, 
     canViewCases,
-    canCreateCases 
+    canCreateCases,
+    isLoading: roleLoading,
+    error: roleError
   } = useRoleAccess();
 
   console.log("🔍 [Cases] Current user info:", userInfo);
   console.log("🔍 [Cases] User role:", userInfo?.role?.name);
+  console.log("🔍 [Cases] Role loading:", roleLoading);
+  console.log("🔍 [Cases] Role error:", roleError);
   console.log("🔍 [Cases] Is citizen:", isCitizen);
   console.log("🔍 [Cases] Is case worker:", isCaseWorker);
   console.log("🔍 [Cases] Can view cases:", canViewCases);
+
+  // Show loading while role is being determined
+  if (roleLoading) {
+    return (
+      <div className="container mx-auto py-6">
+        <Card>
+          <CardContent className="p-8 text-center">
+            <div className="animate-spin h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
+            <p>Loading user permissions...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Show error if role loading failed
+  if (roleError) {
+    console.error("🔍 [Cases] Role access error:", roleError);
+    return (
+      <div className="container mx-auto py-6">
+        <Card>
+          <CardContent className="p-8 text-center">
+            <h3 className="text-lg font-medium text-red-600 mb-2">Permission Error</h3>
+            <p className="text-gray-500 mb-4">
+              Unable to load user permissions: {roleError.message}
+            </p>
+            <Button onClick={() => window.location.reload()}>
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   // Block citizen access to internal cases page
   if (isCitizen) {
@@ -53,13 +91,17 @@ const Cases = () => {
 
   // Block access if user cannot view cases
   if (!canViewCases) {
+    console.log("🔍 [Cases] User cannot view cases, showing access denied");
     return (
       <div className="container mx-auto py-6">
         <Card>
           <CardContent className="p-8 text-center">
             <h3 className="text-lg font-medium text-gray-900 mb-2">Access Denied</h3>
-            <p className="text-gray-500">
+            <p className="text-gray-500 mb-4">
               You don't have permission to view cases.
+            </p>
+            <p className="text-sm text-gray-400">
+              Current role: {userInfo?.role?.name || 'Unknown'}
             </p>
           </CardContent>
         </Card>
@@ -116,9 +158,15 @@ const Cases = () => {
         <Card>
           <CardContent className="p-8 text-center">
             <h3 className="text-lg font-medium text-red-600 mb-2">Error Loading Cases</h3>
-            <p className="text-gray-500">
+            <p className="text-gray-500 mb-4">
               {error.message || "There was an error loading the cases. Please try again."}
             </p>
+            <p className="text-sm text-gray-400 mb-4">
+              This might be a permissions issue. Current role: {userInfo?.role?.name || 'Unknown'}
+            </p>
+            <Button onClick={() => window.location.reload()}>
+              Retry
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -138,6 +186,9 @@ const Cases = () => {
                   ? "Manage and track all cases" 
                   : "View your related cases"
               }
+            </p>
+            <p className="text-xs text-gray-400 mt-1">
+              Current role: {userInfo?.role?.name} | User ID: {userInfo?.id}
             </p>
           </div>
           
