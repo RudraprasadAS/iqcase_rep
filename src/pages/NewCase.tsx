@@ -53,6 +53,7 @@ const NewCase = () => {
   });
 
   useEffect(() => {
+    console.log('[NewCase] Component mounted, user:', user?.id);
     if (user) {
       fetchInternalUserId();
     }
@@ -61,23 +62,63 @@ const NewCase = () => {
   }, [user]);
 
   const fetchInternalUserId = async () => {
-    if (!user) return;
+    if (!user) {
+      console.log('[NewCase] No user available for internal ID lookup');
+      return null;
+    }
 
     try {
+      console.log('[NewCase] Fetching internal user ID for auth user:', user.id);
+      
       const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('id')
+        .select('id, role_id, user_type, is_active')
         .eq('auth_user_id', user.id)
         .single();
 
+      console.log('[NewCase] User lookup response:', { userData, userError });
+
       if (userError) {
-        console.error('User lookup error:', userError);
-        return;
+        console.error('[NewCase] User lookup error:', userError);
+        toast({
+          title: 'Authentication Error',
+          description: 'Failed to verify user identity',
+          variant: 'destructive'
+        });
+        return null;
       }
 
-      setInternalUserId(userData.id);
+      if (userData) {
+        console.log('[NewCase] Internal user found:', userData);
+        setInternalUserId(userData.id);
+        
+        // Also get role information for debugging
+        const { data: roleData, error: roleError } = await supabase
+          .from('roles')
+          .select('name, role_type')
+          .eq('id', userData.role_id)
+          .single();
+          
+        console.log('[NewCase] User role info:', { roleData, roleError });
+        
+        return userData.id;
+      } else {
+        console.error('[NewCase] No internal user found for auth user:', user.id);
+        toast({
+          title: 'User Not Found',
+          description: 'Your user profile was not found. Please contact support.',
+          variant: 'destructive'
+        });
+        return null;
+      }
     } catch (error) {
-      console.error('Error fetching internal user ID:', error);
+      console.error('[NewCase] Error fetching internal user ID:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load user information',
+        variant: 'destructive'
+      });
+      return null;
     }
   };
 
@@ -266,9 +307,15 @@ const NewCase = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!user || !internalUserId) {
+    console.log('[NewCase] ==================== STARTING CASE SUBMISSION ====================');
+    console.log('[NewCase] User:', user?.id);
+    console.log('[NewCase] Internal User ID:', internalUserId);
+    console.log('[NewCase] Form data:', formData);
+    
+    if (!user) {
+      console.error('[NewCase] No authenticated user found');
       toast({
-        title: 'Error',
+        title: 'Authentication Error',
         description: 'You must be logged in to submit a case',
         variant: 'destructive'
       });
@@ -276,8 +323,9 @@ const NewCase = () => {
     }
 
     if (!formData.title.trim() || !formData.description.trim()) {
+      console.error('[NewCase] Missing required form data');
       toast({
-        title: 'Error',
+        title: 'Validation Error',
         description: 'Please fill in all required fields',
         variant: 'destructive'
       });
@@ -287,6 +335,31 @@ const NewCase = () => {
     setLoading(true);
     
     try {
+      // Ensure we have a valid internal user ID
+      let validInternalUserId = internalUserId;
+      
+      if (!validInternalUserId) {
+        console.log('[NewCase] Internal user ID not cached, fetching now...');
+        validInternalUserId = await fetchInternalUserId();
+        
+        if (!validInternalUserId) {
+          console.error('[NewCase] Failed to get internal user ID during submission');
+          toast({
+            title: 'Authentication Error',
+            description: 'Unable to verify your user account. Please try refreshing the page or contact support.',
+            variant: 'destructive'
+          });
+          return;
+        }
+      }
+
+      console.log('[NewCase] Using internal user ID for submission:', validInternalUserId);
+
+      // Test current user permissions
+      console.log('[NewCase] Testing user permissions...');
+      const { data: userInfoTest, error: userInfoError } = await supabase.rpc('get_current_user_info');
+      console.log('[NewCase] User info test result:', { userInfoTest, userInfoError });
+
       // Get dynamic SLA due date
       const slaDueAt = await getSLADueDate(formData.category_id, formData.priority);
 
@@ -297,13 +370,15 @@ const NewCase = () => {
         location: locationData.formatted_address || null,
         priority: formData.priority,
         status: 'open',
-        submitted_by: internalUserId,
+        submitted_by: validInternalUserId, // Caseworker creates case using their own ID
         sla_due_at: slaDueAt.toISOString(),
         visibility: 'internal',
         tags: tags.length > 0 ? tags : null
       };
 
-      console.log('Submitting case with data:', caseData);
+      console.log('[NewCase] About to submit case with data:', caseData);
+      console.log('[NewCase] Auth user ID:', user.id);
+      console.log('[NewCase] Internal user ID:', validInternalUserId);
 
       const { data: newCase, error } = await supabase
         .from('cases')
@@ -312,18 +387,24 @@ const NewCase = () => {
         .single();
 
       if (error) {
-        console.error('Case creation error:', error);
+        console.error('[NewCase] Case creation error:', error);
+        console.error('[NewCase] Error details:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint
+        });
         throw error;
       }
 
-      console.log('Case created successfully:', newCase);
+      console.log('[NewCase] Case created successfully:', newCase);
 
       // Upload files after case creation
       if (files.length > 0) {
         try {
           await uploadFiles(newCase.id);
         } catch (uploadError) {
-          console.error('File upload failed:', uploadError);
+          console.error('[NewCase] File upload failed:', uploadError);
           // Continue even if file upload fails
         }
       }
@@ -335,11 +416,11 @@ const NewCase = () => {
           .insert({
             case_id: newCase.id,
             activity_type: 'case_created',
-            description: 'Case created',
-            performed_by: internalUserId
+            description: 'Case created by staff',
+            performed_by: validInternalUserId
           });
       } catch (activityError) {
-        console.error('Activity logging failed:', activityError);
+        console.error('[NewCase] Activity logging failed:', activityError);
         // Continue even if activity logging fails
       }
 
@@ -350,11 +431,11 @@ const NewCase = () => {
 
       navigate(`/cases/${newCase.id}`);
 
-    } catch (error) {
-      console.error('Error creating case:', error);
+    } catch (error: any) {
+      console.error('[NewCase] Submission failed:', error);
       toast({
         title: 'Error',
-        description: 'Failed to create case. Please try again.',
+        description: error.message || 'Failed to create case. Please try again.',
         variant: 'destructive'
       });
     } finally {
@@ -573,3 +654,5 @@ const NewCase = () => {
 };
 
 export default NewCase;
+
+}
