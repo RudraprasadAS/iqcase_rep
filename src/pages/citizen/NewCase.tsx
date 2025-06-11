@@ -86,12 +86,13 @@ const NewCase = () => {
           description: 'Failed to verify user identity',
           variant: 'destructive'
         });
-        return;
+        return null;
       }
 
       if (userData) {
         console.log('[NewCase] Internal user ID found:', userData.id);
         setInternalUserId(userData.id);
+        return userData.id;
       } else {
         console.error('[NewCase] No internal user found for auth user:', user.id);
         toast({
@@ -99,6 +100,7 @@ const NewCase = () => {
           description: 'Your user profile was not found. Please contact support.',
           variant: 'destructive'
         });
+        return null;
       }
     } catch (error) {
       console.error('[NewCase] Error fetching internal user ID:', error);
@@ -107,6 +109,7 @@ const NewCase = () => {
         description: 'Failed to load user information',
         variant: 'destructive'
       });
+      return null;
     }
   };
 
@@ -393,11 +396,11 @@ const NewCase = () => {
     
     console.log('[NewCase] ==================== STARTING CASE SUBMISSION ====================');
     console.log('[NewCase] User:', user?.id);
-    console.log('[NewCase] Internal User ID:', internalUserId);
+    console.log('[NewCase] Internal User ID (cached):', internalUserId);
     console.log('[NewCase] Form data:', formData);
     
-    if (!user || !internalUserId) {
-      console.error('[NewCase] Missing authentication data:', { user: !!user, internalUserId: !!internalUserId });
+    if (!user) {
+      console.error('[NewCase] No authenticated user found');
       toast({
         title: 'Authentication Error',
         description: 'You must be logged in to submit a case',
@@ -422,10 +425,25 @@ const NewCase = () => {
     setLoading(true);
     
     try {
-      // First, let's test if the user can access the RPC function
-      console.log('[NewCase] Testing user info access...');
-      const { data: userInfoTest, error: userInfoError } = await supabase.rpc('get_current_user_info');
-      console.log('[NewCase] User info test result:', { userInfoTest, userInfoError });
+      // CRITICAL: Ensure we have a valid internal user ID before proceeding
+      let validInternalUserId = internalUserId;
+      
+      if (!validInternalUserId) {
+        console.log('[NewCase] Internal user ID not cached, fetching now...');
+        validInternalUserId = await fetchInternalUserId();
+        
+        if (!validInternalUserId) {
+          console.error('[NewCase] Failed to get internal user ID during submission');
+          toast({
+            title: 'Authentication Error',
+            description: 'Unable to verify your user account. Please try refreshing the page or contact support.',
+            variant: 'destructive'
+          });
+          return;
+        }
+      }
+
+      console.log('[NewCase] Using internal user ID for submission:', validInternalUserId);
 
       // Calculate SLA due date based on category and priority
       let slaDueAt = null;
@@ -459,7 +477,7 @@ const NewCase = () => {
         location: locationData.formatted_address || null,
         priority: formData.priority,
         status: 'open',
-        submitted_by: internalUserId,
+        submitted_by: validInternalUserId, // Use the guaranteed valid ID
         sla_due_at: slaDueAt,
         visibility: 'public',
         tags: tags.length > 0 ? tags : null
@@ -467,7 +485,7 @@ const NewCase = () => {
 
       console.log('[NewCase] About to submit case with data:', caseData);
       console.log('[NewCase] Auth user ID:', user.id);
-      console.log('[NewCase] Internal user ID:', internalUserId);
+      console.log('[NewCase] Internal user ID:', validInternalUserId);
 
       const { data: newCase, error: caseError } = await supabase
         .from('cases')
@@ -501,7 +519,7 @@ const NewCase = () => {
           case_id: newCase.id,
           activity_type: 'case_created',
           description: 'Case submitted by citizen',
-          performed_by: internalUserId
+          performed_by: validInternalUserId
         };
         
         await supabase
