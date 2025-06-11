@@ -409,6 +409,36 @@ const NewCase = () => {
       return;
     }
 
+if (!userId && user) {
+  const { data: userData, error: userError } = await supabase
+    .from('users')
+    .select('id')
+    .eq('auth_user_id', user.id)
+    .maybeSingle();
+
+  if (userError || !userData?.id) {
+    console.error('[NewCase] Could not resolve internal user ID during submission');
+    toast({
+      title: 'Error',
+      description: 'Failed to verify user. Please contact support.',
+      variant: 'destructive'
+    });
+    return;
+  }
+
+  userId = userData.id;
+}
+
+if (!user || !userId) {
+  toast({
+    title: 'Error',
+    description: 'You must be logged in to submit a case',
+    variant: 'destructive'
+  });
+  return;
+}
+
+
     if (!formData.title.trim() || !formData.description.trim()) {
       console.error('[NewCase] Missing required form data:', {
         title: formData.title.trim(),
@@ -425,6 +455,12 @@ const NewCase = () => {
     setLoading(true);
     
     try {
+<<<<<<< HEAD
+      // First, let's test if the user can access the RPC function
+      console.log('[NewCase] Testing user info access...');
+      const { data: userInfoTest, error: userInfoError } = await supabase.rpc('get_current_user_info');
+      console.log('[NewCase] User info test result:', { userInfoTest, userInfoError });
+=======
       // CRITICAL: Ensure we have a valid internal user ID before proceeding
       let validInternalUserId = internalUserId;
       
@@ -442,7 +478,35 @@ const NewCase = () => {
           return;
         }
       }
+>>>>>>> 86353a2ae9916c9a5838825694464c2c45c7f7ef
 
+<<<<<<< HEAD
+      // Calculate SLA due date based on category and priority
+      let slaDueAt = null;
+      if (formData.category_id && formData.priority) {
+        console.log('[NewCase] Looking up SLA for category:', formData.category_id, 'priority:', formData.priority);
+        
+        const { data: slaData, error: slaError } = await supabase
+          .from('category_sla_matrix')
+          .select(`sla_${formData.priority}`)
+          .eq('category_id', formData.category_id)
+          .eq('is_active', true)
+          .single();
+
+        if (slaError) {
+          console.log('[NewCase] No SLA configuration found for category, using default 72 hours');
+        } else if (slaData) {
+          const slaHours = slaData[`sla_${formData.priority}`];
+          if (slaHours) {
+            const dueDate = new Date();
+            dueDate.setHours(dueDate.getHours() + slaHours);
+            slaDueAt = dueDate.toISOString();
+            console.log('[NewCase] SLA due date calculated:', slaDueAt, 'from', slaHours, 'hours');
+          }
+        }
+      }
+
+=======
       console.log('[NewCase] Using internal user ID for submission:', validInternalUserId);
 
       // Calculate SLA due date based on category and priority
@@ -470,6 +534,7 @@ const NewCase = () => {
         }
       }
 
+>>>>>>> 86353a2ae9916c9a5838825694464c2c45c7f7ef
       const caseData = {
         title: formData.title.trim(),
         description: formData.description.trim(),
@@ -477,15 +542,26 @@ const NewCase = () => {
         location: locationData.formatted_address || null,
         priority: formData.priority,
         status: 'open',
+<<<<<<< HEAD
+        submitted_by: internalUserId,
+        sla_due_at: slaDueAt,
+=======
         submitted_by: validInternalUserId, // Use the guaranteed valid ID
         sla_due_at: slaDueAt,
+>>>>>>> 86353a2ae9916c9a5838825694464c2c45c7f7ef
         visibility: 'public',
         tags: tags.length > 0 ? tags : null
       };
 
+<<<<<<< HEAD
+      console.log('[NewCase] About to submit case with data:', caseData);
+      console.log('[NewCase] Auth user ID:', user.id);
+      console.log('[NewCase] Internal user ID:', internalUserId);
+=======
       console.log('[NewCase] About to submit case with data:', caseData);
       console.log('[NewCase] Auth user ID:', user.id);
       console.log('[NewCase] Internal user ID:', validInternalUserId);
+>>>>>>> 86353a2ae9916c9a5838825694464c2c45c7f7ef
 
       const { data: newCase, error: caseError } = await supabase
         .from('cases')
