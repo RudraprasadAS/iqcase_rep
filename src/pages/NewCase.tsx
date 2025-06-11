@@ -355,11 +355,6 @@ const NewCase = () => {
 
       console.log('[NewCase] Using internal user ID for submission:', validInternalUserId);
 
-      // Test current user permissions
-      console.log('[NewCase] Testing user permissions...');
-      const { data: userInfoTest, error: userInfoError } = await supabase.rpc('get_current_user_info');
-      console.log('[NewCase] User info test result:', { userInfoTest, userInfoError });
-
       // Get dynamic SLA due date
       const slaDueAt = await getSLADueDate(formData.category_id, formData.priority);
 
@@ -377,8 +372,6 @@ const NewCase = () => {
       };
 
       console.log('[NewCase] About to submit case with data:', caseData);
-      console.log('[NewCase] Auth user ID:', user.id);
-      console.log('[NewCase] Internal user ID:', validInternalUserId);
 
       const { data: newCase, error } = await supabase
         .from('cases')
@@ -654,5 +647,3 @@ const NewCase = () => {
 };
 
 export default NewCase;
-
-}
