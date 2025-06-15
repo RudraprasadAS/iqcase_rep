@@ -51,76 +51,104 @@ const CaseEditDialog = ({ case: caseData, isOpen, onOpenChange, onCaseUpdated }:
   const { user } = useAuth();
   const { toast } = useToast();
   const [formData, setFormData] = useState({
-    title: caseData.title,
-    description: caseData.description || '',
-    status: caseData.status,
-    priority: caseData.priority,
-    assigned_to: caseData.assigned_to || '',
-    category_id: caseData.category_id,
-    tags: caseData.tags,
-    location: caseData.location || '',
+    title: '',
+    description: '',
+    status: '',
+    priority: '',
+    assigned_to: '',
+    category_id: '',
+    tags: [] as string[],
+    location: '',
   });
   const [categories, setCategories] = useState<Category[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
 
+  // Update form data when case data changes
   useEffect(() => {
-    setFormData({
-      title: caseData.title,
-      description: caseData.description || '',
-      status: caseData.status,
-      priority: caseData.priority,
-      assigned_to: caseData.assigned_to || '',
-      category_id: caseData.category_id,
-      tags: caseData.tags,
-      location: caseData.location || '',
-    });
-  }, [caseData]);
+    if (caseData && isOpen) {
+      console.log('🔄 Updating form data with case:', caseData);
+      setFormData({
+        title: caseData.title || '',
+        description: caseData.description || '',
+        status: caseData.status || 'open',
+        priority: caseData.priority || 'medium',
+        assigned_to: caseData.assigned_to || '',
+        category_id: caseData.category_id || '',
+        tags: caseData.tags || [],
+        location: caseData.location || '',
+      });
+    }
+  }, [caseData, isOpen]);
 
   useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('case_categories')
-          .select('*')
-          .order('name');
+    if (isOpen) {
+      fetchCategories();
+      fetchUsers();
+    }
+  }, [isOpen]);
 
-        if (error) throw error;
-        setCategories(data || []);
-      } catch (error) {
-        console.error('Error fetching categories:', error);
+  const fetchCategories = async () => {
+    try {
+      console.log('📂 Fetching categories...');
+      const { data, error } = await supabase
+        .from('case_categories')
+        .select('*')
+        .eq('is_active', true)
+        .order('name');
+
+      if (error) {
+        console.error('❌ Error fetching categories:', error);
+        return;
       }
-    };
+      
+      console.log('📂 Categories fetched:', data?.length || 0);
+      setCategories(data || []);
+    } catch (error) {
+      console.error('❌ Exception fetching categories:', error);
+    }
+  };
 
-    const fetchUsers = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('users')
-          .select('id, name, email')
-          .eq('is_active', true)
-          .eq('user_type', 'internal')
-          .order('name');
+  const fetchUsers = async () => {
+    try {
+      console.log('👥 Fetching users...');
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, name, email')
+        .eq('is_active', true)
+        .eq('user_type', 'internal')
+        .order('name');
 
-        if (error) throw error;
-        setUsers(data || []);
-      } catch (error) {
-        console.error('Error fetching users:', error);
+      if (error) {
+        console.error('❌ Error fetching users:', error);
+        return;
       }
-    };
+      
+      console.log('👥 Users fetched:', data?.length || 0);
+      setUsers(data || []);
+    } catch (error) {
+      console.error('❌ Exception fetching users:', error);
+    }
+  };
 
-    fetchCategories();
-    fetchUsers();
-  }, []);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+  const handleInputChange = (field: string, value: string) => {
+    console.log(`📝 Updating ${field}:`, value);
+    setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   const handleSave = async () => {
-    if (!formData.title.trim()) return;
+    if (!formData.title.trim()) {
+      toast({
+        title: "Error",
+        description: "Title is required",
+        variant: "destructive"
+      });
+      return;
+    }
 
+    console.log('💾 Saving case with data:', formData);
     setLoading(true);
+    
     try {
       const updates: any = {};
       const originalCase = caseData;
@@ -148,7 +176,12 @@ const CaseEditDialog = ({ case: caseData, isOpen, onOpenChange, onCaseUpdated }:
         })
         .eq('id', caseData.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error updating case:', error);
+        throw error;
+      }
+
+      console.log('✅ Case updated successfully');
 
       // Get current user ID for notifications
       const { data: currentUser } = await supabase
@@ -158,7 +191,7 @@ const CaseEditDialog = ({ case: caseData, isOpen, onOpenChange, onCaseUpdated }:
         .single();
 
       if (currentUser) {
-        // Trigger case assignment notification if assigned user changed
+        // Trigger notifications for changes
         if (updates.assigned_to && updates.assigned_to !== originalCase.assigned_to) {
           console.log('🔔 Triggering case assignment notification');
           await triggerCaseAssignmentNotification(
@@ -169,7 +202,6 @@ const CaseEditDialog = ({ case: caseData, isOpen, onOpenChange, onCaseUpdated }:
           );
         }
 
-        // Trigger status change notification if status changed
         if (updates.status && updates.status !== originalCase.status) {
           console.log('🔔 Triggering case status change notification');
           await triggerCaseStatusChangeNotification(
@@ -180,7 +212,6 @@ const CaseEditDialog = ({ case: caseData, isOpen, onOpenChange, onCaseUpdated }:
           );
         }
 
-        // Trigger case closed notification if status changed to closed
         if (updates.status === 'closed' && originalCase.status !== 'closed') {
           console.log('🔔 Triggering case closed notification');
           await triggerCaseClosedNotification(
@@ -199,7 +230,7 @@ const CaseEditDialog = ({ case: caseData, isOpen, onOpenChange, onCaseUpdated }:
       onCaseUpdated();
       onOpenChange(false);
     } catch (error) {
-      console.error('Error updating case:', error);
+      console.error('❌ Error updating case:', error);
       toast({
         title: "Error",
         description: "Failed to update case",
@@ -212,7 +243,7 @@ const CaseEditDialog = ({ case: caseData, isOpen, onOpenChange, onCaseUpdated }:
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Case</DialogTitle>
         </DialogHeader>
@@ -222,31 +253,30 @@ const CaseEditDialog = ({ case: caseData, isOpen, onOpenChange, onCaseUpdated }:
               Title
             </Label>
             <Input
-              type="text"
               id="title"
-              name="title"
               value={formData.title}
-              onChange={handleChange}
+              onChange={(e) => handleInputChange('title', e.target.value)}
               className="col-span-3"
             />
           </div>
+          
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="description" className="text-right">
               Description
             </Label>
             <Textarea
               id="description"
-              name="description"
               value={formData.description}
-              onChange={handleChange}
+              onChange={(e) => handleInputChange('description', e.target.value)}
               className="col-span-3"
             />
           </div>
+          
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="status" className="text-right">
               Status
             </Label>
-            <Select value={formData.status} onValueChange={(value) => setFormData(prev => ({ ...prev, status: value }))} >
+            <Select value={formData.status} onValueChange={(value) => handleInputChange('status', value)}>
               <SelectTrigger className="col-span-3">
                 <SelectValue placeholder="Select status" />
               </SelectTrigger>
@@ -259,11 +289,12 @@ const CaseEditDialog = ({ case: caseData, isOpen, onOpenChange, onCaseUpdated }:
               </SelectContent>
             </Select>
           </div>
+          
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="priority" className="text-right">
               Priority
             </Label>
-            <Select value={formData.priority} onValueChange={(value) => setFormData(prev => ({ ...prev, priority: value }))}>
+            <Select value={formData.priority} onValueChange={(value) => handleInputChange('priority', value)}>
               <SelectTrigger className="col-span-3">
                 <SelectValue placeholder="Select priority" />
               </SelectTrigger>
@@ -275,11 +306,12 @@ const CaseEditDialog = ({ case: caseData, isOpen, onOpenChange, onCaseUpdated }:
               </SelectContent>
             </Select>
           </div>
+          
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="assigned_to" className="text-right">
               Assign To
             </Label>
-            <Select value={formData.assigned_to} onValueChange={(value) => setFormData(prev => ({ ...prev, assigned_to: value }))}>
+            <Select value={formData.assigned_to} onValueChange={(value) => handleInputChange('assigned_to', value)}>
               <SelectTrigger className="col-span-3">
                 <SelectValue placeholder="Select user" />
               </SelectTrigger>
@@ -293,15 +325,17 @@ const CaseEditDialog = ({ case: caseData, isOpen, onOpenChange, onCaseUpdated }:
               </SelectContent>
             </Select>
           </div>
+          
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="category_id" className="text-right">
               Category
             </Label>
-            <Select value={formData.category_id} onValueChange={(value) => setFormData(prev => ({ ...prev, category_id: value }))}>
+            <Select value={formData.category_id} onValueChange={(value) => handleInputChange('category_id', value)}>
               <SelectTrigger className="col-span-3">
                 <SelectValue placeholder="Select category" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="">No Category</SelectItem>
                 {categories.map((category) => (
                   <SelectItem key={category.id} value={category.id}>
                     {category.name}
@@ -310,26 +344,26 @@ const CaseEditDialog = ({ case: caseData, isOpen, onOpenChange, onCaseUpdated }:
               </SelectContent>
             </Select>
           </div>
+          
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="location" className="text-right">
               Location
             </Label>
             <Input
-              type="text"
               id="location"
-              name="location"
               value={formData.location}
-              onChange={handleChange}
+              onChange={(e) => handleInputChange('location', e.target.value)}
               className="col-span-3"
             />
           </div>
         </div>
+        
         <div className="flex justify-end space-x-2">
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
           <Button onClick={handleSave} disabled={loading}>
-            Save changes
+            {loading ? "Saving..." : "Save changes"}
           </Button>
         </div>
       </DialogContent>
