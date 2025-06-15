@@ -10,10 +10,26 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useNotificationService } from '@/hooks/useNotificationService';
 
+interface CaseData {
+  id: string;
+  title: string;
+  status: string;
+  priority: string;
+  category_id?: string;
+  submitted_by: string;
+  assigned_to?: string;
+  created_at: string;
+  updated_at: string;
+  description?: string;
+  sla_due_at?: string;
+  location?: string;
+  tags?: string[];
+}
+
 interface CaseEditDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  caseData: any;
+  caseData: CaseData;
   onSave: () => void;
 }
 
