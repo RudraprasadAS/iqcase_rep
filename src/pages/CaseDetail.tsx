@@ -541,13 +541,10 @@ ${conversationContext}
     }
   };
 
-  const handleCaseUpdate = async (updatedCase: CaseData) => {
-    console.log('🔄 Case updated, refreshing activities and data:', updatedCase);
+  const handleCaseUpdate = async () => {
+    console.log('🔄 Case updated, refreshing activities and data');
     
-    // Update local case data immediately
-    setCaseData(updatedCase);
-    
-    // Force refresh activities to see any new activity logs
+    // Force refresh activities and case data to see any changes
     setTimeout(() => {
       console.log('🔄 Forcing comprehensive refresh after case update');
       fetchActivities();
