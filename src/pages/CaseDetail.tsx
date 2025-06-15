@@ -109,11 +109,15 @@ const CaseDetail = () => {
 
   useEffect(() => {
     if (user) {
+      console.log("[CaseDetail] User present:", user);
       fetchInternalUserId();
+    } else {
+      console.warn("[CaseDetail] No user present!");
     }
   }, [user]);
 
   useEffect(() => {
+    console.log("[CaseDetail] caseId:", caseId, "internalUserId:", internalUserId);
     if (caseId && internalUserId) {
       fetchCaseData();
       fetchMessages();
@@ -126,20 +130,31 @@ const CaseDetail = () => {
     if (!user) return;
 
     try {
+      console.log("[CaseDetail] Looking up internal user for auth_user_id:", user.id);
+
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('id')
         .eq('auth_user_id', user.id)
-        .single();
+        .maybeSingle(); // CHANGE: use maybeSingle instead of single
 
       if (userError) {
-        console.error('User lookup error:', userError);
+        console.error('[CaseDetail] User lookup error:', userError);
         return;
       }
 
+      if (!userData) {
+        console.warn('[CaseDetail] No matching internal user found for auth_user_id:', user.id);
+        setLoading(false); // Set loading to false if user not found, to unblock UI
+        return;
+      }
+
+      console.log('[CaseDetail] Found internal user ID:', userData.id);
       setInternalUserId(userData.id);
+
     } catch (error) {
-      console.error('Error fetching internal user ID:', error);
+      console.error('[CaseDetail] Error fetching internal user ID:', error);
+      setLoading(false); // Unblock UI if error occurs
     }
   };
 
