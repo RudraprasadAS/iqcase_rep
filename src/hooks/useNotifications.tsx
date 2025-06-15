@@ -28,6 +28,7 @@ export const useNotifications = () => {
     const getInternalUserId = async () => {
       if (!user) {
         console.log('🔔 No auth user found');
+        setLoading(false);
         return;
       }
 
@@ -42,11 +43,13 @@ export const useNotifications = () => {
 
         if (error) {
           console.error('🔔 Error fetching internal user:', error);
+          setLoading(false);
           return;
         }
 
         if (!userData) {
           console.log('🔔 No internal user found for auth user:', user.id);
+          setLoading(false);
           return;
         }
 
@@ -54,6 +57,7 @@ export const useNotifications = () => {
         setInternalUserId(userData.id);
       } catch (error) {
         console.error('🔔 Exception fetching internal user:', error);
+        setLoading(false);
       }
     };
 
@@ -129,6 +133,11 @@ export const useNotifications = () => {
 
     } catch (error) {
       console.error('🔔 Error in markAsRead:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to mark notification as read',
+        variant: 'destructive'
+      });
     }
   };
 
@@ -157,6 +166,11 @@ export const useNotifications = () => {
 
     } catch (error) {
       console.error('🔔 Error in markAllAsRead:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to mark all notifications as read',
+        variant: 'destructive'
+      });
     }
   };
 
@@ -187,23 +201,11 @@ export const useNotifications = () => {
 
     } catch (error) {
       console.error('🔔 Error in deleteNotification:', error);
-    }
-  };
-
-  // Navigate to the source of a notification (e.g., case page for mentions)
-  const navigateToNotificationSource = (notification: Notification) => {
-    if (notification.case_id) {
-      // Mark as read first
-      markAsRead(notification.id);
-      
-      // Navigate based on notification type
-      if (notification.notification_type === 'mention') {
-        // For mentions, we might want to scroll to the specific message
-        window.location.href = `/cases/${notification.case_id}?highlight=${notification.metadata?.sourceId || ''}`;
-      } else {
-        // For other types, just go to the case
-        window.location.href = `/cases/${notification.case_id}`;
-      }
+      toast({
+        title: 'Error',
+        description: 'Failed to delete notification',
+        variant: 'destructive'
+      });
     }
   };
 
@@ -285,7 +287,6 @@ export const useNotifications = () => {
     markAsRead,
     markAllAsRead,
     deleteNotification,
-    fetchNotifications,
-    navigateToNotificationSource
+    fetchNotifications
   };
 };

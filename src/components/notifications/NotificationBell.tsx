@@ -57,6 +57,18 @@ const NotificationBell = () => {
     setIsOpen(false);
   };
 
+  const handleMarkAsRead = async (e: React.MouseEvent, notificationId: string) => {
+    e.stopPropagation();
+    console.log('🔔 Marking notification as read:', notificationId);
+    await markAsRead(notificationId);
+  };
+
+  const handleDelete = async (e: React.MouseEvent, notificationId: string) => {
+    e.stopPropagation();
+    console.log('🔔 Deleting notification:', notificationId);
+    await deleteNotification(notificationId);
+  };
+
   const getNotificationIcon = (type: string) => {
     switch (type) {
       case 'case_assignment':
@@ -67,6 +79,10 @@ const NotificationBell = () => {
         return '📋';
       case 'task_assignment':
         return '✅';
+      case 'watcher_added':
+        return '👁️';
+      case 'mention':
+        return '📢';
       default:
         return '🔔';
     }
@@ -116,7 +132,7 @@ const NotificationBell = () => {
             {recentNotifications.map((notification) => (
               <DropdownMenuItem
                 key={notification.id}
-                className={`flex items-start space-x-3 p-3 cursor-pointer ${
+                className={`flex items-start space-x-3 p-3 cursor-pointer hover:bg-gray-50 ${
                   !notification.is_read ? 'bg-blue-50 border-l-2 border-l-blue-500' : ''
                 }`}
                 onClick={() => handleNotificationClick(notification)}
@@ -129,17 +145,26 @@ const NotificationBell = () => {
                     <p className="text-sm font-medium truncate">
                       {notification.title}
                     </p>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-4 w-4 p-0 opacity-50 hover:opacity-100"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteNotification(notification.id);
-                      }}
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      {!notification.is_read && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 opacity-50 hover:opacity-100"
+                          onClick={(e) => handleMarkAsRead(e, notification.id)}
+                        >
+                          <Check className="h-3 w-3" />
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 opacity-50 hover:opacity-100"
+                        onClick={(e) => handleDelete(e, notification.id)}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
                     {notification.message}

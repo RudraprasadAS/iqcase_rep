@@ -36,7 +36,17 @@ export const useNotificationService = () => {
 
   const notifyCaseAssignment = async (caseId: string, caseTitle: string, assignedUserId: string) => {
     const currentUserId = await getCurrentInternalUserId();
-    if (!currentUserId) return;
+    if (!currentUserId) {
+      console.error('🔔 No current user ID for case assignment notification');
+      return;
+    }
+
+    console.log('🔔 Triggering case assignment notification:', {
+      caseId,
+      caseTitle,
+      assignedUserId,
+      currentUserId
+    });
 
     await notifyOnCaseAssignment(caseId, caseTitle, assignedUserId, currentUserId);
   };
