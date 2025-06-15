@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { format } from 'date-fns';
 import { logTaskCreated, logTaskUpdated, logTaskDeleted } from '@/utils/activityLogger';
+import { triggerTaskAssignmentNotification } from '@/utils/notificationTriggers';
 
 interface Task {
   id: string;
@@ -188,6 +189,29 @@ const SimpleCaseTasks = ({ caseId, onActivityUpdate }: SimpleCaseTasksProps) => 
       console.log('🚀 About to log task creation');
       await logTaskCreated(caseId, newTaskName.trim(), selectedAssignee || null, internalUserId);
       console.log('🚀 Task creation logged successfully');
+
+      // Trigger task assignment notification if assigned to someone
+      if (selectedAssignee) {
+        console.log('🔔 Triggering task assignment notification');
+        
+        // Get case details for notification
+        const { data: caseData } = await supabase
+          .from('cases')
+          .select('title')
+          .eq('id', caseId)
+          .single();
+
+        if (caseData) {
+          await triggerTaskAssignmentNotification(
+            caseId,
+            caseData.title,
+            newTaskName.trim(),
+            selectedAssignee,
+            internalUserId
+          );
+          console.log('🔔 Task assignment notification triggered successfully');
+        }
+      }
       
       setNewTaskName('');
       setSelectedAssignee('');
