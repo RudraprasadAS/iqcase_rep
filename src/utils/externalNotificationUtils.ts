@@ -5,7 +5,7 @@ import { createCaseStatusChangeNotification, createNotification } from './notifi
 export const notifyExternalUserOfCaseUpdate = async (
   caseId: string,
   caseTitle: string,
-  updateType: 'status_change' | 'message_added' | 'case_closed' | 'task_assigned' | 'case_related',
+  updateType: 'status_change' | 'message_added' | 'case_closed' | 'task_assigned' | 'case_related' | 'case_assigned',
   newStatus?: string,
   message?: string,
   updatedByUserId?: string,
@@ -70,6 +70,16 @@ export const notifyExternalUserOfCaseUpdate = async (
     // Create notifications for each user
     for (const userId of usersToNotify) {
       switch (updateType) {
+        case 'case_assigned':
+          await createNotification({
+            userId: userId,
+            title: 'Case Assigned',
+            message: `Your case "${caseTitle}" has been assigned to a team member for handling.`,
+            type: 'case_assignment',
+            caseId: caseId
+          });
+          break;
+
         case 'status_change':
           if (newStatus) {
             if (newStatus === 'closed' || newStatus === 'resolved') {
@@ -150,7 +160,7 @@ export const notifyExternalUserOfCaseUpdate = async (
 export const notifyInternalUsersOfCaseUpdate = async (
   caseId: string,
   caseTitle: string,
-  updateType: 'message_added' | 'task_assigned' | 'case_related' | 'status_change',
+  updateType: 'message_added' | 'task_assigned' | 'case_related' | 'status_change' | 'case_assigned',
   updatedByUserId: string,
   message?: string,
   taskName?: string,
@@ -201,8 +211,9 @@ export const notifyInternalUsersOfCaseUpdate = async (
       usersToNotify.add(caseData.submitted_by);
     }
 
-    // For task assignments, notify the assigned user specifically
-    if (updateType === 'task_assigned' && assignedUserId && assignedUserId !== updatedByUserId) {
+    // For case and task assignments, notify the assigned user specifically
+    if ((updateType === 'case_assigned' || updateType === 'task_assigned') && 
+        assignedUserId && assignedUserId !== updatedByUserId) {
       usersToNotify.add(assignedUserId);
     }
 
@@ -225,7 +236,7 @@ export const notifyInternalUsersOfCaseUpdate = async (
       .from('case_tasks')
       .select('assigned_to, users!case_tasks_assigned_to_fkey(user_type)')
       .eq('case_id', caseId)
-      .eq('status', 'pending');
+      .neq('status', 'completed');
 
     if (taskUsers) {
       taskUsers.forEach(task => {
@@ -240,6 +251,18 @@ export const notifyInternalUsersOfCaseUpdate = async (
     // Create notifications for each internal user
     for (const userId of usersToNotify) {
       switch (updateType) {
+        case 'case_assigned':
+          await createNotification({
+            userId: userId,
+            title: userId === assignedUserId ? 'New Case Assigned to You' : 'Case Assignment Updated',
+            message: userId === assignedUserId 
+              ? `You have been assigned to case: "${caseTitle}"`
+              : `Case "${caseTitle}" has been assigned to a team member`,
+            type: 'case_assignment',
+            caseId: caseId
+          });
+          break;
+
         case 'message_added':
           await createNotification({
             userId: userId,

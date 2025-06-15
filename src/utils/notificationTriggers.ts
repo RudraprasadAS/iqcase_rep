@@ -61,6 +61,36 @@ export const triggerTaskAssignmentNotification = async (
   );
 };
 
+export const triggerCaseAssignmentNotification = async (
+  caseId: string,
+  caseTitle: string,
+  assignedUserId: string,
+  assignedByUserId: string
+) => {
+  console.log('🔔 Triggering case assignment notifications');
+  
+  // Notify external users
+  await notifyExternalUserOfCaseUpdate(
+    caseId,
+    caseTitle,
+    'case_assigned',
+    undefined,
+    undefined,
+    assignedByUserId
+  );
+
+  // Notify internal users - specifically notify the assigned user
+  await notifyInternalUsersOfCaseUpdate(
+    caseId,
+    caseTitle,
+    'case_assigned',
+    assignedByUserId,
+    undefined,
+    undefined,
+    assignedUserId
+  );
+};
+
 export const triggerCaseStatusChangeNotification = async (
   caseId: string,
   caseTitle: string,

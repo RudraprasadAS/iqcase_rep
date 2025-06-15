@@ -9,6 +9,7 @@ import { Eye, UserPlus, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { logWatcherAdded, logWatcherRemoved } from '@/utils/activityLogger';
+import { createNotification } from '@/utils/notificationUtils';
 
 interface Watcher {
   id: string;
@@ -152,6 +153,27 @@ const CaseWatchers = ({ caseId }: CaseWatchersProps) => {
 
       // Log the activity
       await logWatcherAdded(caseId, watcherName, internalUserId);
+
+      // Notify the new watcher
+      console.log('🔔 Notifying new watcher');
+      
+      // Get case title
+      const { data: caseData } = await supabase
+        .from('cases')
+        .select('title')
+        .eq('id', caseId)
+        .single();
+
+      if (caseData) {
+        await createNotification({
+          userId: selectedUserId,
+          title: 'Added as Case Watcher',
+          message: `You have been added as a watcher for case: "${caseData.title}"`,
+          type: 'case_watcher',
+          caseId: caseId
+        });
+        console.log('🔔 Watcher notification sent successfully');
+      }
 
       await fetchWatchers();
       setIsAddDialogOpen(false);
