@@ -75,6 +75,15 @@ export const useNotifications = () => {
       console.log('🔔 Fetching notifications for user:', internalUserId);
       setLoading(true);
 
+      // First, let's test if we can access the notifications table at all
+      console.log('🔔 Testing notifications table access...');
+      const { data: testData, error: testError } = await supabase
+        .from('notifications')
+        .select('count')
+        .limit(1);
+      
+      console.log('🔔 Test query result:', { testData, testError });
+
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
@@ -84,10 +93,17 @@ export const useNotifications = () => {
 
       if (error) {
         console.error('🔔 Error fetching notifications:', error);
+        console.error('🔔 Error details:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint
+        });
         throw error;
       }
 
       console.log('🔔 Notifications fetched:', data?.length || 0, 'items');
+      console.log('🔔 Sample notifications:', data?.slice(0, 3));
 
       setNotifications(data || []);
       
@@ -112,6 +128,7 @@ export const useNotifications = () => {
   const markAsRead = async (notificationId: string) => {
     try {
       console.log('🔔 Marking notification as read:', notificationId);
+      console.log('🔔 Current internal user ID:', internalUserId);
       
       const { error } = await supabase
         .from('notifications')
@@ -120,6 +137,14 @@ export const useNotifications = () => {
 
       if (error) {
         console.error('🔔 Error marking as read:', error);
+        console.error('🔔 Mark as read error details:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          notificationId,
+          internalUserId
+        });
         throw error;
       }
 
@@ -178,6 +203,7 @@ export const useNotifications = () => {
   const deleteNotification = async (notificationId: string) => {
     try {
       console.log('🔔 Deleting notification:', notificationId);
+      console.log('🔔 Current internal user ID:', internalUserId);
       
       const { error } = await supabase
         .from('notifications')
@@ -186,6 +212,14 @@ export const useNotifications = () => {
 
       if (error) {
         console.error('🔔 Error deleting notification:', error);
+        console.error('🔔 Delete error details:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          notificationId,
+          internalUserId
+        });
         throw error;
       }
 
