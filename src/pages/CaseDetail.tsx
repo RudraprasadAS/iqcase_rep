@@ -950,10 +950,10 @@ ${conversationContext}
       />
 
       <CaseEditDialog
-        case={caseData}
+        caseData={caseData}
         isOpen={isEditDialogOpen}
         onClose={() => setIsEditDialogOpen(false)}
-        onCaseUpdate={handleCaseUpdate}
+        onSave={handleCaseUpdate}
       />
 
       <AttachmentViewer
