@@ -950,10 +950,20 @@ ${conversationContext}
       />
 
       <CaseEditDialog
-        case={caseData}
+        case={{
+          id: caseData.id,
+          title: caseData.title,
+          description: caseData.description || '',
+          status: caseData.status,
+          priority: caseData.priority,
+          assigned_to: caseData.assigned_to || null,
+          category_id: caseData.category_id || '',
+          tags: caseData.tags || [],
+          location: caseData.location || ''
+        }}
         isOpen={isEditDialogOpen}
-        onClose={() => setIsEditDialogOpen(false)}
-        onCaseUpdate={handleCaseUpdate}
+        onOpenChange={setIsEditDialogOpen}
+        onCaseUpdated={handleCaseUpdate}
       />
 
       <AttachmentViewer

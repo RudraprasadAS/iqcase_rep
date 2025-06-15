@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -19,13 +20,13 @@ import {
 interface Case {
   id: string;
   title: string;
-  description: string;
+  description?: string;
   status: string;
   priority: string;
   assigned_to: string | null;
   category_id: string;
   tags: string[];
-  location: string;
+  location?: string;
 }
 
 interface Category {
@@ -51,13 +52,13 @@ const CaseEditDialog = ({ case: caseData, isOpen, onOpenChange, onCaseUpdated }:
   const { toast } = useToast();
   const [formData, setFormData] = useState({
     title: caseData.title,
-    description: caseData.description,
+    description: caseData.description || '',
     status: caseData.status,
     priority: caseData.priority,
     assigned_to: caseData.assigned_to || '',
     category_id: caseData.category_id,
     tags: caseData.tags,
-    location: caseData.location,
+    location: caseData.location || '',
   });
   const [categories, setCategories] = useState<Category[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -66,13 +67,13 @@ const CaseEditDialog = ({ case: caseData, isOpen, onOpenChange, onCaseUpdated }:
   useEffect(() => {
     setFormData({
       title: caseData.title,
-      description: caseData.description,
+      description: caseData.description || '',
       status: caseData.status,
       priority: caseData.priority,
       assigned_to: caseData.assigned_to || '',
       category_id: caseData.category_id,
       tags: caseData.tags,
-      location: caseData.location,
+      location: caseData.location || '',
     });
   }, [caseData]);
 
@@ -80,7 +81,7 @@ const CaseEditDialog = ({ case: caseData, isOpen, onOpenChange, onCaseUpdated }:
     const fetchCategories = async () => {
       try {
         const { data, error } = await supabase
-          .from('categories')
+          .from('case_categories')
           .select('*')
           .order('name');
 
