@@ -541,19 +541,16 @@ ${conversationContext}
     }
   };
 
-  const handleCaseUpdate = async (updatedCase: CaseData) => {
-    console.log('🔄 Case updated, refreshing activities and data:', updatedCase);
-    
-    // Update local case data immediately
-    setCaseData(updatedCase);
-    
-    // Force refresh activities to see any new activity logs
+  // Remove the argument from handleCaseUpdate so it matches the expected signature
+  const handleCaseUpdate = () => {
+    console.log('🔄 Case updated, refreshing activities and data');
+    // Force refresh activities and case data
     setTimeout(() => {
       console.log('🔄 Forcing comprehensive refresh after case update');
       fetchActivities();
       fetchCaseData();
     }, 500); // Small delay to ensure activity logging is complete
-    
+
     setIsEditDialogOpen(false);
     toast({
       title: "Success",
