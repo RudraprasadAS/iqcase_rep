@@ -39,8 +39,8 @@ export const Sidebar = () => {
     fetchUserRole();
   }, [user]);
 
-  // Hide admin section for case workers
-  const shouldShowAdminSection = userRole !== 'case_worker';
+  // Hide admin section for case workers - check for both variations
+  const shouldShowAdminSection = userRole !== 'case_worker' && userRole !== 'caseworker';
 
   return (
     <div className="pb-12 w-64 bg-background border-r">
