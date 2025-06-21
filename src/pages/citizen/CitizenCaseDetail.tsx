@@ -197,7 +197,11 @@ const CitizenCaseDetail = () => {
               onAttachmentsUpdated={fetchAttachments}
             />
 
-            <CaseMessages caseId={caseId!} />
+            <CaseMessages
+              messages={messages}
+              caseId={caseId!}
+              onMessagesUpdated={fetchMessages}
+            />
 
             <CaseFeedback 
               caseId={caseData.id} 
