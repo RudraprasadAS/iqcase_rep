@@ -109,11 +109,15 @@ const CaseDetail = () => {
 
   useEffect(() => {
     if (user) {
+      console.log("[CaseDetail] User present:", user);
       fetchInternalUserId();
+    } else {
+      console.warn("[CaseDetail] No user present!");
     }
   }, [user]);
 
   useEffect(() => {
+    console.log("[CaseDetail] caseId:", caseId, "internalUserId:", internalUserId);
     if (caseId && internalUserId) {
       fetchCaseData();
       fetchMessages();
@@ -126,20 +130,31 @@ const CaseDetail = () => {
     if (!user) return;
 
     try {
+      console.log("[CaseDetail] Looking up internal user for auth_user_id:", user.id);
+
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('id')
         .eq('auth_user_id', user.id)
-        .single();
+        .maybeSingle(); // CHANGE: use maybeSingle instead of single
 
       if (userError) {
-        console.error('User lookup error:', userError);
+        console.error('[CaseDetail] User lookup error:', userError);
         return;
       }
 
+      if (!userData) {
+        console.warn('[CaseDetail] No matching internal user found for auth_user_id:', user.id);
+        setLoading(false); // Set loading to false if user not found, to unblock UI
+        return;
+      }
+
+      console.log('[CaseDetail] Found internal user ID:', userData.id);
       setInternalUserId(userData.id);
+
     } catch (error) {
-      console.error('Error fetching internal user ID:', error);
+      console.error('[CaseDetail] Error fetching internal user ID:', error);
+      setLoading(false); // Unblock UI if error occurs
     }
   };
 
@@ -541,16 +556,16 @@ ${conversationContext}
     }
   };
 
-  const handleCaseUpdate = async () => {
+  // Remove the argument from handleCaseUpdate so it matches the expected signature
+  const handleCaseUpdate = () => {
     console.log('🔄 Case updated, refreshing activities and data');
-    
-    // Force refresh activities and case data to see any changes
+    // Force refresh activities and case data
     setTimeout(() => {
       console.log('🔄 Forcing comprehensive refresh after case update');
       fetchActivities();
       fetchCaseData();
     }, 500); // Small delay to ensure activity logging is complete
-    
+
     setIsEditDialogOpen(false);
     toast({
       title: "Success",
@@ -947,10 +962,20 @@ ${conversationContext}
       />
 
       <CaseEditDialog
-        caseData={caseData}
+        case={{
+          id: caseData.id,
+          title: caseData.title,
+          description: caseData.description || '',
+          status: caseData.status,
+          priority: caseData.priority,
+          assigned_to: caseData.assigned_to || null,
+          category_id: caseData.category_id || '',
+          tags: caseData.tags || [],
+          location: caseData.location || ''
+        }}
         isOpen={isEditDialogOpen}
-        onClose={() => setIsEditDialogOpen(false)}
-        onSave={handleCaseUpdate}
+        onOpenChange={setIsEditDialogOpen}
+        onCaseUpdated={handleCaseUpdate}
       />
 
       <AttachmentViewer

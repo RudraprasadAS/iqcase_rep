@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
+import { triggerRelatedCaseNotification } from '@/utils/notificationTriggers';
 
 interface RelatedCase {
   id: string;
@@ -150,6 +150,23 @@ const RelatedCases = ({ caseId }: RelatedCasesProps) => {
       if (error) {
         console.error('Error adding related case:', error);
         throw error;
+      }
+
+      // Get case details for notification
+      const { data: caseData } = await supabase
+        .from('cases')
+        .select('title')
+        .eq('id', caseId)
+        .single();
+
+      // Trigger notifications
+      if (caseData) {
+        await triggerRelatedCaseNotification(
+          caseId,
+          caseData.title,
+          selectedCaseId,
+          internalUserId
+        );
       }
 
       setSelectedCaseId('');

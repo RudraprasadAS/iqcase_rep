@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { format } from 'date-fns';
 import { logTaskCreated, logTaskUpdated, logTaskDeleted } from '@/utils/activityLogger';
-import { useNotificationService } from '@/hooks/useNotificationService';
+import { triggerTaskAssignmentNotification } from '@/utils/notificationTriggers';
 
 interface Task {
   id: string;
@@ -40,7 +40,6 @@ interface SimpleCaseTasksProps {
 const SimpleCaseTasks = ({ caseId, onActivityUpdate }: SimpleCaseTasksProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { notifyTaskAssignment } = useNotificationService();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [newTaskName, setNewTaskName] = useState('');
@@ -180,8 +179,6 @@ const SimpleCaseTasks = ({ caseId, onActivityUpdate }: SimpleCaseTasksProps) => 
         taskData.due_date = selectedDueDate.toISOString();
       }
 
-      console.log('🔔 Creating task with data:', taskData);
-
       const { error } = await supabase
         .from('case_tasks')
         .insert(taskData);
@@ -192,23 +189,28 @@ const SimpleCaseTasks = ({ caseId, onActivityUpdate }: SimpleCaseTasksProps) => 
       console.log('🚀 About to log task creation');
       await logTaskCreated(caseId, newTaskName.trim(), selectedAssignee || null, internalUserId);
       console.log('🚀 Task creation logged successfully');
-      
-      // Send notification if task is assigned to someone
+
+      // Trigger task assignment notification if assigned to someone
       if (selectedAssignee) {
-        console.log('🔔 Triggering task assignment notification:', {
-          taskName: newTaskName.trim(),
-          caseId,
-          assignedUserId: selectedAssignee,
-          currentUserId: internalUserId
-        });
+        console.log('🔔 Triggering task assignment notification');
         
-        await notifyTaskAssignment(
-          newTaskName.trim(),
-          caseId,
-          selectedAssignee
-        );
-        
-        console.log('🔔 Task assignment notification sent');
+        // Get case details for notification
+        const { data: caseData } = await supabase
+          .from('cases')
+          .select('title')
+          .eq('id', caseId)
+          .single();
+
+        if (caseData) {
+          await triggerTaskAssignmentNotification(
+            caseId,
+            caseData.title,
+            newTaskName.trim(),
+            selectedAssignee,
+            internalUserId
+          );
+          console.log('🔔 Task assignment notification triggered successfully');
+        }
       }
       
       setNewTaskName('');

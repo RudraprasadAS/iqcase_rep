@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { createTaskAssignmentNotification } from '@/utils/notificationUtils';
 import { logTaskCreated, logTaskUpdated, logTaskDeleted } from '@/utils/activityLogger';
+import { triggerTaskAssignmentNotification } from '@/utils/notificationTriggers';
 
 interface Task {
   id: string;
@@ -180,12 +180,25 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
 
       // Send notification if task is assigned
       if (newTask.assigned_to && newTask.assigned_to !== internalUserId) {
-        await createTaskAssignmentNotification(
-          newTask.assigned_to,
-          newTask.task_name,
-          caseId,
-          internalUserId
-        );
+        console.log('🔔 Triggering task assignment notification');
+        
+        // Get case details for notification
+        const { data: caseData } = await supabase
+          .from('cases')
+          .select('title')
+          .eq('id', caseId)
+          .single();
+
+        if (caseData) {
+          await triggerTaskAssignmentNotification(
+            caseId,
+            caseData.title,
+            newTask.task_name,
+            newTask.assigned_to,
+            internalUserId
+          );
+          console.log('🔔 Task assignment notification triggered successfully');
+        }
       }
 
       await fetchTasks();
@@ -281,12 +294,25 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
 
       // Send notification if newly assigned to someone else
       if (changes.assigned_to && changes.assigned_to !== internalUserId) {
-        await createTaskAssignmentNotification(
-          changes.assigned_to,
-          editingTask.task_name,
-          caseId,
-          internalUserId
-        );
+        console.log('🔔 Triggering task assignment notification for update');
+        
+        // Get case details for notification
+        const { data: caseData } = await supabase
+          .from('cases')
+          .select('title')
+          .eq('id', caseId)
+          .single();
+
+        if (caseData) {
+          await triggerTaskAssignmentNotification(
+            caseId,
+            caseData.title,
+            editingTask.task_name,
+            changes.assigned_to,
+            internalUserId
+          );
+          console.log('🔔 Task assignment notification triggered successfully');
+        }
       }
 
       await fetchTasks();

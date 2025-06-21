@@ -9,7 +9,7 @@ import { Eye, UserPlus, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { logWatcherAdded, logWatcherRemoved } from '@/utils/activityLogger';
-import { notifyOnWatcherAdded } from '@/utils/caseNotificationService';
+import { createNotification } from '@/utils/notificationUtils';
 
 interface Watcher {
   id: string;
@@ -134,20 +134,9 @@ const CaseWatchers = ({ caseId }: CaseWatchersProps) => {
     }
 
     try {
-      // Get the user name for logging and case title for notification
+      // Get the user name for logging
       const selectedUser = availableUsers.find(u => u.id === selectedUserId);
       const watcherName = selectedUser?.name || 'Unknown User';
-
-      // Get case title for notification
-      const { data: caseData, error: caseError } = await supabase
-        .from('cases')
-        .select('title')
-        .eq('id', caseId)
-        .single();
-
-      if (caseError) {
-        console.error('Error fetching case for notification:', caseError);
-      }
 
       const { error } = await supabase
         .from('case_watchers')
@@ -165,9 +154,25 @@ const CaseWatchers = ({ caseId }: CaseWatchersProps) => {
       // Log the activity
       await logWatcherAdded(caseId, watcherName, internalUserId);
 
-      // Send notification to the watcher
-      if (caseData?.title) {
-        await notifyOnWatcherAdded(caseId, caseData.title, selectedUserId, internalUserId);
+      // Notify the new watcher
+      console.log('🔔 Notifying new watcher');
+      
+      // Get case title
+      const { data: caseData } = await supabase
+        .from('cases')
+        .select('title')
+        .eq('id', caseId)
+        .single();
+
+      if (caseData) {
+        await createNotification({
+          userId: selectedUserId,
+          title: 'Added as Case Watcher',
+          message: `You have been added as a watcher for case: "${caseData.title}"`,
+          type: 'case_watcher',
+          caseId: caseId
+        });
+        console.log('🔔 Watcher notification sent successfully');
       }
 
       await fetchWatchers();
