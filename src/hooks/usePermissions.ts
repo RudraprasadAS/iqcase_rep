@@ -105,6 +105,7 @@ export const usePermissions = (selectedRoleId: string, permissions?: any[], role
     // Find the role to check if it's a system role
     const role = roles?.find(r => r.id === roleId);
     
+    // Check if this is a system role and prevent modification
     if (role?.is_system === true) {
       toast({
         title: "Cannot modify system role",
@@ -180,6 +181,7 @@ export const usePermissions = (selectedRoleId: string, permissions?: any[], role
     
     const role = roles?.find(r => r.id === roleId);
     
+    // Check if this is a system role and prevent modification
     if (role?.is_system === true) {
       toast({
         title: "Cannot modify system role",
@@ -374,3 +376,4 @@ export const usePermissions = (selectedRoleId: string, permissions?: any[], role
     debugCurrentState
   };
 };
+

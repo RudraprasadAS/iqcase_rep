@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Save, Edit, Trash2 } from "lucide-react";
+import { Save, Edit, Trash2, Shield } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { CreateRoleDialog } from "@/components/permissions/CreateRoleDialog";
 import { PermissionTable } from "@/components/permissions/PermissionTable";
@@ -16,6 +16,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { DeleteRoleDialog } from "@/components/roles/DeleteRoleDialog";
 import { EditRoleDialog } from "@/components/roles/EditRoleDialog";
 import { toast } from "@/hooks/use-toast";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const PermissionsPage = () => {
   const [selectedRoleId, setSelectedRoleId] = useState<string>("");
@@ -194,6 +195,16 @@ const PermissionsPage = () => {
         </div>
       </div>
       
+      {/* System Role Warning */}
+      {selectedRole?.is_system && (
+        <Alert>
+          <Shield className="h-4 w-4" />
+          <AlertDescription>
+            You are viewing a system role. System roles have predefined permissions that cannot be modified to ensure system security and stability.
+          </AlertDescription>
+        </Alert>
+      )}
+      
       {/* Registry Status Card */}
       <Card>
         <CardHeader>
@@ -271,7 +282,7 @@ const PermissionsPage = () => {
                   
                   <Button
                     onClick={handleSaveChanges}
-                    disabled={savePermissionsMutation.isPending || !hasUnsavedChanges}
+                    disabled={savePermissionsMutation.isPending || !hasUnsavedChanges || selectedRole?.is_system}
                     className={`ml-auto ${hasUnsavedChanges ? 'animate-pulse' : ''}`}
                   >
                     <Save className="h-4 w-4 mr-2" /> Save Changes
@@ -316,7 +327,7 @@ const PermissionsPage = () => {
                       <strong>Permission Rules:</strong><br/>
                       - Selecting Edit will automatically select View<br/>
                       - Deselecting View will deselect Edit<br/>
-                      - System roles have all permissions by default
+                      - System roles have all permissions by default and cannot be modified
                     </p>
                     <p className="mt-2 text-xs">
                       Loaded {frontendRegistry?.length || 0} frontend elements | {permissions?.length || 0} saved permissions
@@ -330,7 +341,7 @@ const PermissionsPage = () => {
         <CardFooter>
           <Button
             onClick={handleSaveChanges}
-            disabled={savePermissionsMutation.isPending || !hasUnsavedChanges}
+            disabled={savePermissionsMutation.isPending || !hasUnsavedChanges || selectedRole?.is_system}
             className="w-full"
           >
             <Save className="h-4 w-4 mr-2" /> Save All Permission Changes
@@ -360,3 +371,4 @@ const PermissionsPage = () => {
 };
 
 export default PermissionsPage;
+
