@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -9,11 +10,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { 
-  triggerCaseAssignmentNotification, 
-  triggerCaseStatusChangeNotification, 
-  triggerCaseClosedNotification 
-} from '@/utils/notificationTriggers';
 
 interface Case {
   id: string;
@@ -136,18 +132,10 @@ const CaseEditDialog = ({ case: caseData, isOpen, onOpenChange, onCaseUpdated }:
     setLoading(true);
     
     try {
-      const updates: any = {};
       const originalCase = caseData;
       
-      // Track what changed for notifications
-      if (originalCase.title !== formData.title) updates.title = formData.title;
-      if (originalCase.description !== formData.description) updates.description = formData.description;
-      if (originalCase.status !== formData.status) updates.status = formData.status;
-      if (originalCase.priority !== formData.priority) updates.priority = formData.priority;
-      if (originalCase.assigned_to !== formData.assigned_to) updates.assigned_to = formData.assigned_to;
-      if (originalCase.category_id !== formData.category_id) updates.category_id = formData.category_id;
-
-      const { error } = await supabase
+      // Update the case - this is the core functionality that must work
+      const { error: updateError } = await supabase
         .from('cases')
         .update({
           title: formData.title,
@@ -162,50 +150,73 @@ const CaseEditDialog = ({ case: caseData, isOpen, onOpenChange, onCaseUpdated }:
         })
         .eq('id', caseData.id);
 
-      if (error) {
-        console.error('❌ Error updating case:', error);
-        throw error;
+      if (updateError) {
+        console.error('❌ Error updating case:', updateError);
+        throw updateError;
       }
 
       console.log('✅ Case updated successfully');
 
-      // Get current user ID for notifications
-      const { data: currentUser } = await supabase
-        .from('users')
-        .select('id')
-        .eq('auth_user_id', user?.id)
-        .single();
+      // Try to handle notifications, but don't fail if this doesn't work
+      try {
+        // Get current user ID for notifications
+        const { data: currentUser } = await supabase
+          .from('users')
+          .select('id')
+          .eq('auth_user_id', user?.id)
+          .single();
 
-      if (currentUser) {
-        // Trigger notifications for changes
-        if (updates.assigned_to && updates.assigned_to !== originalCase.assigned_to) {
-          console.log('🔔 Triggering case assignment notification');
-          await triggerCaseAssignmentNotification(
-            caseData.id,
-            formData.title,
-            updates.assigned_to,
-            currentUser.id
-          );
-        }
+        if (currentUser) {
+          // Try to trigger notifications, but catch any errors
+          const { triggerCaseAssignmentNotification, triggerCaseStatusChangeNotification, triggerCaseClosedNotification } = await import('@/utils/notificationTriggers');
+          
+          // Check for assignment changes
+          if (formData.assigned_to && formData.assigned_to !== originalCase.assigned_to) {
+            console.log('🔔 Attempting to trigger case assignment notification');
+            try {
+              await triggerCaseAssignmentNotification(
+                caseData.id,
+                formData.title,
+                formData.assigned_to,
+                currentUser.id
+              );
+            } catch (notifError) {
+              console.warn('⚠️ Failed to send assignment notification:', notifError);
+            }
+          }
 
-        if (updates.status && updates.status !== originalCase.status) {
-          console.log('🔔 Triggering case status change notification');
-          await triggerCaseStatusChangeNotification(
-            caseData.id,
-            formData.title,
-            updates.status,
-            currentUser.id
-          );
-        }
+          // Check for status changes
+          if (formData.status && formData.status !== originalCase.status) {
+            console.log('🔔 Attempting to trigger case status change notification');
+            try {
+              await triggerCaseStatusChangeNotification(
+                caseData.id,
+                formData.title,
+                formData.status,
+                currentUser.id
+              );
+            } catch (notifError) {
+              console.warn('⚠️ Failed to send status change notification:', notifError);
+            }
+          }
 
-        if (updates.status === 'closed' && originalCase.status !== 'closed') {
-          console.log('🔔 Triggering case closed notification');
-          await triggerCaseClosedNotification(
-            caseData.id,
-            formData.title,
-            currentUser.id
-          );
+          // Check for case closure
+          if (formData.status === 'closed' && originalCase.status !== 'closed') {
+            console.log('🔔 Attempting to trigger case closed notification');
+            try {
+              await triggerCaseClosedNotification(
+                caseData.id,
+                formData.title,
+                currentUser.id
+              );
+            } catch (notifError) {
+              console.warn('⚠️ Failed to send case closed notification:', notifError);
+            }
+          }
         }
+      } catch (notificationError) {
+        // Log but don't fail the entire operation
+        console.warn('⚠️ Notification system error (case update still succeeded):', notificationError);
       }
 
       toast({
