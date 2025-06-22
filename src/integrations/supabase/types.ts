@@ -1338,6 +1338,16 @@ export type Database = {
           user_match: boolean
         }[]
       }
+      debug_user_mapping: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          auth_uid: string
+          internal_user_id: string
+          user_email: string
+          user_name: string
+          role_name: string
+        }[]
+      }
       execute_dynamic_report: {
         Args: { p_config: Json }
         Returns: Json

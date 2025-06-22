@@ -34,23 +34,54 @@ const NotificationCenter = () => {
 
     try {
       setLoading(true);
-      console.log('🔔 Fetching notifications for user:', user.id);
+      console.log('🔔 NotificationCenter: Fetching notifications for user:', user.id);
       
+      // Debug user mapping first
+      const { data: debugData, error: debugError } = await supabase
+        .rpc('debug_user_mapping');
+
+      if (debugError) {
+        console.error('🔔 NotificationCenter: Debug mapping error:', debugError);
+      } else {
+        console.log('🔔 NotificationCenter: User mapping result:', debugData);
+      }
+
+      // Get internal user ID
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (userError) {
+        console.error('🔔 NotificationCenter: Error fetching internal user:', userError);
+        return;
+      }
+
+      if (!userData) {
+        console.log('🔔 NotificationCenter: No internal user found');
+        return;
+      }
+
+      console.log('🔔 NotificationCenter: Internal user ID:', userData.id);
+
+      // Fetch all notifications (RLS is disabled) and filter by user
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
+        .eq('user_id', userData.id)
         .order('created_at', { ascending: false })
         .limit(20);
 
       if (error) {
-        console.error('Notifications fetch error:', error);
+        console.error('🔔 NotificationCenter: Notifications fetch error:', error);
         return;
       }
 
-      console.log('Notifications fetched:', data);
+      console.log('🔔 NotificationCenter: Notifications fetched:', data?.length || 0);
       setNotifications(data || []);
     } catch (error) {
-      console.error('Error fetching notifications:', error);
+      console.error('🔔 NotificationCenter: Error:', error);
     } finally {
       setLoading(false);
     }
@@ -59,15 +90,22 @@ const NotificationCenter = () => {
   const markAsRead = async (notificationId: string) => {
     setLoading(true);
     try {
+      console.log('🔔 NotificationCenter: Marking as read:', notificationId);
+      
       const { error } = await supabase
         .from('notifications')
         .update({ is_read: true })
         .eq('id', notificationId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('🔔 NotificationCenter: Mark as read error:', error);
+        throw error;
+      }
+      
+      console.log('🔔 NotificationCenter: Successfully marked as read');
       fetchNotifications();
     } catch (error) {
-      console.error('Error marking notification as read:', error);
+      console.error('🔔 NotificationCenter: Error marking notification as read:', error);
     } finally {
       setLoading(false);
     }
@@ -78,15 +116,35 @@ const NotificationCenter = () => {
 
     setLoading(true);
     try {
+      // Get internal user ID
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (userError || !userData) {
+        console.error('🔔 NotificationCenter: Error getting user for mark all read:', userError);
+        return;
+      }
+
+      console.log('🔔 NotificationCenter: Marking all as read for user:', userData.id);
+
       const { error } = await supabase
         .from('notifications')
         .update({ is_read: true })
+        .eq('user_id', userData.id)
         .eq('is_read', false);
 
-      if (error) throw error;
+      if (error) {
+        console.error('🔔 NotificationCenter: Mark all as read error:', error);
+        throw error;
+      }
+      
+      console.log('🔔 NotificationCenter: Successfully marked all as read');
       fetchNotifications();
     } catch (error) {
-      console.error('Error marking all notifications as read:', error);
+      console.error('🔔 NotificationCenter: Error marking all notifications as read:', error);
     } finally {
       setLoading(false);
     }

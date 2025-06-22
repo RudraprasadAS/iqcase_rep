@@ -23,45 +23,52 @@ export const useNotifications = () => {
   const [loading, setLoading] = useState(true);
   const [internalUserId, setInternalUserId] = useState<string | null>(null);
 
-  // Get internal user ID
+  // Debug user mapping
   useEffect(() => {
-    const getInternalUserId = async () => {
+    const debugUserMapping = async () => {
       if (!user) {
-        console.log('🔔 No auth user found');
-        setLoading(false);
+        console.log('🔔 DEBUG: No auth user found');
         return;
       }
 
       try {
-        console.log('🔔 Fetching internal user ID for auth user:', user.id);
+        console.log('🔔 DEBUG: Auth user found:', user.id, user.email);
         
+        // Use the debug function we created
+        const { data: debugData, error: debugError } = await supabase
+          .rpc('debug_user_mapping');
+
+        if (debugError) {
+          console.error('🔔 DEBUG: Error in debug_user_mapping:', debugError);
+        } else {
+          console.log('🔔 DEBUG: User mapping result:', debugData);
+        }
+
+        // Also try direct query
         const { data: userData, error } = await supabase
           .from('users')
-          .select('id')
+          .select('id, email, name, role_id')
           .eq('auth_user_id', user.id)
           .single();
 
         if (error) {
-          console.error('🔔 Error fetching internal user:', error);
-          setLoading(false);
+          console.error('🔔 DEBUG: Error fetching internal user:', error);
           return;
         }
 
         if (!userData) {
-          console.log('🔔 No internal user found for auth user:', user.id);
-          setLoading(false);
+          console.log('🔔 DEBUG: No internal user found for auth user:', user.id);
           return;
         }
 
-        console.log('🔔 Internal user ID found:', userData.id);
+        console.log('🔔 DEBUG: Internal user found:', userData);
         setInternalUserId(userData.id);
       } catch (error) {
-        console.error('🔔 Exception fetching internal user:', error);
-        setLoading(false);
+        console.error('🔔 DEBUG: Exception in user mapping:', error);
       }
     };
 
-    getInternalUserId();
+    debugUserMapping();
   }, [user]);
 
   // Fetch notifications
@@ -73,9 +80,10 @@ export const useNotifications = () => {
     }
 
     try {
-      console.log('🔔 Fetching notifications for authenticated user');
+      console.log('🔔 Fetching notifications for authenticated user:', user.id);
       setLoading(true);
 
+      // Since RLS is disabled, we can fetch all notifications and filter manually
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
@@ -87,12 +95,21 @@ export const useNotifications = () => {
         throw error;
       }
 
-      console.log('🔔 Notifications fetched:', data?.length || 0, 'items');
+      console.log('🔔 All notifications fetched:', data?.length || 0, 'items');
+      
+      // Filter notifications for current user if we have internal user ID
+      let userNotifications = data || [];
+      if (internalUserId) {
+        userNotifications = (data || []).filter(n => n.user_id === internalUserId);
+        console.log('🔔 Filtered notifications for user:', userNotifications.length, 'items');
+      } else {
+        console.log('🔔 No internal user ID yet, showing all notifications');
+      }
 
-      setNotifications(data || []);
+      setNotifications(userNotifications);
       
       // Count unread notifications
-      const unread = (data || []).filter(n => !n.is_read).length;
+      const unread = userNotifications.filter(n => !n.is_read).length;
       console.log('🔔 Unread count:', unread);
       setUnreadCount(unread);
 
@@ -143,14 +160,15 @@ export const useNotifications = () => {
 
   // Mark all notifications as read
   const markAllAsRead = async () => {
-    if (!user) return;
+    if (!user || !internalUserId) return;
 
     try {
-      console.log('🔔 Marking all notifications as read');
+      console.log('🔔 Marking all notifications as read for user:', internalUserId);
       
       const { error } = await supabase
         .from('notifications')
         .update({ is_read: true })
+        .eq('user_id', internalUserId)
         .eq('is_read', false);
 
       if (error) {
@@ -225,13 +243,13 @@ export const useNotifications = () => {
     }
   };
 
-  // Fetch notifications when user is available
+  // Fetch notifications when user and internal user ID are available
   useEffect(() => {
     if (user) {
       console.log('🔔 User available, fetching notifications');
       fetchNotifications();
     }
-  }, [user]);
+  }, [user, internalUserId]);
 
   // Set up real-time subscription
   useEffect(() => {
