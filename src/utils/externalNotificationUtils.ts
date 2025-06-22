@@ -1,6 +1,5 @@
-
 import { supabase } from '@/integrations/supabase/client';
-import { createExternalUserNotification } from './notificationUtils';
+import { createExternalUserNotification } from './notifications/notificationService';
 
 export const notifyExternalUserOfCaseUpdate = async (
   caseId: string,

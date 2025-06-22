@@ -1,6 +1,5 @@
-
 import { supabase } from '@/integrations/supabase/client';
-import { createMentionNotification } from './notificationUtils';
+import { createMentionNotification } from './notifications/notificationService';
 
 interface User {
   id: string;

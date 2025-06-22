@@ -115,3 +115,85 @@ export const createCaseAssignmentNotification = async (
     caseId: caseId
   });
 };
+
+export const createCaseStatusChangeNotification = async (
+  userId: string,
+  caseTitle: string,
+  newStatus: string,
+  caseId: string
+) => {
+  console.log('🔔 Creating case status change notification:', {
+    userId,
+    caseTitle,
+    newStatus,
+    caseId
+  });
+
+  const message = `Case "${caseTitle}" status has been updated to: ${newStatus}`;
+
+  return createNotification({
+    userId: userId,
+    title: 'Case Status Updated',
+    message: message,
+    type: 'case_status_change',
+    caseId: caseId
+  });
+};
+
+export const createExternalUserNotification = async (
+  userId: string,
+  title: string,
+  message: string,
+  caseId: string,
+  notificationType: string = 'case_update'
+) => {
+  console.log('🔔 Creating external user notification:', {
+    userId,
+    title,
+    notificationType,
+    caseId
+  });
+
+  return createNotification({
+    userId: userId,
+    title: title,
+    message: message,
+    type: notificationType,
+    caseId: caseId
+  });
+};
+
+export const createMentionNotification = async (
+  mentionedUserId: string,
+  mentionerUserId: string,
+  caseId: string,
+  sourceId: string,
+  sourceType: string,
+  contextMessage: string
+) => {
+  console.log('🔔 Creating mention notification:', {
+    mentionedUserId,
+    mentionerUserId,
+    caseId,
+    sourceId,
+    sourceType
+  });
+
+  // Get the mentioner's name
+  const { data: mentionerData } = await supabase
+    .from('users')
+    .select('name')
+    .eq('id', mentionerUserId)
+    .single();
+
+  const mentionerName = mentionerData?.name || 'A colleague';
+  const message = `${mentionerName} mentioned you in a message: "${contextMessage.substring(0, 100)}${contextMessage.length > 100 ? '...' : ''}"`;
+
+  return createNotification({
+    userId: mentionedUserId,
+    title: 'You were mentioned',
+    message: message,
+    type: 'mention',
+    caseId: caseId
+  });
+};

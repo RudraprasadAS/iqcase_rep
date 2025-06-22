@@ -1,6 +1,6 @@
 
 import { useAuth } from './useAuth';
-import { createCaseAssignmentNotification, createCaseStatusChangeNotification, createTaskAssignmentNotification } from '@/utils/notificationUtils';
+import { createCaseAssignmentNotification, createCaseStatusChangeNotification, createTaskAssignmentNotification } from '@/utils/notifications/notificationService';
 import { supabase } from '@/integrations/supabase/client';
 
 export const useCaseNotifications = () => {
