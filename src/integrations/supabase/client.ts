@@ -96,8 +96,12 @@ export const supabase = createClient<Database>(
     },
     db: {
       schema: 'public'
-    }
+    },
+        auth: {
+      persistSession: true,
+      autoRefreshToken: true,
   }
+}
 );
 
 // Helper function for permission operations
