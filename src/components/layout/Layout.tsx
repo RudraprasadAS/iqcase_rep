@@ -1,14 +1,10 @@
 
-import React from "react";
+import { Outlet } from "react-router-dom";
 import Navbar from "./Navbar";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
 
-interface LayoutProps {
-  children: React.ReactNode;
-}
-
-const Layout: React.FC<LayoutProps> = ({ children }) => {
+const Layout = () => {
   return (
     <SidebarProvider>
       <div className="min-h-screen bg-caseMgmt-background flex w-full">
@@ -16,7 +12,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         <SidebarInset>
           <Navbar />
           <main className="flex-1 p-4 md:p-6 overflow-auto">
-            {children}
+            <Outlet />
           </main>
         </SidebarInset>
       </div>
