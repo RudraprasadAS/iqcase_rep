@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,6 +10,7 @@ import { Eye, UserPlus, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { logWatcherAdded, logWatcherRemoved } from '@/utils/activityLogger';
+import { createNotification } from '@/utils/notificationUtils';
 
 interface Watcher {
   id: string;
@@ -133,9 +135,17 @@ const CaseWatchers = ({ caseId }: CaseWatchersProps) => {
     }
 
     try {
-      // Get the user name for logging
+      console.log('👁️ ADDING WATCHER:', {
+        caseId,
+        selectedUserId,
+        internalUserId
+      });
+
+      // Get the user name for logging and notification
       const selectedUser = availableUsers.find(u => u.id === selectedUserId);
       const watcherName = selectedUser?.name || 'Unknown User';
+
+      console.log('👁️ Selected user:', selectedUser);
 
       const { error } = await supabase
         .from('case_watchers')
@@ -146,12 +156,39 @@ const CaseWatchers = ({ caseId }: CaseWatchersProps) => {
         });
 
       if (error) {
-        console.error('Watcher insert error:', error);
+        console.error('👁️ Watcher insert error:', error);
         throw error;
       }
 
+      console.log('👁️ Watcher added successfully');
+
       // Log the activity
       await logWatcherAdded(caseId, watcherName, internalUserId);
+
+      // Create notification for the new watcher
+      console.log('👁️ Creating watcher notification...');
+      try {
+        // Get case title
+        const { data: caseData } = await supabase
+          .from('cases')
+          .select('title')
+          .eq('id', caseId)
+          .single();
+
+        const caseTitle = caseData?.title || 'a case';
+
+        const notificationResult = await createNotification({
+          userId: selectedUserId,
+          title: 'Added as Watcher',
+          message: `You have been added as a watcher to case: ${caseTitle}`,
+          type: 'watcher_added',
+          caseId: caseId
+        });
+
+        console.log('👁️ Watcher notification result:', notificationResult);
+      } catch (notificationError) {
+        console.error('👁️ Error creating watcher notification:', notificationError);
+      }
 
       await fetchWatchers();
       setIsAddDialogOpen(false);
@@ -162,7 +199,7 @@ const CaseWatchers = ({ caseId }: CaseWatchersProps) => {
         description: "Watcher added successfully"
       });
     } catch (error) {
-      console.error('Error adding watcher:', error);
+      console.error('👁️ Error adding watcher:', error);
       toast({
         title: "Error",
         description: "Failed to add watcher",
@@ -175,15 +212,19 @@ const CaseWatchers = ({ caseId }: CaseWatchersProps) => {
     if (!internalUserId) return;
 
     try {
+      console.log('👁️ REMOVING WATCHER:', watcherId, watcherName);
+
       const { error } = await supabase
         .from('case_watchers')
         .delete()
         .eq('id', watcherId);
 
       if (error) {
-        console.error('Watcher delete error:', error);
+        console.error('👁️ Watcher delete error:', error);
         throw error;
       }
+
+      console.log('👁️ Watcher removed successfully');
 
       // Log the activity
       await logWatcherRemoved(caseId, watcherName, internalUserId);
@@ -194,7 +235,7 @@ const CaseWatchers = ({ caseId }: CaseWatchersProps) => {
         description: "Watcher removed successfully"
       });
     } catch (error) {
-      console.error('Error removing watcher:', error);
+      console.error('👁️ Error removing watcher:', error);
       toast({
         title: "Error",
         description: "Failed to remove watcher",
