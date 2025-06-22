@@ -1,5 +1,5 @@
 
-import { Outlet } from "react-router-dom";
+import React from "react";
 import CitizenNavbar from "./CitizenNavbar";
 import CitizenSidebar from "./CitizenSidebar";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
@@ -8,7 +8,11 @@ import { useState } from "react";
 import { MessageSquare, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-const CitizenLayout = () => {
+interface CitizenLayoutProps {
+  children: React.ReactNode;
+}
+
+const CitizenLayout: React.FC<CitizenLayoutProps> = ({ children }) => {
   const [showFeedback, setShowFeedback] = useState(false);
 
   return (
@@ -18,7 +22,7 @@ const CitizenLayout = () => {
         <SidebarInset>
           <CitizenNavbar />
           <main className="flex-1 p-4 md:p-6 overflow-auto">
-            <Outlet />
+            {children}
           </main>
           
           {/* Floating Feedback Button - Only for general portal feedback */}

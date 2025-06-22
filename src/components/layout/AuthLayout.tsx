@@ -1,10 +1,14 @@
 
-import { Outlet } from "react-router-dom";
+import React from "react";
 
-const AuthLayout = () => {
+interface AuthLayoutProps {
+  children: React.ReactNode;
+}
+
+const AuthLayout: React.FC<AuthLayoutProps> = ({ children }) => {
   return (
     <div className="min-h-screen bg-white">
-      <Outlet />
+      {children}
     </div>
   );
 };

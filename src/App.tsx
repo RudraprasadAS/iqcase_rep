@@ -39,9 +39,9 @@ import CitizenCaseDetail from "./pages/citizen/CitizenCaseDetail";
 import CitizenNewCase from "./pages/citizen/NewCase";
 import CitizenKnowledgeBase from "./pages/citizen/CitizenKnowledgeBase";
 
-import { Layout } from "./components/layout/Layout";
-import { CitizenLayout } from "./components/layout/CitizenLayout";
-import { AuthLayout } from "./components/layout/AuthLayout";
+import Layout from "./components/layout/Layout";
+import CitizenLayout from "./components/layout/CitizenLayout";
+import AuthLayout from "./components/layout/AuthLayout";
 import { RequireAuth, RoleBasedRoute } from "./components/auth";
 import { initializeFrontendRegistry } from "./utils/initializeFrontendRegistry";
 
@@ -90,7 +90,7 @@ const App = () => {
                 <Route path="/cases" element={<RequireAuth><RoleBasedRoute allowedRoles={["admin", "manager", "caseworker", "case_worker"]}><Layout><Cases /></Layout></RoleBasedRoute></RequireAuth>} />
                 <Route path="/cases/new" element={<RequireAuth><RoleBasedRoute allowedRoles={["admin", "manager", "caseworker", "case_worker"]}><Layout><NewCase /></Layout></RoleBasedRoute></RequireAuth>} />
                 <Route path="/cases/:id" element={<RequireAuth><RoleBasedRoute allowedRoles={["admin", "manager", "caseworker", "case_worker"]}><Layout><CaseDetail /></Layout></RoleBasedRoute></RequireAuth>} />
-                <Route path="/reports" element={<RequireAuth><RoleBasedRoute allowedRoles={["admin", "manager", "caseworker", "case_worker"]}><Layout><Reports /></Layout></RoleBasedRoute></RequireAuth>} />
+                <Route path="/reports" element={<RequireAuth><RoleBasedRoute allowedRoles={["admin", "manager", "caseworker", "case_writer"]}><Layout><Reports /></Layout></RoleBasedRoute></RequireAuth>} />
                 <Route path="/reports/builder" element={<RequireAuth><RoleBasedRoute allowedRoles={["admin", "manager"]}><Layout><ReportBuilder /></Layout></RoleBasedRoute></RequireAuth>} />
                 <Route path="/reports/table-builder" element={<RequireAuth><RoleBasedRoute allowedRoles={["admin", "manager"]}><Layout><TableReportBuilder /></Layout></RoleBasedRoute></RequireAuth>} />
                 <Route path="/reports/standard" element={<RequireAuth><RoleBasedRoute allowedRoles={["admin", "manager", "caseworker", "case_worker"]}><Layout><StandardReports /></Layout></RoleBasedRoute></RequireAuth>} />

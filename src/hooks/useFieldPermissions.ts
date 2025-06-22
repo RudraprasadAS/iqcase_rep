@@ -1,5 +1,5 @@
 
-import { useBulkPermissionCheck } from './usePermissionCheck';
+import { useBulkPermissionCheck } from './useBulkPermissionCheck';
 
 // Hook specifically for checking field-level permissions in forms and tables
 export const useFieldPermissions = (moduleName: string, fields: string[]) => {
