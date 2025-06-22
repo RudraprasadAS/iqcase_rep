@@ -22,46 +22,20 @@ const NotificationCenter = () => {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
-  const [internalUserId, setInternalUserId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
-      fetchInternalUserId();
+      fetchNotifications();
     }
   }, [user]);
 
-  useEffect(() => {
-    if (internalUserId) {
-      fetchNotifications();
-    }
-  }, [internalUserId]);
-
-  const fetchInternalUserId = async () => {
+  const fetchNotifications = async () => {
     if (!user) return;
 
     try {
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (userError) {
-        console.error('User lookup error:', userError);
-        return;
-      }
-
-      setInternalUserId(userData.id);
-    } catch (error) {
-      console.error('Error fetching internal user ID:', error);
-    }
-  };
-
-  const fetchNotifications = async () => {
-    if (!internalUserId) return;
-
-    try {
       setLoading(true);
+      console.log('🔔 Fetching notifications for user:', user.id);
+      
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
@@ -100,7 +74,7 @@ const NotificationCenter = () => {
   };
 
   const markAllAsRead = async () => {
-    if (!internalUserId) return;
+    if (!user) return;
 
     setLoading(true);
     try {

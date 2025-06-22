@@ -1328,6 +1328,16 @@ export type Database = {
         Args: { p_element_key: string; p_permission_type?: string }
         Returns: boolean
       }
+      debug_notification_access: {
+        Args: { notification_id: string }
+        Returns: {
+          notification_exists: boolean
+          notification_user_id: string
+          current_auth_uid: string
+          current_internal_user_id: string
+          user_match: boolean
+        }[]
+      }
       execute_dynamic_report: {
         Args: { p_config: Json }
         Returns: Json

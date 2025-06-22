@@ -66,14 +66,14 @@ export const useNotifications = () => {
 
   // Fetch notifications
   const fetchNotifications = async () => {
-    if (!internalUserId) {
-      console.log('🔔 No internal user ID, skipping notification fetch');
+    if (!user) {
+      console.log('🔔 No user, skipping notification fetch');
       setLoading(false);
       return;
     }
 
     try {
-      console.log('🔔 Fetching notifications for user:', internalUserId);
+      console.log('🔔 Fetching notifications for authenticated user');
       setLoading(true);
 
       const { data, error } = await supabase
@@ -143,10 +143,10 @@ export const useNotifications = () => {
 
   // Mark all notifications as read
   const markAllAsRead = async () => {
-    if (!internalUserId) return;
+    if (!user) return;
 
     try {
-      console.log('🔔 Marking all notifications as read for user:', internalUserId);
+      console.log('🔔 Marking all notifications as read');
       
       const { error } = await supabase
         .from('notifications')
@@ -225,18 +225,18 @@ export const useNotifications = () => {
     }
   };
 
-  // Fetch notifications when internal user ID is available
+  // Fetch notifications when user is available
   useEffect(() => {
-    if (internalUserId) {
-      console.log('🔔 Internal user ID available, fetching notifications');
+    if (user) {
+      console.log('🔔 User available, fetching notifications');
       fetchNotifications();
     }
-  }, [internalUserId]);
+  }, [user]);
 
   // Set up real-time subscription
   useEffect(() => {
-    if (!internalUserId) {
-      console.log('🔔 No internal user ID for real-time subscription');
+    if (!user || !internalUserId) {
+      console.log('🔔 No user or internal user ID for real-time subscription');
       return;
     }
 
@@ -294,7 +294,7 @@ export const useNotifications = () => {
       console.log('🔔 Cleaning up notifications subscription');
       supabase.removeChannel(channel);
     };
-  }, [internalUserId, toast]);
+  }, [user, internalUserId, toast]);
 
   return {
     notifications,
