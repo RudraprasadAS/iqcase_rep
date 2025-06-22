@@ -29,22 +29,15 @@ export const useNotifications = () => {
       if (!user) {
         console.log('🔔 DEBUG: No auth user found');
         setInternalUserId(null);
+        setNotifications([]);
+        setUnreadCount(0);
+        setLoading(false);
         return;
       }
 
       try {
         console.log('🔔 DEBUG: Auth user found:', user.id, user.email);
         
-        // Use the debug function we created
-        const { data: debugData, error: debugError } = await supabase
-          .rpc('debug_user_mapping');
-
-        if (debugError) {
-          console.error('🔔 DEBUG: Error in debug_user_mapping:', debugError);
-        } else {
-          console.log('🔔 DEBUG: User mapping result:', debugData);
-        }
-
         // Get internal user ID
         const { data: userData, error } = await supabase
           .from('users')
@@ -55,12 +48,14 @@ export const useNotifications = () => {
         if (error) {
           console.error('🔔 DEBUG: Error fetching internal user:', error);
           setInternalUserId(null);
+          setLoading(false);
           return;
         }
 
         if (!userData) {
           console.log('🔔 DEBUG: No internal user found for auth user:', user.id);
           setInternalUserId(null);
+          setLoading(false);
           return;
         }
 
@@ -69,6 +64,7 @@ export const useNotifications = () => {
       } catch (error) {
         console.error('🔔 DEBUG: Exception in user mapping:', error);
         setInternalUserId(null);
+        setLoading(false);
       }
     };
 
@@ -87,7 +83,6 @@ export const useNotifications = () => {
       console.log('🔔 Fetching notifications for internal user:', internalUserId);
       setLoading(true);
 
-      // Since RLS is disabled, we can fetch notifications directly by user_id
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
@@ -128,7 +123,8 @@ export const useNotifications = () => {
       const { error } = await supabase
         .from('notifications')
         .update({ is_read: true })
-        .eq('id', notificationId);
+        .eq('id', notificationId)
+        .eq('user_id', internalUserId); // Ensure user can only update their own notifications
 
       if (error) {
         console.error('🔔 Error marking as read:', error);
@@ -186,7 +182,7 @@ export const useNotifications = () => {
     }
   };
 
-  // Delete notification
+  // Delete notification - Fixed to properly delete from database
   const deleteNotification = async (notificationId: string) => {
     try {
       console.log('🔔 Deleting notification:', notificationId);
@@ -194,7 +190,8 @@ export const useNotifications = () => {
       const { error } = await supabase
         .from('notifications')
         .delete()
-        .eq('id', notificationId);
+        .eq('id', notificationId)
+        .eq('user_id', internalUserId); // Ensure user can only delete their own notifications
 
       if (error) {
         console.error('🔔 Error deleting notification:', error);
@@ -210,6 +207,11 @@ export const useNotifications = () => {
       }
       
       console.log('🔔 Notification deleted successfully');
+      
+      toast({
+        title: 'Success',
+        description: 'Notification deleted',
+      });
 
     } catch (error) {
       console.error('🔔 Error in deleteNotification:', error);
@@ -297,6 +299,25 @@ export const useNotifications = () => {
           
           // Update unread count if read status changed
           if (updatedNotification.is_read) {
+            setUnreadCount(prev => Math.max(0, prev - 1));
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${internalUserId}`
+        },
+        (payload) => {
+          console.log('🔔 Notification deleted via real-time:', payload);
+          const deletedNotification = payload.old as Notification;
+          
+          setNotifications(prev => prev.filter(n => n.id !== deletedNotification.id));
+          
+          if (!deletedNotification.is_read) {
             setUnreadCount(prev => Math.max(0, prev - 1));
           }
         }

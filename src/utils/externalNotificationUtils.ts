@@ -1,6 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { createCaseStatusChangeNotification, createNotification } from './notificationUtils';
+import { createExternalUserNotification } from './notificationUtils';
 
 export const notifyExternalUserOfCaseUpdate = async (
   caseId: string,
@@ -23,7 +23,7 @@ export const notifyExternalUserOfCaseUpdate = async (
       .from('cases')
       .select(`
         *,
-        submitted_by_user:users!cases_submitted_by_fkey(name, email, user_type)
+        submitted_by_user:users!cases_submitted_by_fkey(id, name, email, user_type, role_id, roles(name))
       `)
       .eq('id', caseId)
       .single();
@@ -33,11 +33,18 @@ export const notifyExternalUserOfCaseUpdate = async (
       return;
     }
 
-    // Only notify if the submitter is an external user (citizen)
-    if (caseData.submitted_by_user?.user_type !== 'external') {
-      console.log('🔔 Submitter is not external user, skipping notification');
+    console.log('🔔 Case data:', caseData);
+
+    // Check if the submitter is an external user (citizen)
+    const submitterUser = caseData.submitted_by_user;
+    const isExternalSubmitter = submitterUser?.user_type === 'external' || submitterUser?.roles?.name === 'citizen';
+    
+    if (!isExternalSubmitter) {
+      console.log('🔔 Submitter is not external user, skipping notification. User type:', submitterUser?.user_type, 'Role:', submitterUser?.roles?.name);
       return;
     }
+
+    console.log('🔔 Submitter is external user, creating notification');
 
     const submitterId = caseData.submitted_by;
 
@@ -47,42 +54,43 @@ export const notifyExternalUserOfCaseUpdate = async (
         if (newStatus) {
           // Special handling for case closure or resolution
           if (newStatus === 'closed' || newStatus === 'resolved') {
-            await createNotification({
-              userId: submitterId,
-              title: `Case ${newStatus === 'closed' ? 'Closed' : 'Resolved'} - Feedback Requested`,
-              message: `Your case "${caseTitle}" has been ${newStatus}. We would appreciate your feedback on our service.`,
-              type: 'case_closed',
-              caseId: caseId
-            });
-          } else {
-            await createCaseStatusChangeNotification(
+            await createExternalUserNotification(
               submitterId,
-              caseTitle,
-              newStatus,
-              caseId
+              `Case ${newStatus === 'closed' ? 'Closed' : 'Resolved'} - Feedback Requested`,
+              `Your case "${caseTitle}" has been ${newStatus}. We would appreciate your feedback on our service.`,
+              caseId,
+              'case_closed'
+            );
+          } else {
+            await createExternalUserNotification(
+              submitterId,
+              'Case Status Updated',
+              `Your case "${caseTitle}" status has been updated to: ${newStatus}`,
+              caseId,
+              'case_status_change'
             );
           }
         }
         break;
 
       case 'message_added':
-        await createNotification({
-          userId: submitterId,
-          title: 'New Message on Your Case',
-          message: `A new message has been added to your case "${caseTitle}": ${message?.substring(0, 100)}${message && message.length > 100 ? '...' : ''}`,
-          type: 'new_message',
-          caseId: caseId
-        });
+        await createExternalUserNotification(
+          submitterId,
+          'New Message on Your Case',
+          `A new message has been added to your case "${caseTitle}": ${message?.substring(0, 100)}${message && message.length > 100 ? '...' : ''}`,
+          caseId,
+          'new_message'
+        );
         break;
 
       case 'case_closed':
-        await createNotification({
-          userId: submitterId,
-          title: 'Case Closed - Feedback Requested',
-          message: `Your case "${caseTitle}" has been closed. We would appreciate your feedback on our service.`,
-          type: 'case_closed',
-          caseId: caseId
-        });
+        await createExternalUserNotification(
+          submitterId,
+          'Case Closed - Feedback Requested',
+          `Your case "${caseTitle}" has been closed. We would appreciate your feedback on our service.`,
+          caseId,
+          'case_closed'
+        );
         break;
 
       default:

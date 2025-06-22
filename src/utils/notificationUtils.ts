@@ -12,6 +12,28 @@ export interface CreateNotificationParams {
   metadata?: Record<string, any>;
 }
 
+// Helper function to determine if user is external/citizen
+const isExternalUser = async (userId: string): Promise<boolean> => {
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .select('user_type, role_id, roles(name)')
+      .eq('id', userId)
+      .single();
+
+    if (error || !data) {
+      console.error('🔔 Error checking user type:', error);
+      return false;
+    }
+
+    // User is external if user_type is 'external' or role is 'citizen'
+    return data.user_type === 'external' || data.roles?.name === 'citizen';
+  } catch (error) {
+    console.error('🔔 Exception checking user type:', error);
+    return false;
+  }
+};
+
 export const createTaskAssignmentNotification = async (
   assignedUserId: string,
   taskName: string,
@@ -25,6 +47,13 @@ export const createTaskAssignmentNotification = async (
       type: 'task_assignment',
       caseId: caseId
     });
+
+    // Check if user is external - external users shouldn't get task assignment notifications
+    const isExternal = await isExternalUser(assignedUserId);
+    if (isExternal) {
+      console.log('🔔 Skipping task assignment notification for external user');
+      return { success: true, message: 'External users do not receive task assignment notifications' };
+    }
 
     const message = `You have been assigned a new task: "${taskName}"`;
     
@@ -67,6 +96,13 @@ export const createCaseAssignmentNotification = async (
       type: 'case_assignment',
       caseId: caseId
     });
+
+    // Check if user is external - external users shouldn't get case assignment notifications
+    const isExternal = await isExternalUser(assignedUserId);
+    if (isExternal) {
+      console.log('🔔 Skipping case assignment notification for external user');
+      return { success: true, message: 'External users do not receive case assignment notifications' };
+    }
 
     const message = `You have been assigned a new case: "${caseTitle}"`;
     
@@ -111,6 +147,7 @@ export const createCaseStatusChangeNotification = async (
       newStatus: newStatus
     });
 
+    // Always notify users about status changes, both internal and external
     const message = `Case "${caseTitle}" status has been updated to: ${newStatus}`;
     
     const { data, error } = await supabase
@@ -195,6 +232,54 @@ export const createMentionNotification = async (
     return { success: true, data };
   } catch (error) {
     console.error('🔔 Exception creating mention notification:', error);
+    return { success: false, error };
+  }
+};
+
+// Create notification for external users (citizens) about case updates
+export const createExternalUserNotification = async (
+  userId: string,
+  title: string,
+  message: string,
+  caseId: string,
+  notificationType: string = 'case_update'
+) => {
+  try {
+    console.log('🔔 Creating external user notification:', {
+      userId,
+      title,
+      type: notificationType,
+      caseId
+    });
+
+    // Verify this is actually an external user
+    const isExternal = await isExternalUser(userId);
+    if (!isExternal) {
+      console.log('🔔 User is not external, using regular notification flow');
+    }
+
+    const { data, error } = await supabase
+      .from('notifications')
+      .insert({
+        user_id: userId,
+        title: title,
+        message: message,
+        notification_type: notificationType,
+        case_id: caseId,
+        is_read: false
+      })
+      .select('*')
+      .single();
+
+    if (error) {
+      console.error('🔔 Error creating external user notification:', error);
+      return { success: false, error };
+    }
+
+    console.log('🔔 External user notification created successfully:', data);
+    return { success: true, data };
+  } catch (error) {
+    console.error('🔔 Exception creating external user notification:', error);
     return { success: false, error };
   }
 };
