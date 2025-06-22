@@ -61,22 +61,24 @@ const NotificationCenter = () => {
     if (!internalUserId) return;
 
     try {
+      setLoading(true);
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
-        .eq('user_id', internalUserId)
         .order('created_at', { ascending: false })
         .limit(20);
 
       if (error) {
         console.error('Notifications fetch error:', error);
-        throw error;
+        return;
       }
 
       console.log('Notifications fetched:', data);
       setNotifications(data || []);
     } catch (error) {
       console.error('Error fetching notifications:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -105,7 +107,6 @@ const NotificationCenter = () => {
       const { error } = await supabase
         .from('notifications')
         .update({ is_read: true })
-        .eq('user_id', internalUserId)
         .eq('is_read', false);
 
       if (error) throw error;
@@ -147,7 +148,9 @@ const NotificationCenter = () => {
       </CardHeader>
       <CardContent>
         <div className="max-h-96 overflow-y-auto space-y-3">
-          {notifications.length === 0 ? (
+          {loading ? (
+            <p className="text-gray-500 text-center py-4">Loading notifications...</p>
+          ) : notifications.length === 0 ? (
             <p className="text-gray-500 text-center py-4">No notifications</p>
           ) : (
             notifications.map((notification) => (

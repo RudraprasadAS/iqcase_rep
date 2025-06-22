@@ -28,6 +28,7 @@ export const useNotifications = () => {
     const getInternalUserId = async () => {
       if (!user) {
         console.log('🔔 No auth user found');
+        setLoading(false);
         return;
       }
 
@@ -42,11 +43,13 @@ export const useNotifications = () => {
 
         if (error) {
           console.error('🔔 Error fetching internal user:', error);
+          setLoading(false);
           return;
         }
 
         if (!userData) {
           console.log('🔔 No internal user found for auth user:', user.id);
+          setLoading(false);
           return;
         }
 
@@ -54,6 +57,7 @@ export const useNotifications = () => {
         setInternalUserId(userData.id);
       } catch (error) {
         console.error('🔔 Exception fetching internal user:', error);
+        setLoading(false);
       }
     };
 
@@ -64,6 +68,7 @@ export const useNotifications = () => {
   const fetchNotifications = async () => {
     if (!internalUserId) {
       console.log('🔔 No internal user ID, skipping notification fetch');
+      setLoading(false);
       return;
     }
 
@@ -74,7 +79,6 @@ export const useNotifications = () => {
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
-        .eq('user_id', internalUserId)
         .order('created_at', { ascending: false })
         .limit(50);
 
@@ -129,6 +133,11 @@ export const useNotifications = () => {
 
     } catch (error) {
       console.error('🔔 Error in markAsRead:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to mark notification as read',
+        variant: 'destructive'
+      });
     }
   };
 
@@ -142,7 +151,6 @@ export const useNotifications = () => {
       const { error } = await supabase
         .from('notifications')
         .update({ is_read: true })
-        .eq('user_id', internalUserId)
         .eq('is_read', false);
 
       if (error) {
@@ -157,6 +165,11 @@ export const useNotifications = () => {
 
     } catch (error) {
       console.error('🔔 Error in markAllAsRead:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to mark all notifications as read',
+        variant: 'destructive'
+      });
     }
   };
 
@@ -187,6 +200,11 @@ export const useNotifications = () => {
 
     } catch (error) {
       console.error('🔔 Error in deleteNotification:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete notification',
+        variant: 'destructive'
+      });
     }
   };
 
