@@ -1,87 +1,80 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "./useAuth";
 
-interface PermissionCheckResult {
-  hasPermission: boolean;
-  isLoading: boolean;
-  error: Error | null;
-}
+export const usePermissionCheck = (elementKey: string, permissionType: 'view' | 'edit' = 'view') => {
+  const { user } = useAuth();
 
-// Hook to check if current user has permission for a specific frontend element
-export const usePermissionCheck = (
-  elementKey: string,
-  permissionType: 'view' | 'edit' = 'view'
-): PermissionCheckResult => {
   const { data: hasPermission = false, isLoading, error } = useQuery({
-    queryKey: ['frontend_permission', elementKey, permissionType],
+    queryKey: ["permission", elementKey, permissionType, user?.id],
     queryFn: async () => {
-      console.log(`🔍 [Permission Check] Checking permission for element: ${elementKey}, type: ${permissionType}`);
-
-      const { data, error } = await supabase.rpc('current_user_has_frontend_permission', {
-        p_element_key: elementKey,
-        p_permission_type: permissionType
-      });
-
-      if (error) {
-        console.error('🔍 [Permission Check] RPC error:', error);
-        throw error;
+      if (!user) {
+        console.log(`🔒 [usePermissionCheck] No user found for ${elementKey}`);
+        return false;
       }
 
-      console.log(`🔍 [Permission Check] RPC result for ${elementKey}:`, data);
-      
-      // Ensure we return a boolean, defaulting to false for safety
-      return Boolean(data);
-    },
-    enabled: !!elementKey,
-    // Add these options to prevent caching issues
-    staleTime: 0,
-    refetchOnWindowFocus: false,
-  });
+      console.log(`🔒 [usePermissionCheck] Checking ${permissionType} permission for ${elementKey}`);
 
-  return {
-    hasPermission: Boolean(hasPermission),
-    isLoading,
-    error: error as Error | null
-  };
-};
+      try {
+        // Get current user's internal ID and role
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select(`
+            id, 
+            role_id,
+            roles!inner(name, is_system)
+          `)
+          .eq('auth_user_id', user.id)
+          .eq('is_active', true)
+          .single();
 
-// Hook to check multiple permissions at once
-export const useBulkPermissionCheck = (permissions: Array<{
-  elementKey: string;
-  permissionType?: 'view' | 'edit';
-}>) => {
-  const { data: permissionResults = {}, isLoading, error } = useQuery({
-    queryKey: ['bulk_frontend_permissions', permissions],
-    queryFn: async () => {
-      const results: Record<string, boolean> = {};
-
-      for (const perm of permissions) {
-        const key = `${perm.elementKey}.${perm.permissionType || 'view'}`;
-
-        const { data, error } = await supabase.rpc('current_user_has_frontend_permission', {
-          p_element_key: perm.elementKey,
-          p_permission_type: perm.permissionType || 'view'
-        });
-
-        if (error) {
-          console.error(`Permission check error for ${key}:`, error);
-          results[key] = false;
-        } else {
-          results[key] = Boolean(data);
+        if (userError || !userData) {
+          console.error(`🔒 [usePermissionCheck] Error fetching user data:`, userError);
+          return false;
         }
-      }
 
-      return results;
+        // If user has admin role or system role, grant access
+        if (userData.roles.name === 'admin' || userData.roles.is_system) {
+          console.log(`🔒 [usePermissionCheck] Admin/System role detected for ${elementKey} - granting access`);
+          return true;
+        }
+
+        // Check frontend registry and permissions
+        const { data: permission, error: permError } = await supabase
+          .from('permissions')
+          .select(`
+            can_view,
+            can_edit,
+            frontend_registry!inner(element_key, is_active)
+          `)
+          .eq('role_id', userData.role_id)
+          .eq('frontend_registry.element_key', elementKey)
+          .eq('frontend_registry.is_active', true)
+          .single();
+
+        if (permError) {
+          console.log(`🔒 [usePermissionCheck] No permission found for ${elementKey}:`, permError.message);
+          return false;
+        }
+
+        const hasAccess = permissionType === 'view' ? permission.can_view : permission.can_edit;
+        console.log(`🔒 [usePermissionCheck] Permission check result for ${elementKey}: ${hasAccess}`);
+        
+        return hasAccess;
+      } catch (error) {
+        console.error(`🔒 [usePermissionCheck] Exception checking permission for ${elementKey}:`, error);
+        return false;
+      }
     },
-    enabled: permissions.length > 0,
-    staleTime: 0,
-    refetchOnWindowFocus: false,
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    retry: 1
   });
 
   return {
-    permissionResults,
+    hasPermission,
     isLoading,
-    error: error as Error | null
+    error
   };
 };
