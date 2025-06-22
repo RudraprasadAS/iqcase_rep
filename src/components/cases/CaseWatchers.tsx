@@ -9,7 +9,7 @@ import { Eye, UserPlus, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { logWatcherAdded, logWatcherRemoved } from '@/utils/activityLogger';
-import { createWatcherAddedNotification } from '@/utils/notifications';
+import { createWatcherAddedNotification } from '@/utils/notifications/notificationService';
 
 interface Watcher {
   id: string;
@@ -176,6 +176,12 @@ const CaseWatchers = ({ caseId }: CaseWatchersProps) => {
 
         const caseTitle = caseData?.title || 'a case';
 
+        console.log('👁️ About to call createWatcherAddedNotification with:', {
+          selectedUserId,
+          caseTitle,
+          caseId
+        });
+
         const notificationResult = await createWatcherAddedNotification(
           selectedUserId,
           caseTitle,
@@ -183,6 +189,12 @@ const CaseWatchers = ({ caseId }: CaseWatchersProps) => {
         );
 
         console.log('👁️ Watcher notification result:', notificationResult);
+        
+        if (!notificationResult.success) {
+          console.error('👁️ Watcher notification failed:', notificationResult.error);
+        } else {
+          console.log('👁️ Watcher notification created successfully!');
+        }
       } catch (notificationError) {
         console.error('👁️ Error creating watcher notification:', notificationError);
       }

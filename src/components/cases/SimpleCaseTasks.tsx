@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { format } from 'date-fns';
 import { logTaskCreated, logTaskUpdated, logTaskDeleted } from '@/utils/activityLogger';
+import { createTaskAssignmentNotification } from '@/utils/notifications/notificationService';
 
 interface Task {
   id: string;
@@ -212,16 +213,7 @@ const SimpleCaseTasks = ({ caseId, onActivityUpdate }: SimpleCaseTasksProps) => 
         console.log('🔔 - assignee ID:', selectedAssignee);
         console.log('🔔 - creator ID:', internalUserId);
         
-        console.log('🔔 Importing createTaskAssignmentNotification...');
-        const { createTaskAssignmentNotification } = await import('@/utils/notificationUtils');
-        console.log('🔔 Function imported successfully');
-        
-        console.log('🔔 Calling createTaskAssignmentNotification with params:', {
-          assignedUserId: selectedAssignee,
-          taskName: newTaskName.trim(),
-          caseId: caseId,
-          createdByUserId: internalUserId
-        });
+        console.log('🔔 Calling createTaskAssignmentNotification...');
         
         const notificationResult = await createTaskAssignmentNotification(
           selectedAssignee,
@@ -238,10 +230,7 @@ const SimpleCaseTasks = ({ caseId, onActivityUpdate }: SimpleCaseTasksProps) => 
           console.log('🔔 NOTIFICATION CREATED SUCCESSFULLY!');
         }
       } else {
-        console.log('🔔 NO NOTIFICATION NEEDED:');
-        console.log('🔔 - selectedAssignee:', selectedAssignee);
-        console.log('🔔 - internalUserId:', internalUserId);
-        console.log('🔔 - are they equal?', selectedAssignee === internalUserId);
+        console.log('🔔 NO NOTIFICATION NEEDED - task assigned to creator or no assignee');
       }
       
       setNewTaskName('');

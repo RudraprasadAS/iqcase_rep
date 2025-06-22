@@ -1,3 +1,3 @@
 
-// Legacy file for backward compatibility - re-exports from the new modular structure
-export * from './notifications';
+// Re-export everything from the notification service for backward compatibility
+export * from './notifications/notificationService';
