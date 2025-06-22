@@ -163,6 +163,14 @@ const SimpleCaseTasks = ({ caseId, onActivityUpdate }: SimpleCaseTasksProps) => 
     if (!newTaskName.trim() || !internalUserId) return;
 
     try {
+      console.log('🔔 STARTING TASK CREATION PROCESS...');
+      console.log('🔔 Task details:', {
+        caseId,
+        taskName: newTaskName.trim(),
+        selectedAssignee,
+        internalUserId
+      });
+
       const taskData: any = {
         case_id: caseId,
         task_name: newTaskName.trim(),
@@ -178,12 +186,19 @@ const SimpleCaseTasks = ({ caseId, onActivityUpdate }: SimpleCaseTasksProps) => 
         taskData.due_date = selectedDueDate.toISOString();
       }
 
+      console.log('🔔 Inserting task with data:', taskData);
+
       const { error } = await supabase
         .from('case_tasks')
         .insert(taskData);
 
-      if (error) throw error;
+      if (error) {
+        console.error('🔔 ERROR inserting task:', error);
+        throw error;
+      }
       
+      console.log('🔔 Task inserted successfully');
+
       // Log the task creation activity
       console.log('🚀 About to log task creation');
       await logTaskCreated(caseId, newTaskName.trim(), selectedAssignee || null, internalUserId);
@@ -191,21 +206,42 @@ const SimpleCaseTasks = ({ caseId, onActivityUpdate }: SimpleCaseTasksProps) => 
       
       // Send notification if task is assigned to someone other than the creator
       if (selectedAssignee && selectedAssignee !== internalUserId) {
-        console.log('🔔 Sending task assignment notification to:', selectedAssignee);
+        console.log('🔔 CONDITIONS MET FOR NOTIFICATION:');
+        console.log('🔔 - selectedAssignee exists:', !!selectedAssignee);
+        console.log('🔔 - selectedAssignee !== internalUserId:', selectedAssignee !== internalUserId);
+        console.log('🔔 - assignee ID:', selectedAssignee);
+        console.log('🔔 - creator ID:', internalUserId);
+        
+        console.log('🔔 Importing createTaskAssignmentNotification...');
         const { createTaskAssignmentNotification } = await import('@/utils/notificationUtils');
+        console.log('🔔 Function imported successfully');
+        
+        console.log('🔔 Calling createTaskAssignmentNotification with params:', {
+          assignedUserId: selectedAssignee,
+          taskName: newTaskName.trim(),
+          caseId: caseId,
+          createdByUserId: internalUserId
+        });
+        
         const notificationResult = await createTaskAssignmentNotification(
           selectedAssignee,
           newTaskName.trim(),
           caseId,
           internalUserId
         );
-        console.log('🔔 Task assignment notification result:', notificationResult);
+        
+        console.log('🔔 NOTIFICATION RESULT:', notificationResult);
         
         if (!notificationResult.success) {
-          console.error('🔔 Failed to send task assignment notification:', notificationResult.error);
+          console.error('🔔 NOTIFICATION FAILED:', notificationResult.error);
+        } else {
+          console.log('🔔 NOTIFICATION CREATED SUCCESSFULLY!');
         }
       } else {
-        console.log('🔔 No notification needed - task not assigned or assigned to creator');
+        console.log('🔔 NO NOTIFICATION NEEDED:');
+        console.log('🔔 - selectedAssignee:', selectedAssignee);
+        console.log('🔔 - internalUserId:', internalUserId);
+        console.log('🔔 - are they equal?', selectedAssignee === internalUserId);
       }
       
       setNewTaskName('');
@@ -224,7 +260,7 @@ const SimpleCaseTasks = ({ caseId, onActivityUpdate }: SimpleCaseTasksProps) => 
         description: "Task created successfully"
       });
     } catch (error) {
-      console.error('Error creating task:', error);
+      console.error('🔔 EXCEPTION in createTask:', error);
       toast({
         title: "Error",
         description: "Failed to create task",

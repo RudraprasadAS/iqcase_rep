@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export interface CreateNotificationParams {
@@ -41,66 +40,104 @@ export const createTaskAssignmentNotification = async (
   createdByUserId: string
 ) => {
   try {
-    console.log('🔔 Creating task assignment notification:', {
+    console.log('🔔 STARTING task assignment notification creation:', {
       assignedUserId: assignedUserId,
       taskName: taskName,
       caseId: caseId,
       createdByUserId: createdByUserId
     });
 
-    // Verify the assigned user exists and get their details
+    // Step 1: Verify the assigned user exists and get their details
+    console.log('🔔 Step 1: Fetching assigned user details...');
     const { data: assignedUserData, error: userError } = await supabase
       .from('users')
       .select('id, name, email, user_type, role_id, roles(name)')
       .eq('id', assignedUserId)
       .single();
 
-    if (userError || !assignedUserData) {
-      console.error('🔔 Error fetching assigned user:', userError);
-      return { success: false, error: userError || 'User not found' };
+    if (userError) {
+      console.error('🔔 ERROR fetching assigned user:', userError);
+      return { success: false, error: userError };
     }
 
-    console.log('🔔 Assigned user data:', assignedUserData);
+    if (!assignedUserData) {
+      console.error('🔔 ERROR: No user found with ID:', assignedUserId);
+      return { success: false, error: 'User not found' };
+    }
 
-    // Check if user is external - external users shouldn't get task assignment notifications
+    console.log('🔔 Assigned user data retrieved:', assignedUserData);
+
+    // Step 2: Check if user is external - external users shouldn't get task assignment notifications
+    console.log('🔔 Step 2: Checking if user is external...');
     const isExternal = assignedUserData.user_type === 'external' || assignedUserData.roles?.name === 'citizen';
+    console.log('🔔 User external status:', { 
+      user_type: assignedUserData.user_type, 
+      role_name: assignedUserData.roles?.name, 
+      isExternal 
+    });
+
     if (isExternal) {
-      console.log('🔔 Skipping task assignment notification for external user');
+      console.log('🔔 SKIPPING: External users do not receive task assignment notifications');
       return { success: true, message: 'External users do not receive task assignment notifications' };
     }
 
-    // Get creator details for a more descriptive message
-    const { data: creatorData } = await supabase
+    // Step 3: Get creator details for a more descriptive message
+    console.log('🔔 Step 3: Fetching creator details...');
+    const { data: creatorData, error: creatorError } = await supabase
       .from('users')
       .select('name, email')
       .eq('id', createdByUserId)
       .single();
 
+    if (creatorError) {
+      console.error('🔔 WARNING: Could not fetch creator details:', creatorError);
+    }
+
     const creatorName = creatorData?.name || 'A colleague';
     const message = `${creatorName} assigned you a new task: "${taskName}"`;
     
+    console.log('🔔 Step 4: Creating notification with message:', message);
+
+    // Step 4: Insert the notification
+    console.log('🔔 Step 4: Inserting notification into database...');
+    const notificationData = {
+      user_id: assignedUserId,
+      title: 'New Task Assigned',
+      message: message,
+      notification_type: 'task_assignment',
+      case_id: caseId,
+      is_read: false
+    };
+
+    console.log('🔔 Notification data to insert:', notificationData);
+
     const { data, error } = await supabase
       .from('notifications')
-      .insert({
-        user_id: assignedUserId,
-        title: 'New Task Assigned',
-        message: message,
-        notification_type: 'task_assignment',
-        case_id: caseId,
-        is_read: false
-      })
+      .insert(notificationData)
       .select('*')
       .single();
 
     if (error) {
-      console.error('🔔 Error creating task assignment notification:', error);
+      console.error('🔔 DATABASE ERROR creating notification:', error);
+      console.error('🔔 Error details:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint
+      });
       return { success: false, error };
     }
 
-    console.log('🔔 Task assignment notification created successfully:', data);
+    if (!data) {
+      console.error('🔔 ERROR: No data returned from notification insert');
+      return { success: false, error: 'No data returned from insert' };
+    }
+
+    console.log('🔔 SUCCESS: Task assignment notification created:', data);
     return { success: true, data };
+
   } catch (error) {
-    console.error('🔔 Exception creating task assignment notification:', error);
+    console.error('🔔 EXCEPTION in createTaskAssignmentNotification:', error);
     return { success: false, error };
   }
 };
