@@ -22,54 +22,53 @@ const NotificationCenter = () => {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
+  const [internalUserId, setInternalUserId] = useState<string | null>(null);
 
+  // Get internal user ID
   useEffect(() => {
-    if (user) {
-      fetchNotifications();
-    }
+    const getInternalUserId = async () => {
+      if (!user) return;
+
+      try {
+        console.log('🔔 NotificationCenter: Getting internal user for:', user.id);
+        
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('id')
+          .eq('auth_user_id', user.id)
+          .single();
+
+        if (userError) {
+          console.error('🔔 NotificationCenter: Error fetching internal user:', userError);
+          return;
+        }
+
+        if (!userData) {
+          console.log('🔔 NotificationCenter: No internal user found');
+          return;
+        }
+
+        console.log('🔔 NotificationCenter: Internal user ID:', userData.id);
+        setInternalUserId(userData.id);
+      } catch (error) {
+        console.error('🔔 NotificationCenter: Error:', error);
+      }
+    };
+
+    getInternalUserId();
   }, [user]);
 
   const fetchNotifications = async () => {
-    if (!user) return;
+    if (!user || !internalUserId) return;
 
     try {
       setLoading(true);
-      console.log('🔔 NotificationCenter: Fetching notifications for user:', user.id);
-      
-      // Debug user mapping first
-      const { data: debugData, error: debugError } = await supabase
-        .rpc('debug_user_mapping');
+      console.log('🔔 NotificationCenter: Fetching notifications for user:', internalUserId);
 
-      if (debugError) {
-        console.error('🔔 NotificationCenter: Debug mapping error:', debugError);
-      } else {
-        console.log('🔔 NotificationCenter: User mapping result:', debugData);
-      }
-
-      // Get internal user ID
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (userError) {
-        console.error('🔔 NotificationCenter: Error fetching internal user:', userError);
-        return;
-      }
-
-      if (!userData) {
-        console.log('🔔 NotificationCenter: No internal user found');
-        return;
-      }
-
-      console.log('🔔 NotificationCenter: Internal user ID:', userData.id);
-
-      // Fetch all notifications (RLS is disabled) and filter by user
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
-        .eq('user_id', userData.id)
+        .eq('user_id', internalUserId)
         .order('created_at', { ascending: false })
         .limit(20);
 
@@ -86,6 +85,12 @@ const NotificationCenter = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (internalUserId) {
+      fetchNotifications();
+    }
+  }, [internalUserId]);
 
   const markAsRead = async (notificationId: string) => {
     setLoading(true);
@@ -112,28 +117,16 @@ const NotificationCenter = () => {
   };
 
   const markAllAsRead = async () => {
-    if (!user) return;
+    if (!user || !internalUserId) return;
 
     setLoading(true);
     try {
-      // Get internal user ID
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (userError || !userData) {
-        console.error('🔔 NotificationCenter: Error getting user for mark all read:', userError);
-        return;
-      }
-
-      console.log('🔔 NotificationCenter: Marking all as read for user:', userData.id);
+      console.log('🔔 NotificationCenter: Marking all as read for user:', internalUserId);
 
       const { error } = await supabase
         .from('notifications')
         .update({ is_read: true })
-        .eq('user_id', userData.id)
+        .eq('user_id', internalUserId)
         .eq('is_read', false);
 
       if (error) {
