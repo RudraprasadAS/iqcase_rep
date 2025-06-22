@@ -1,5 +1,4 @@
 import { supabase } from '@/integrations/supabase/client';
-
 export interface CreateNotificationParams {
   userId: string;
   title: string;
@@ -10,12 +9,11 @@ export interface CreateNotificationParams {
   sourceType?: string;
   metadata?: Record<string, any>;
 }
-
 // Helper function to determine if user is external/citizen
 const isExternalUser = async (userId: string): Promise<boolean> => {
   try {
     console.log('🔔 CHECKING USER TYPE for userId:', userId);
-    
+
     const { data, error } = await supabase
       .from('users')
       .select('user_type, role_id, roles(name)')
@@ -23,17 +21,20 @@ const isExternalUser = async (userId: string): Promise<boolean> => {
       .single();
 
     if (error || !data) {
+      console.error('🔔 Error checking user type:', error);
       console.error('🔔 ERROR checking user type:', error);
       return false;
     }
 
     console.log('🔔 USER DATA:', data);
-    
+
     // User is external if user_type is 'external' or role is 'citizen'
+    return data.user_type === 'external' || data.roles?.name === 'citizen';
     const isExternal = data.user_type === 'external' || data.roles?.name === 'citizen';
     console.log('🔔 IS EXTERNAL:', isExternal);
     return isExternal;
   } catch (error) {
+    console.error('🔔 Exception checking user type:', error);
     console.error('🔔 EXCEPTION checking user type:', error);
     return false;
   }
@@ -42,7 +43,7 @@ const isExternalUser = async (userId: string): Promise<boolean> => {
 // Test notification creation function
 export const testNotificationCreation = async () => {
   console.log('🔔 TESTING NOTIFICATION CREATION DIRECTLY...');
-  
+
   try {
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -50,23 +51,23 @@ export const testNotificationCreation = async () => {
       console.error('🔔 AUTH ERROR:', authError);
       return { success: false, error: 'No authenticated user' };
     }
-    
+
     console.log('🔔 AUTH USER:', user.id, user.email);
-    
+
     // Get internal user
     const { data: internalUser, error: userError } = await supabase
       .from('users')
       .select('id, name, email, user_type, role_id, roles(name)')
       .eq('auth_user_id', user.id)
       .single();
-      
+
     if (userError || !internalUser) {
       console.error('🔔 INTERNAL USER ERROR:', userError);
       return { success: false, error: 'No internal user found' };
     }
-    
+
     console.log('🔔 INTERNAL USER:', internalUser);
-    
+
     // Try to insert a test notification
     const testData = {
       user_id: internalUser.id,
@@ -75,15 +76,15 @@ export const testNotificationCreation = async () => {
       notification_type: 'test',
       is_read: false
     };
-    
+
     console.log('🔔 INSERTING TEST NOTIFICATION:', testData);
-    
+
     const { data, error } = await supabase
       .from('notifications')
       .insert(testData)
       .select('*')
       .single();
-      
+
     if (error) {
       console.error('🔔 INSERTION ERROR:', error);
       console.error('🔔 ERROR CODE:', error.code);
@@ -92,10 +93,10 @@ export const testNotificationCreation = async () => {
       console.error('🔔 ERROR HINT:', error.hint);
       return { success: false, error };
     }
-    
+
     console.log('🔔 TEST NOTIFICATION CREATED:', data);
     return { success: true, data };
-    
+
   } catch (error) {
     console.error('🔔 EXCEPTION in testNotificationCreation:', error);
     return { success: false, error };
@@ -109,6 +110,12 @@ export const createTaskAssignmentNotification = async (
   createdByUserId: string
 ) => {
   try {
+    console.log('🔔 STARTING task assignment notification creation:', {
+      assignedUserId: assignedUserId,
+      taskName: taskName,
+      caseId: caseId,
+      createdByUserId: createdByUserId
+    });
     console.log('🔔 =================');
     console.log('🔔 TASK ASSIGNMENT NOTIFICATION START');
     console.log('🔔 assignedUserId:', assignedUserId);
@@ -123,57 +130,38 @@ export const createTaskAssignmentNotification = async (
     console.log('🔔 TEST RESULT:', testResult);
 
     // Step 1: Verify the assigned user exists and get their details
+    console.log('🔔 Step 1: Fetching assigned user details...');
     console.log('🔔 STEP 2: Fetching assigned user details...');
     const { data: assignedUserData, error: userError } = await supabase
       .from('users')
       .select('id, name, email, user_type, role_id, roles(name)')
-      .eq('id', assignedUserId)
-      .single();
-
-    if (userError) {
-      console.error('🔔 ERROR fetching assigned user:', userError);
-      return { success: false, error: userError };
-    }
-
-    if (!assignedUserData) {
-      console.error('🔔 ERROR: No user found with ID:', assignedUserId);
-      return { success: false, error: 'User not found' };
-    }
-
+@@ -68,7 +143,7 @@ export const createTaskAssignmentNotification = async (
     console.log('🔔 Assigned user data retrieved:', assignedUserData);
 
     // Step 2: Check if user is external - external users shouldn't get task assignment notifications
+    console.log('🔔 Step 2: Checking if user is external...');
     console.log('🔔 STEP 3: Checking if user is external...');
     const isExternal = assignedUserData.user_type === 'external' || assignedUserData.roles?.name === 'citizen';
     console.log('🔔 User external status:', { 
       user_type: assignedUserData.user_type, 
-      role_name: assignedUserData.roles?.name, 
-      isExternal 
-    });
-
-    if (isExternal) {
-      console.log('🔔 SKIPPING: External users do not receive task assignment notifications');
-      return { success: true, message: 'External users do not receive task assignment notifications' };
+@@ -82,7 +157,7 @@ export const createTaskAssignmentNotification = async (
     }
 
     // Step 3: Get creator details for a more descriptive message
+    console.log('🔔 Step 3: Fetching creator details...');
     console.log('🔔 STEP 4: Fetching creator details...');
     const { data: creatorData, error: creatorError } = await supabase
       .from('users')
       .select('name, email')
-      .eq('id', createdByUserId)
-      .single();
-
-    if (creatorError) {
-      console.error('🔔 WARNING: Could not fetch creator details:', creatorError);
-    }
-
+@@ -96,10 +171,10 @@ export const createTaskAssignmentNotification = async (
     const creatorName = creatorData?.name || 'A colleague';
     const message = `${creatorName} assigned you a new task: "${taskName}"`;
-    
+
+    console.log('🔔 Step 4: Creating notification with message:', message);
     console.log('🔔 STEP 5: Creating notification with message:', message);
 
     // Step 4: Insert the notification
+    console.log('🔔 Step 4: Inserting notification into database...');
     console.log('🔔 STEP 6: Inserting notification into database...');
     const notificationData = {
       user_id: assignedUserId,
@@ -183,15 +171,12 @@ export const createTaskAssignmentNotification = async (
       case_id: caseId,
       is_read: false
     };
-
     console.log('🔔 Notification data to insert:', notificationData);
-
     const { data, error } = await supabase
       .from('notifications')
       .insert(notificationData)
       .select('*')
       .single();
-
     if (error) {
       console.error('🔔 DATABASE ERROR creating notification:', error);
       console.error('🔔 Error details:', {
@@ -202,21 +187,17 @@ export const createTaskAssignmentNotification = async (
       });
       return { success: false, error };
     }
-
     if (!data) {
       console.error('🔔 ERROR: No data returned from notification insert');
       return { success: false, error: 'No data returned from insert' };
     }
-
     console.log('🔔 SUCCESS: Task assignment notification created:', data);
     return { success: true, data };
-
   } catch (error) {
     console.error('🔔 EXCEPTION in createTaskAssignmentNotification:', error);
     return { success: false, error };
   }
 };
-
 export const createCaseAssignmentNotification = async (
   assignedUserId: string,
   caseTitle: string,
@@ -230,14 +211,12 @@ export const createCaseAssignmentNotification = async (
       type: 'case_assignment',
       caseId: caseId
     });
-
     // Check if user is external - external users shouldn't get case assignment notifications
     const isExternal = await isExternalUser(assignedUserId);
     if (isExternal) {
       console.log('🔔 Skipping case assignment notification for external user');
       return { success: true, message: 'External users do not receive case assignment notifications' };
     }
-
     const message = `You have been assigned a new case: "${caseTitle}"`;
     
     const { data, error } = await supabase
@@ -252,12 +231,10 @@ export const createCaseAssignmentNotification = async (
       })
       .select('*')
       .single();
-
     if (error) {
       console.error('🔔 Error creating case assignment notification:', error);
       return { success: false, error };
     }
-
     console.log('🔔 Case assignment notification created successfully:', data);
     return { success: true, data };
   } catch (error) {
@@ -265,7 +242,6 @@ export const createCaseAssignmentNotification = async (
     return { success: false, error };
   }
 };
-
 export const createCaseStatusChangeNotification = async (
   userId: string,
   caseTitle: string,
@@ -280,7 +256,6 @@ export const createCaseStatusChangeNotification = async (
       caseId: caseId,
       newStatus: newStatus
     });
-
     // Always notify users about status changes, both internal and external
     const message = `Case "${caseTitle}" status has been updated to: ${newStatus}`;
     
@@ -296,12 +271,10 @@ export const createCaseStatusChangeNotification = async (
       })
       .select('*')
       .single();
-
     if (error) {
       console.error('🔔 Error creating case status change notification:', error);
       return { success: false, error };
     }
-
     console.log('🔔 Case status change notification created successfully:', data);
     return { success: true, data };
   } catch (error) {
@@ -309,7 +282,6 @@ export const createCaseStatusChangeNotification = async (
     return { success: false, error };
   }
 };
-
 export const createMentionNotification = async (
   mentionedUserId: string,
   mentionerUserId: string,
@@ -328,19 +300,16 @@ export const createMentionNotification = async (
       sourceId: sourceId,
       sourceType: sourceType
     });
-
     // Get the mentioner's name
     const { data: mentionerData, error: mentionerError } = await supabase
       .from('users')
       .select('name')
       .eq('id', mentionerUserId)
       .single();
-
     if (mentionerError) {
       console.error('🔔 Error fetching mentioner data:', mentionerError);
       return { success: false, error: mentionerError };
     }
-
     const mentionerName = mentionerData?.name || 'A colleague';
     const message = `${mentionerName} mentioned you in a message: "${contextMessage.substring(0, 100)}${contextMessage.length > 100 ? '...' : ''}"`;
     
@@ -356,12 +325,10 @@ export const createMentionNotification = async (
       })
       .select('*')
       .single();
-
     if (error) {
       console.error('🔔 Error creating mention notification:', error);
       return { success: false, error };
     }
-
     console.log('🔔 Mention notification created successfully:', data);
     return { success: true, data };
   } catch (error) {
@@ -369,7 +336,6 @@ export const createMentionNotification = async (
     return { success: false, error };
   }
 };
-
 // Create notification for external users (citizens) about case updates
 export const createExternalUserNotification = async (
   userId: string,
@@ -385,13 +351,11 @@ export const createExternalUserNotification = async (
       type: notificationType,
       caseId
     });
-
     // Verify this is actually an external user
     const isExternal = await isExternalUser(userId);
     if (!isExternal) {
       console.log('🔔 User is not external, using regular notification flow');
     }
-
     const { data, error } = await supabase
       .from('notifications')
       .insert({
@@ -404,12 +368,10 @@ export const createExternalUserNotification = async (
       })
       .select('*')
       .single();
-
     if (error) {
       console.error('🔔 Error creating external user notification:', error);
       return { success: false, error };
     }
-
     console.log('🔔 External user notification created successfully:', data);
     return { success: true, data };
   } catch (error) {
@@ -417,11 +379,9 @@ export const createExternalUserNotification = async (
     return { success: false, error };
   }
 };
-
 export const createNotification = async (params: CreateNotificationParams) => {
   try {
     console.log('🔔 Creating general notification:', params);
-
     const { data, error } = await supabase
       .from('notifications')
       .insert({
@@ -434,12 +394,10 @@ export const createNotification = async (params: CreateNotificationParams) => {
       })
       .select('*')
       .single();
-
     if (error) {
       console.error('🔔 Error creating general notification:', error);
       return { success: false, error };
     }
-
     console.log('🔔 General notification created successfully:', data);
     return { success: true, data };
   } catch (error) {
