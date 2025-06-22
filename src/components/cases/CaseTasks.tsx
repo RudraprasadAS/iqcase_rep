@@ -178,14 +178,22 @@ const CaseTasks = ({ caseId }: CaseTasksProps) => {
       const logResult = await logTaskCreated(caseId, newTask.task_name, newTask.assigned_to, internalUserId);
       console.log('🚀 Task creation log result:', logResult);
 
-      // Send notification if task is assigned
+      // Send notification if task is assigned to someone other than the creator
       if (newTask.assigned_to && newTask.assigned_to !== internalUserId) {
-        await createTaskAssignmentNotification(
+        console.log('🔔 Sending task assignment notification to:', newTask.assigned_to);
+        const notificationResult = await createTaskAssignmentNotification(
           newTask.assigned_to,
           newTask.task_name,
           caseId,
           internalUserId
         );
+        console.log('🔔 Task assignment notification result:', notificationResult);
+        
+        if (!notificationResult.success) {
+          console.error('🔔 Failed to send task assignment notification:', notificationResult.error);
+        }
+      } else {
+        console.log('🔔 No notification needed - task not assigned or assigned to creator');
       }
 
       await fetchTasks();

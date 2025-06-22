@@ -189,6 +189,25 @@ const SimpleCaseTasks = ({ caseId, onActivityUpdate }: SimpleCaseTasksProps) => 
       await logTaskCreated(caseId, newTaskName.trim(), selectedAssignee || null, internalUserId);
       console.log('🚀 Task creation logged successfully');
       
+      // Send notification if task is assigned to someone other than the creator
+      if (selectedAssignee && selectedAssignee !== internalUserId) {
+        console.log('🔔 Sending task assignment notification to:', selectedAssignee);
+        const { createTaskAssignmentNotification } = await import('@/utils/notificationUtils');
+        const notificationResult = await createTaskAssignmentNotification(
+          selectedAssignee,
+          newTaskName.trim(),
+          caseId,
+          internalUserId
+        );
+        console.log('🔔 Task assignment notification result:', notificationResult);
+        
+        if (!notificationResult.success) {
+          console.error('🔔 Failed to send task assignment notification:', notificationResult.error);
+        }
+      } else {
+        console.log('🔔 No notification needed - task not assigned or assigned to creator');
+      }
+      
       setNewTaskName('');
       setSelectedAssignee('');
       setSelectedDueDate(undefined);

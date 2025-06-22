@@ -42,20 +42,42 @@ export const createTaskAssignmentNotification = async (
 ) => {
   try {
     console.log('🔔 Creating task assignment notification:', {
-      userId: assignedUserId,
-      title: 'New Task Assigned',
-      type: 'task_assignment',
-      caseId: caseId
+      assignedUserId: assignedUserId,
+      taskName: taskName,
+      caseId: caseId,
+      createdByUserId: createdByUserId
     });
 
+    // Verify the assigned user exists and get their details
+    const { data: assignedUserData, error: userError } = await supabase
+      .from('users')
+      .select('id, name, email, user_type, role_id, roles(name)')
+      .eq('id', assignedUserId)
+      .single();
+
+    if (userError || !assignedUserData) {
+      console.error('🔔 Error fetching assigned user:', userError);
+      return { success: false, error: userError || 'User not found' };
+    }
+
+    console.log('🔔 Assigned user data:', assignedUserData);
+
     // Check if user is external - external users shouldn't get task assignment notifications
-    const isExternal = await isExternalUser(assignedUserId);
+    const isExternal = assignedUserData.user_type === 'external' || assignedUserData.roles?.name === 'citizen';
     if (isExternal) {
       console.log('🔔 Skipping task assignment notification for external user');
       return { success: true, message: 'External users do not receive task assignment notifications' };
     }
 
-    const message = `You have been assigned a new task: "${taskName}"`;
+    // Get creator details for a more descriptive message
+    const { data: creatorData } = await supabase
+      .from('users')
+      .select('name, email')
+      .eq('id', createdByUserId)
+      .single();
+
+    const creatorName = creatorData?.name || 'A colleague';
+    const message = `${creatorName} assigned you a new task: "${taskName}"`;
     
     const { data, error } = await supabase
       .from('notifications')
