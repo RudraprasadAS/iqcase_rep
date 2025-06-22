@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,7 +9,7 @@ import { Eye, UserPlus, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { logWatcherAdded, logWatcherRemoved } from '@/utils/activityLogger';
-import { createNotification } from '@/utils/notificationUtils';
+import { createWatcherAddedNotification } from '@/utils/notifications';
 
 interface Watcher {
   id: string;
@@ -177,13 +176,11 @@ const CaseWatchers = ({ caseId }: CaseWatchersProps) => {
 
         const caseTitle = caseData?.title || 'a case';
 
-        const notificationResult = await createNotification({
-          userId: selectedUserId,
-          title: 'Added as Watcher',
-          message: `You have been added as a watcher to case: ${caseTitle}`,
-          type: 'watcher_added',
-          caseId: caseId
-        });
+        const notificationResult = await createWatcherAddedNotification(
+          selectedUserId,
+          caseTitle,
+          caseId
+        );
 
         console.log('👁️ Watcher notification result:', notificationResult);
       } catch (notificationError) {
