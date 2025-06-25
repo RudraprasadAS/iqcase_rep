@@ -148,11 +148,15 @@ export function AppSidebar() {
           </SidebarGroup>
         </AccessControl>
 
-        {/* Only show Admin section if user has access to any admin feature */}
+        {/* Admin section - only show if user has access to any admin feature */}
         <AccessControl module="users_management" type="can_view" fallback={
           <AccessControl module="permissions_management" type="can_view" fallback={
-            <AccessControl module="roles_management" type="can_view" fallback={null} />
-          } />
+            <AccessControl module="roles_management" type="can_view" fallback={null}>
+              <></>
+            </AccessControl>
+          }>
+            <></>
+          </AccessControl>
         }>
           <SidebarGroup>
             <SidebarGroupLabel>Administration</SidebarGroupLabel>
