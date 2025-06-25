@@ -1,7 +1,7 @@
 
 import { Home, FileText, Users, Settings, BarChart3, Bell, BookOpen, Layers, UserCog } from "lucide-react";
 import { NavItem } from "./NavItem";
-import { PermissionGuard } from "@/components/auth";
+import { AccessControl } from "@/components/auth";
 import { useAuth } from "@/hooks/useAuth";
 
 export const Sidebar = () => {
@@ -12,37 +12,41 @@ export const Sidebar = () => {
       <div className="space-y-4 py-4">
         <div className="px-3 py-2">
           <div className="space-y-1">
-            <PermissionGuard elementKey="dashboard">
+            <AccessControl module="dashboard" type="can_view">
               <NavItem href="/dashboard" icon={Home}>
                 Dashboard
               </NavItem>
-            </PermissionGuard>
+            </AccessControl>
             
-            <PermissionGuard elementKey="cases">
+            <AccessControl module="cases" type="can_view">
               <NavItem href="/cases" icon={FileText}>
                 Cases
               </NavItem>
-            </PermissionGuard>
+            </AccessControl>
             
-            <PermissionGuard elementKey="notifications">
+            <AccessControl module="notifications" type="can_view">
               <NavItem href="/notifications" icon={Bell}>
                 Notifications
               </NavItem>
-            </PermissionGuard>
+            </AccessControl>
             
-            <PermissionGuard elementKey="reports">
+            <AccessControl module="reports" type="can_view">
               <NavItem href="/reports" icon={BarChart3}>
                 Reports
               </NavItem>
-            </PermissionGuard>
+            </AccessControl>
             
-            <NavItem href="/knowledge" icon={BookOpen}>
-              Knowledge Base
-            </NavItem>
+            <AccessControl module="knowledge" type="can_view">
+              <NavItem href="/knowledge" icon={BookOpen}>
+                Knowledge Base
+              </NavItem>
+            </AccessControl>
             
-            <NavItem href="/insights" icon={Layers}>
-              Insights
-            </NavItem>
+            <AccessControl module="insights" type="can_view">
+              <NavItem href="/insights" icon={Layers}>
+                Insights
+              </NavItem>
+            </AccessControl>
           </div>
         </div>
         
@@ -51,23 +55,23 @@ export const Sidebar = () => {
             Admin
           </h2>
           <div className="space-y-1">
-            <PermissionGuard elementKey="users_management">
+            <AccessControl module="users_management" type="can_view">
               <NavItem href="/admin/users" icon={Users}>
                 Users
               </NavItem>
-            </PermissionGuard>
+            </AccessControl>
             
-            <PermissionGuard elementKey="permissions_management">
+            <AccessControl module="permissions_management" type="can_view">
               <NavItem href="/admin/permissions" icon={UserCog}>
                 Permissions
               </NavItem>
-            </PermissionGuard>
+            </AccessControl>
             
-            <PermissionGuard elementKey="roles_management">
+            <AccessControl module="roles_management" type="can_view">
               <NavItem href="/admin/roles" icon={Settings}>
                 Roles
               </NavItem>
-            </PermissionGuard>
+            </AccessControl>
           </div>
         </div>
       </div>

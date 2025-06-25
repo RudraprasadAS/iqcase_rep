@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { HelmetProvider } from 'react-helmet-async';
 import { initializeFrontendRegistry } from "@/utils/initializeFrontendRegistry";
+import { ProtectedRoute } from "@/components/auth";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Register from "./pages/auth/Register";
@@ -73,23 +74,114 @@ function App() {
               {/* Protected internal routes */}
               <Route element={<RequireAuth />}>
                 <Route element={<Layout />}>
-                  <Route path="/dashboard" element={<Dashboard />} />
-                  <Route path="/cases" element={<Cases />} />
-                  <Route path="/cases/:id" element={<CaseDetail />} />
-                  <Route path="/cases/new" element={<NewCase />} />
-                  <Route path="/knowledge" element={<KnowledgeBase />} />
-                  <Route path="/notifications" element={<Notifications />} />
-                  <Route path="/insights" element={<Insights />} />
+                  <Route 
+                    path="/dashboard" 
+                    element={
+                      <ProtectedRoute module="dashboard">
+                        <Dashboard />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/cases" 
+                    element={
+                      <ProtectedRoute module="cases">
+                        <Cases />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/cases/:id" 
+                    element={
+                      <ProtectedRoute module="cases" screen="case_detail">
+                        <CaseDetail />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/cases/new" 
+                    element={
+                      <ProtectedRoute module="cases" screen="new_case">
+                        <NewCase />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/knowledge" 
+                    element={
+                      <ProtectedRoute module="knowledge">
+                        <KnowledgeBase />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/notifications" 
+                    element={
+                      <ProtectedRoute module="notifications">
+                        <Notifications />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/insights" 
+                    element={
+                      <ProtectedRoute module="insights">
+                        <Insights />
+                      </ProtectedRoute>
+                    } 
+                  />
                   
                   {/* Analytics */}
-                  <Route path="/reports" element={<Reports />} />
-                  <Route path="/reports/builder" element={<ReportBuilder />} />
-                  <Route path="/dashboards" element={<Dashboards />} />
+                  <Route 
+                    path="/reports" 
+                    element={
+                      <ProtectedRoute module="reports">
+                        <Reports />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/reports/builder" 
+                    element={
+                      <ProtectedRoute module="reports" screen="report_builder">
+                        <ReportBuilder />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/dashboards" 
+                    element={
+                      <ProtectedRoute module="dashboards">
+                        <Dashboards />
+                      </ProtectedRoute>
+                    } 
+                  />
                   
                   {/* Admin */}
-                  <Route path="/admin/users" element={<Users />} />
-                  <Route path="/admin/permissions" element={<Permissions />} />
-                  <Route path="/admin/roles" element={<Roles />} />
+                  <Route 
+                    path="/admin/users" 
+                    element={
+                      <ProtectedRoute module="users_management">
+                        <Users />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/admin/permissions" 
+                    element={
+                      <ProtectedRoute module="permissions_management">
+                        <Permissions />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/admin/roles" 
+                    element={
+                      <ProtectedRoute module="roles_management">
+                        <Roles />
+                      </ProtectedRoute>
+                    } 
+                  />
                 </Route>
                 
                 {/* Citizen Portal Routes */}
