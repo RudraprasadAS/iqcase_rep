@@ -56,12 +56,26 @@ export const PermissionTable: React.FC<PermissionTableProps> = ({
 }) => {
   // Debug logging on mount or when permissions change
   useEffect(() => {
-    console.log("PermissionTable rendering with permissions:", permissions);
-    console.log("Selected role ID:", selectedRoleId);
-    console.log("Expanded tables:", expandedTables);
-    console.log("Frontend mode:", isFrontendMode);
-    console.log("Tables structure:", tables);
-  }, [permissions, selectedRoleId, expandedTables, isFrontendMode, tables]);
+    console.log("🔍 [PermissionTable] Rendering with data:");
+    console.log("- Selected role ID:", selectedRoleId);
+    console.log("- Permissions from DB:", permissions);
+    console.log("- Tables structure:", tables);
+    console.log("- Frontend mode:", isFrontendMode);
+    
+    // Log specific permission checks for caseworker role
+    if (selectedRoleId && roles) {
+      const selectedRole = roles.find(r => r.id === selectedRoleId);
+      console.log("- Selected role details:", selectedRole);
+      
+      // Check specific admin permissions for debugging
+      if (selectedRole?.name === 'caseworker') {
+        console.log("🔍 [PermissionTable] Checking caseworker admin permissions:");
+        console.log("- users_management view:", getEffectivePermission(selectedRoleId, 'users_management', null, 'view'));
+        console.log("- permissions_management view:", getEffectivePermission(selectedRoleId, 'permissions_management', null, 'view'));
+        console.log("- roles_management view:", getEffectivePermission(selectedRoleId, 'roles_management', null, 'view'));
+      }
+    }
+  }, [permissions, selectedRoleId, tables, roles, getEffectivePermission]);
   
   return (
     <div className="overflow-x-auto border rounded-md">
@@ -88,38 +102,39 @@ export const PermissionTable: React.FC<PermissionTableProps> = ({
                   onToggleExpand={() => onToggleTable(table.name)}
                   roles={roles}
                   permissions={permissions}
+                  elementKey={table.module}
+                  fieldName={null}
                   getEffectivePermission={getEffectivePermission}
                   handlePermissionChange={handlePermissionChange}
-                  showSelectAll={showSelectAll}
                   handleSelectAllForTable={handleSelectAllForTable}
+                  showSelectAll={showSelectAll}
                   isFrontendMode={isFrontendMode}
-                  module={table.module}
                 />
                 
-                {/* Field/Element-level rows */}
-                {expandedTables[table.name] && table.fields && table.fields.map(field => (
-                  <PermissionRow
-                    key={`${table.name}-${field}-${selectedRoleId}`}
-                    name={field.split('.').pop() || field}
-                    roleId={selectedRoleId}
-                    isTable={false}
-                    fieldName={field}
-                    tableName={table.name}
-                    roles={roles}
-                    permissions={permissions}
-                    getEffectivePermission={getEffectivePermission}
-                    handlePermissionChange={handlePermissionChange}
-                    showSelectAll={false}
-                    isFrontendMode={isFrontendMode}
-                    module={table.module}
-                  />
-                ))}
+                {/* Field-level rows (only show if expanded) */}
+                {expandedTables[table.name] && table.fields && table.fields.length > 0 && (
+                  table.fields.map((fieldKey: string) => (
+                    <PermissionRow
+                      key={`${table.name}-${fieldKey}`}
+                      name={fieldKey.split('.').pop() || fieldKey} // Show just the field part
+                      roleId={selectedRoleId}
+                      isTable={false}
+                      roles={roles}
+                      permissions={permissions}
+                      elementKey={table.module}
+                      fieldName={fieldKey}
+                      getEffectivePermission={getEffectivePermission}
+                      handlePermissionChange={handlePermissionChange}
+                      isFrontendMode={isFrontendMode}
+                    />
+                  ))
+                )}
               </React.Fragment>
             ))
           ) : (
             <TableRow>
-              <TableCell colSpan={3} className="text-center py-8">
-                {isFrontendMode ? "No frontend elements available" : "No tables available"}
+              <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
+                No {isFrontendMode ? 'frontend elements' : 'tables'} found
               </TableCell>
             </TableRow>
           )}
