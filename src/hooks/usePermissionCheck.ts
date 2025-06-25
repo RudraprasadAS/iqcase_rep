@@ -62,10 +62,28 @@ export const useAccessCheck = () => {
     },
   });
 
-  const { data: userPermissions } = useQuery({
-    queryKey: ['user_permissions', userInfo?.user_id],
+  // Fetch user's role_id separately since get_current_user_info doesn't include it
+  const { data: userRole } = useQuery({
+    queryKey: ['user_role', userInfo?.user_id],
     queryFn: async () => {
-      if (!userInfo?.user_id) return [];
+      if (!userInfo?.user_id) return null;
+      
+      const { data, error } = await supabase
+        .from('users')
+        .select('role_id')
+        .eq('id', userInfo.user_id)
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!userInfo?.user_id,
+  });
+
+  const { data: userPermissions } = useQuery({
+    queryKey: ['user_permissions', userRole?.role_id],
+    queryFn: async () => {
+      if (!userRole?.role_id) return [];
       
       const { data, error } = await supabase
         .from('permissions')
@@ -79,12 +97,12 @@ export const useAccessCheck = () => {
             label
           )
         `)
-        .eq('role_id', userInfo.role_id);
+        .eq('role_id', userRole.role_id);
 
       if (error) throw error;
       return data || [];
     },
-    enabled: !!userInfo?.user_id,
+    enabled: !!userRole?.role_id,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -121,7 +139,7 @@ export const useAccessCheck = () => {
     return hasPermission;
   };
 
-  const isLoading = !userInfo || !userPermissions;
+  const isLoading = !userInfo || !userRole || !userPermissions;
 
   return {
     hasAccess,
