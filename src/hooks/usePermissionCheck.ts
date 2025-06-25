@@ -53,7 +53,7 @@ export const usePermissionCheck = (
 
 // New comprehensive access check hook
 export const useAccessCheck = () => {
-  const { data: userInfo } = useQuery({
+  const { data: userInfo, isLoading: userInfoLoading } = useQuery({
     queryKey: ['current_user_info'],
     queryFn: async () => {
       console.log('🔍 [Access Check] Fetching user info...');
@@ -66,7 +66,7 @@ export const useAccessCheck = () => {
   });
 
   // Fetch user's role_id separately since get_current_user_info doesn't include it
-  const { data: userRole } = useQuery({
+  const { data: userRole, isLoading: userRoleLoading } = useQuery({
     queryKey: ['user_role', userInfo?.user_id],
     queryFn: async () => {
       if (!userInfo?.user_id) return null;
@@ -85,7 +85,7 @@ export const useAccessCheck = () => {
     enabled: !!userInfo?.user_id,
   });
 
-  const { data: userPermissions } = useQuery({
+  const { data: userPermissions, isLoading: permissionsLoading } = useQuery({
     queryKey: ['user_permissions', userRole?.role_id],
     queryFn: async () => {
       if (!userRole?.role_id) return [];
@@ -126,12 +126,8 @@ export const useAccessCheck = () => {
       return true;
     }
 
-    // Build the full element key
-    let fullElementKey = element_key;
-    if (!fullElementKey) {
-      // If no specific element key, check module-level access
-      fullElementKey = module;
-    }
+    // Build the full element key - this is crucial for proper matching
+    let fullElementKey = element_key || module;
 
     console.log(`🔍 [Access Check] Checking access for element: ${fullElementKey}, type: ${type}`);
     console.log(`🔍 [Access Check] Available permissions:`, userPermissions?.map(p => ({
@@ -156,7 +152,7 @@ export const useAccessCheck = () => {
     return hasPermission;
   };
 
-  const isLoading = !userInfo || !userRole || !userPermissions;
+  const isLoading = userInfoLoading || userRoleLoading || permissionsLoading;
 
   return {
     hasAccess,

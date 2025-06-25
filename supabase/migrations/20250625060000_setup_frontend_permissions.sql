@@ -40,15 +40,20 @@ ON CONFLICT (element_key) DO UPDATE SET
   label = EXCLUDED.label,
   is_active = EXCLUDED.is_active;
 
+-- Clear existing permissions to ensure clean sync
+DELETE FROM public.permissions WHERE role_id IN (
+  SELECT id FROM public.roles WHERE name IN ('caseworker', 'case_worker')
+);
+
 -- Now set up permissions for case worker role
--- First, get the case worker role ID (assuming it exists, if not we'll create it)
+-- First, get the case worker role ID (create if doesn't exist)
 DO $$
 DECLARE
   caseworker_role_id UUID;
   registry_record RECORD;
 BEGIN
-  -- Get or create caseworker role
-  SELECT id INTO caseworker_role_id FROM public.roles WHERE name = 'caseworker' OR name = 'case_worker';
+  -- Get or create caseworker role (try both variations)
+  SELECT id INTO caseworker_role_id FROM public.roles WHERE name IN ('caseworker', 'case_worker') LIMIT 1;
   
   IF caseworker_role_id IS NULL THEN
     INSERT INTO public.roles (name, description, role_type, is_system)
@@ -105,6 +110,8 @@ BEGIN
     ON CONFLICT (role_id, frontend_registry_id) 
     DO UPDATE SET can_view = false, can_edit = false;
   END LOOP;
+
+  RAISE NOTICE 'Caseworker permissions setup completed for role ID: %', caseworker_role_id;
 END $$;
 
 -- Also set up permissions for admin roles to have full access
