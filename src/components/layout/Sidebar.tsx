@@ -12,37 +12,37 @@ export const Sidebar = () => {
       <div className="space-y-4 py-4">
         <div className="px-3 py-2">
           <div className="space-y-1">
-            <AccessControl module="dashboard" type="can_view">
+            <AccessControl module="dashboard" type="can_view" fallback={null}>
               <NavItem href="/dashboard" icon={Home}>
                 Dashboard
               </NavItem>
             </AccessControl>
             
-            <AccessControl module="cases" type="can_view">
+            <AccessControl module="cases" type="can_view" fallback={null}>
               <NavItem href="/cases" icon={FileText}>
                 Cases
               </NavItem>
             </AccessControl>
             
-            <AccessControl module="notifications" type="can_view">
+            <AccessControl module="notifications" type="can_view" fallback={null}>
               <NavItem href="/notifications" icon={Bell}>
                 Notifications
               </NavItem>
             </AccessControl>
             
-            <AccessControl module="reports" type="can_view">
+            <AccessControl module="reports" type="can_view" fallback={null}>
               <NavItem href="/reports" icon={BarChart3}>
                 Reports
               </NavItem>
             </AccessControl>
             
-            <AccessControl module="knowledge" type="can_view">
+            <AccessControl module="knowledge" type="can_view" fallback={null}>
               <NavItem href="/knowledge" icon={BookOpen}>
                 Knowledge Base
               </NavItem>
             </AccessControl>
             
-            <AccessControl module="insights" type="can_view">
+            <AccessControl module="insights" type="can_view" fallback={null}>
               <NavItem href="/insights" icon={Layers}>
                 Insights
               </NavItem>
@@ -50,26 +50,26 @@ export const Sidebar = () => {
           </div>
         </div>
         
-        {/* Admin section - only show if user has access to users_management */}
+        {/* Admin section - only show if user has access to any admin feature */}
         <AccessControl module="users_management" type="can_view" fallback={null}>
           <div className="px-3 py-2">
             <h2 className="mb-2 px-4 text-lg font-semibold tracking-tight">
               Admin
             </h2>
             <div className="space-y-1">
-              <AccessControl module="users_management" type="can_view">
+              <AccessControl module="users_management" type="can_view" fallback={null}>
                 <NavItem href="/admin/users" icon={Users}>
                   Users
                 </NavItem>
               </AccessControl>
               
-              <AccessControl module="permissions_management" type="can_view">
+              <AccessControl module="permissions_management" type="can_view" fallback={null}>
                 <NavItem href="/admin/permissions" icon={UserCog}>
                   Permissions
                 </NavItem>
               </AccessControl>
               
-              <AccessControl module="roles_management" type="can_view">
+              <AccessControl module="roles_management" type="can_view" fallback={null}>
                 <NavItem href="/admin/roles" icon={Settings}>
                   Roles
                 </NavItem>

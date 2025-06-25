@@ -10,7 +10,9 @@ import {
   Bell,
   Shield,
   ChevronDown,
-  TrendingUp
+  TrendingUp,
+  Users,
+  UserCog
 } from 'lucide-react';
 import {
   Sidebar,
@@ -31,25 +33,26 @@ import {
 } from "@/components/ui/sidebar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useState } from 'react';
+import { AccessControl } from '@/components/auth';
 
 const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Cases', href: '/cases', icon: FileText },
-  { name: 'Knowledge Base', href: '/knowledge', icon: BookOpen },
-  { name: 'Notifications', href: '/notifications', icon: Bell },
-  { name: 'Insights', href: '/insights', icon: TrendingUp },
+  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, module: 'dashboard' },
+  { name: 'Cases', href: '/cases', icon: FileText, module: 'cases' },
+  { name: 'Knowledge Base', href: '/knowledge', icon: BookOpen, module: 'knowledge' },
+  { name: 'Notifications', href: '/notifications', icon: Bell, module: 'notifications' },
+  { name: 'Insights', href: '/insights', icon: TrendingUp, module: 'insights' },
 ];
 
 const reportNavigation = [
-  { name: 'Reports', href: '/reports' },
-  { name: 'Report Builder', href: '/reports/builder' },
-  { name: 'Dashboards', href: '/dashboards' },
+  { name: 'Reports', href: '/reports', module: 'reports' },
+  { name: 'Report Builder', href: '/reports/builder', module: 'reports' },
+  { name: 'Dashboards', href: '/dashboards', module: 'reports' },
 ];
 
 const adminNavigation = [
-  { name: 'Users', href: '/admin/users' },
-  { name: 'Permissions', href: '/admin/permissions' },
-  { name: 'Roles', href: '/admin/roles' },
+  { name: 'Users', href: '/admin/users', module: 'users_management' },
+  { name: 'Permissions', href: '/admin/permissions', module: 'permissions_management' },
+  { name: 'Roles', href: '/admin/roles', module: 'roles_management' },
 ];
 
 export function AppSidebar() {
@@ -89,87 +92,102 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {navigation.map((item) => (
-                <SidebarMenuItem key={item.name}>
-                  <SidebarMenuButton asChild tooltip={item.name}>
-                    <NavLink
-                      to={item.href}
-                      className={({ isActive }) =>
-                        cn(isActive && "bg-blue-100 text-blue-900")
-                      }
-                    >
-                      <item.icon />
-                      <span>{item.name}</span>
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+                <AccessControl key={item.name} module={item.module} type="can_view" fallback={null}>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild tooltip={item.name}>
+                      <NavLink
+                        to={item.href}
+                        className={({ isActive }) =>
+                          cn(isActive && "bg-blue-100 text-blue-900")
+                        }
+                      >
+                        <item.icon />
+                        <span>{item.name}</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </AccessControl>
               ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup>
-          <SidebarGroupLabel>Analytics</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <Collapsible open={isReportsOpen} onOpenChange={setIsReportsOpen}>
-                <SidebarMenuItem>
-                  <CollapsibleTrigger asChild>
-                    <SidebarMenuButton tooltip="Analytics">
-                      <BarChart3 />
-                      <span>Analytics</span>
-                      <ChevronDown className={cn("ml-auto transition-transform", isReportsOpen && "rotate-180")} />
-                    </SidebarMenuButton>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <SidebarMenuSub>
-                      {reportNavigation.map((item) => (
-                        <SidebarMenuSubItem key={item.name}>
-                          <SidebarMenuSubButton asChild>
-                            <NavLink to={item.href}>
-                              <span>{item.name}</span>
-                            </NavLink>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                      ))}
-                    </SidebarMenuSub>
-                  </CollapsibleContent>
-                </SidebarMenuItem>
-              </Collapsible>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        <AccessControl module="reports" type="can_view" fallback={null}>
+          <SidebarGroup>
+            <SidebarGroupLabel>Analytics</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <Collapsible open={isReportsOpen} onOpenChange={setIsReportsOpen}>
+                  <SidebarMenuItem>
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton tooltip="Analytics">
+                        <BarChart3 />
+                        <span>Analytics</span>
+                        <ChevronDown className={cn("ml-auto transition-transform", isReportsOpen && "rotate-180")} />
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <SidebarMenuSub>
+                        {reportNavigation.map((item) => (
+                          <AccessControl key={item.name} module={item.module} type="can_view" fallback={null}>
+                            <SidebarMenuSubItem>
+                              <SidebarMenuSubButton asChild>
+                                <NavLink to={item.href}>
+                                  <span>{item.name}</span>
+                                </NavLink>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                          </AccessControl>
+                        ))}
+                      </SidebarMenuSub>
+                    </CollapsibleContent>
+                  </SidebarMenuItem>
+                </Collapsible>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </AccessControl>
 
-        <SidebarGroup>
-          <SidebarGroupLabel>Administration</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <Collapsible open={isAdminOpen} onOpenChange={setIsAdminOpen}>
-                <SidebarMenuItem>
-                  <CollapsibleTrigger asChild>
-                    <SidebarMenuButton tooltip="Admin">
-                      <Shield />
-                      <span>Admin</span>
-                      <ChevronDown className={cn("ml-auto transition-transform", isAdminOpen && "rotate-180")} />
-                    </SidebarMenuButton>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <SidebarMenuSub>
-                      {adminNavigation.map((item) => (
-                        <SidebarMenuSubItem key={item.name}>
-                          <SidebarMenuSubButton asChild>
-                            <NavLink to={item.href}>
-                              <span>{item.name}</span>
-                            </NavLink>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                      ))}
-                    </SidebarMenuSub>
-                  </CollapsibleContent>
-                </SidebarMenuItem>
-              </Collapsible>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {/* Only show Admin section if user has access to any admin feature */}
+        <AccessControl module="users_management" type="can_view" fallback={
+          <AccessControl module="permissions_management" type="can_view" fallback={
+            <AccessControl module="roles_management" type="can_view" fallback={null} />
+          } />
+        }>
+          <SidebarGroup>
+            <SidebarGroupLabel>Administration</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <Collapsible open={isAdminOpen} onOpenChange={setIsAdminOpen}>
+                  <SidebarMenuItem>
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton tooltip="Admin">
+                        <Shield />
+                        <span>Admin</span>
+                        <ChevronDown className={cn("ml-auto transition-transform", isAdminOpen && "rotate-180")} />
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <SidebarMenuSub>
+                        {adminNavigation.map((item) => (
+                          <AccessControl key={item.name} module={item.module} type="can_view" fallback={null}>
+                            <SidebarMenuSubItem>
+                              <SidebarMenuSubButton asChild>
+                                <NavLink to={item.href}>
+                                  <span>{item.name}</span>
+                                </NavLink>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                          </AccessControl>
+                        ))}
+                      </SidebarMenuSub>
+                    </CollapsibleContent>
+                  </SidebarMenuItem>
+                </Collapsible>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </AccessControl>
       </SidebarContent>
       
       <SidebarFooter>
