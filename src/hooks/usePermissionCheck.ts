@@ -56,9 +56,12 @@ export const useAccessCheck = () => {
   const { data: userInfo } = useQuery({
     queryKey: ['current_user_info'],
     queryFn: async () => {
+      console.log('🔍 [Access Check] Fetching user info...');
       const { data, error } = await supabase.rpc('get_current_user_info');
       if (error) throw error;
-      return data?.[0];
+      const result = data?.[0];
+      console.log('🔍 [Access Check] User info result:', result);
+      return result;
     },
   });
 
@@ -68,6 +71,7 @@ export const useAccessCheck = () => {
     queryFn: async () => {
       if (!userInfo?.user_id) return null;
       
+      console.log('🔍 [Access Check] Fetching role for user:', userInfo.user_id);
       const { data, error } = await supabase
         .from('users')
         .select('role_id')
@@ -75,6 +79,7 @@ export const useAccessCheck = () => {
         .single();
 
       if (error) throw error;
+      console.log('🔍 [Access Check] User role result:', data);
       return data;
     },
     enabled: !!userInfo?.user_id,
@@ -85,6 +90,7 @@ export const useAccessCheck = () => {
     queryFn: async () => {
       if (!userRole?.role_id) return [];
       
+      console.log('🔍 [Access Check] Fetching permissions for role:', userRole.role_id);
       const { data, error } = await supabase
         .from('permissions')
         .select(`
@@ -100,6 +106,7 @@ export const useAccessCheck = () => {
         .eq('role_id', userRole.role_id);
 
       if (error) throw error;
+      console.log('🔍 [Access Check] User permissions result:', data);
       return data || [];
     },
     enabled: !!userRole?.role_id,
@@ -108,7 +115,10 @@ export const useAccessCheck = () => {
 
   const hasAccess = ({ module, screen, element_key, type }: AccessCheckParams): boolean => {
     // If user info is not loaded, deny access
-    if (!userInfo) return false;
+    if (!userInfo) {
+      console.log('🔍 [Access Check] No user info - denying access');
+      return false;
+    }
 
     // Super admins and admins have full access
     if (userInfo.is_super_admin || userInfo.is_admin) {
@@ -122,6 +132,13 @@ export const useAccessCheck = () => {
       // If no specific element key, check module-level access
       fullElementKey = module;
     }
+
+    console.log(`🔍 [Access Check] Checking access for element: ${fullElementKey}, type: ${type}`);
+    console.log(`🔍 [Access Check] Available permissions:`, userPermissions?.map(p => ({
+      element_key: p.frontend_registry?.element_key,
+      can_view: p.can_view,
+      can_edit: p.can_edit
+    })));
 
     // Find the permission for this element
     const permission = userPermissions?.find(p => 

@@ -50,30 +50,69 @@ export const Sidebar = () => {
           </div>
         </div>
         
-        <div className="px-3 py-2">
-          <h2 className="mb-2 px-4 text-lg font-semibold tracking-tight">
-            Admin
-          </h2>
-          <div className="space-y-1">
-            <AccessControl module="users_management" type="can_view">
-              <NavItem href="/admin/users" icon={Users}>
-                Users
-              </NavItem>
+        {/* Admin section - only show if user has access to ANY admin feature */}
+        <AccessControl module="users_management" type="can_view" fallback={
+          <AccessControl module="permissions_management" type="can_view" fallback={
+            <AccessControl module="roles_management" type="can_view" fallback={null}>
+              <div className="px-3 py-2">
+                <h2 className="mb-2 px-4 text-lg font-semibold tracking-tight">
+                  Admin
+                </h2>
+                <div className="space-y-1">
+                  <AccessControl module="roles_management" type="can_view">
+                    <NavItem href="/admin/roles" icon={Settings}>
+                      Roles
+                    </NavItem>
+                  </AccessControl>
+                </div>
+              </div>
             </AccessControl>
-            
-            <AccessControl module="permissions_management" type="can_view">
-              <NavItem href="/admin/permissions" icon={UserCog}>
-                Permissions
-              </NavItem>
-            </AccessControl>
-            
-            <AccessControl module="roles_management" type="can_view">
-              <NavItem href="/admin/roles" icon={Settings}>
-                Roles
-              </NavItem>
-            </AccessControl>
+          }>
+            <div className="px-3 py-2">
+              <h2 className="mb-2 px-4 text-lg font-semibold tracking-tight">
+                Admin
+              </h2>
+              <div className="space-y-1">
+                <AccessControl module="permissions_management" type="can_view">
+                  <NavItem href="/admin/permissions" icon={UserCog}>
+                    Permissions
+                  </NavItem>
+                </AccessControl>
+                
+                <AccessControl module="roles_management" type="can_view">
+                  <NavItem href="/admin/roles" icon={Settings}>
+                    Roles
+                  </NavItem>
+                </AccessControl>
+              </div>
+            </div>
+          </AccessControl>
+        }>
+          <div className="px-3 py-2">
+            <h2 className="mb-2 px-4 text-lg font-semibold tracking-tight">
+              Admin
+            </h2>
+            <div className="space-y-1">
+              <AccessControl module="users_management" type="can_view">
+                <NavItem href="/admin/users" icon={Users}>
+                  Users
+                </NavItem>
+              </AccessControl>
+              
+              <AccessControl module="permissions_management" type="can_view">
+                <NavItem href="/admin/permissions" icon={UserCog}>
+                  Permissions
+                </NavItem>
+              </AccessControl>
+              
+              <AccessControl module="roles_management" type="can_view">
+                <NavItem href="/admin/roles" icon={Settings}>
+                  Roles
+                </NavItem>
+              </AccessControl>
+            </div>
           </div>
-        </div>
+        </AccessControl>
       </div>
     </div>
   );
