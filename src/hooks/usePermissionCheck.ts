@@ -34,6 +34,7 @@ export const usePermissionCheck = (elementKey: string, permissionType: 'view' | 
         if (currentUser.is_case_worker || currentUser.role_name === 'caseworker') {
           const allowedElements = [
             'dashboard',
+            'dashboards', // Add plural form
             'cases',
             'cases.create_case',
             'cases.edit_case',
