@@ -154,6 +154,8 @@ export const PermissionRow: React.FC<PermissionRowProps> = ({
               className="h-6 px-2 text-xs"
               onClick={() => handleSelectAllEdit(!hasEditPermission)}
               disabled={isSystemRole}
+            >
+              All
             </Button>
           )}
         </div>
