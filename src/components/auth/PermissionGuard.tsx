@@ -46,6 +46,14 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     );
   }
 
+  // Debug: Let's see what we have
+  console.log(`🔒 [PermissionGuard] Final decision for ${elementKey}:`, {
+    hasPermission,
+    userRole: userInfo?.role?.name,
+    isLoading,
+    error: error?.message
+  });
+
   // STRICT: Only rely on backend permission check
   if (hasPermission) {
     console.log(`🔒 [PermissionGuard] ACCESS GRANTED for ${elementKey} - Backend returned true`);

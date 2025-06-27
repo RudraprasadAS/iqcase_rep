@@ -9,6 +9,14 @@ export const usePermissionCheck = (elementKey: string, permissionType: 'view' | 
       console.log(`🔒 [usePermissionCheck] Checking permission for ${elementKey} (${permissionType})`);
       
       try {
+        // First, let's debug what user info we have
+        const { data: userInfo, error: userError } = await supabase.rpc('get_current_user_info');
+        if (userError) {
+          console.error(`🔒 [usePermissionCheck] Error getting user info:`, userError);
+        } else {
+          console.log(`🔒 [usePermissionCheck] Current user info:`, userInfo?.[0]);
+        }
+
         // Use the backend function to check permissions
         const { data, error } = await supabase
           .rpc('current_user_has_frontend_permission', {
@@ -18,7 +26,6 @@ export const usePermissionCheck = (elementKey: string, permissionType: 'view' | 
 
         if (error) {
           console.error(`🔒 [usePermissionCheck] RPC error for ${elementKey}:`, error);
-          // If RPC fails, return false - be restrictive
           return false;
         }
 
@@ -26,7 +33,6 @@ export const usePermissionCheck = (elementKey: string, permissionType: 'view' | 
         return data as boolean;
       } catch (err) {
         console.error(`🔒 [usePermissionCheck] Exception checking permission for ${elementKey}:`, err);
-        // If there's an exception, return false - be restrictive
         return false;
       }
     },
