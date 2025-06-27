@@ -57,7 +57,7 @@ const Dashboard = () => {
     try {
       console.log('📊 [Dashboard] Fetching dashboard data...');
 
-      // Fetch case statistics
+      // Fetch case statistics with detailed logging
       const { data: casesData, error: casesError } = await supabase
         .from('cases')
         .select('id, status, priority, created_at, sla_due_at');
@@ -67,18 +67,43 @@ const Dashboard = () => {
         throw casesError;
       }
 
-      console.log('📊 [Dashboard] Cases data fetched:', casesData?.length || 0, 'cases');
+      console.log('📊 [Dashboard] Raw cases data:', casesData);
+      console.log('📊 [Dashboard] Cases count:', casesData?.length || 0);
+
+      // Log unique statuses to debug
+      const uniqueStatuses = [...new Set(casesData?.map(c => c.status) || [])];
+      console.log('📊 [Dashboard] Unique statuses found:', uniqueStatuses);
 
       const totalCases = casesData?.length || 0;
       const openCases = casesData?.filter(c => c.status === 'open').length || 0;
       const inProgressCases = casesData?.filter(c => c.status === 'in_progress').length || 0;
-      const resolvedCases = casesData?.filter(c => c.status === 'resolved' || c.status === 'closed').length || 0;
       
+      // Check for multiple possible resolved status values
+      const resolvedCases = casesData?.filter(c => 
+        c.status === 'resolved' || 
+        c.status === 'closed' || 
+        c.status === 'complete' ||
+        c.status === 'completed'
+      ).length || 0;
+      
+      console.log('📊 [Dashboard] Status breakdown:');
+      console.log('  - Total:', totalCases);
+      console.log('  - Open:', openCases);
+      console.log('  - In Progress:', inProgressCases);
+      console.log('  - Resolved/Closed:', resolvedCases);
+
       // Calculate overdue cases
       const now = new Date();
       const overdueCases = casesData?.filter(c => 
-        c.sla_due_at && new Date(c.sla_due_at) < now && c.status !== 'resolved' && c.status !== 'closed'
+        c.sla_due_at && 
+        new Date(c.sla_due_at) < now && 
+        c.status !== 'resolved' && 
+        c.status !== 'closed' &&
+        c.status !== 'complete' &&
+        c.status !== 'completed'
       ).length || 0;
+
+      console.log('  - Overdue:', overdueCases);
 
       setStats({
         totalCases,
@@ -95,6 +120,8 @@ const Dashboard = () => {
         acc[priority] = (acc[priority] || 0) + 1;
         return acc;
       }, {} as Record<string, number>);
+
+      console.log('📊 [Dashboard] Priority distribution:', priorityCounts);
 
       const priorityColors = {
         low: '#10B981',
@@ -132,11 +159,13 @@ const Dashboard = () => {
 
       setMonthlyTrend(trendData);
 
+      console.log('📊 [Dashboard] Data fetch completed successfully');
+
     } catch (error) {
       console.error('📊 [Dashboard] Error fetching dashboard data:', error);
       toast({
         title: 'Error',
-        description: 'Failed to load dashboard data',
+        description: 'Failed to load dashboard data. Please check the console for details.',
         variant: 'destructive'
       });
     } finally {
