@@ -13,6 +13,7 @@ export const usePermissionCheck = (elementKey: string, permissionType: 'view' | 
         const { data: userInfo, error: userError } = await supabase.rpc('get_current_user_info');
         if (userError) {
           console.error(`🔒 [usePermissionCheck] Error getting user info:`, userError);
+          return false;
         } else {
           console.log(`🔒 [usePermissionCheck] Current user info:`, userInfo?.[0]);
         }
@@ -36,8 +37,8 @@ export const usePermissionCheck = (elementKey: string, permissionType: 'view' | 
         return false;
       }
     },
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
-    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+    staleTime: 1 * 60 * 1000, // Reduced cache time to 1 minute for debugging
+    gcTime: 2 * 60 * 1000, // Keep in cache for 2 minutes
   });
 
   return {
