@@ -58,14 +58,12 @@ export const PermissionRow: React.FC<PermissionRowProps> = ({
   const selectedRole = roles?.find(r => r.id === roleId);
   const isSystemRole = selectedRole?.is_system === true;
   
-  // Get current permission states
+  // Get current permission states - this is the KEY FIX
   const hasViewPermission = getEffectivePermission(roleId, elementKey, fieldName, 'view');
   const hasEditPermission = getEffectivePermission(roleId, elementKey, fieldName, 'edit');
   
-  // Debug logging for admin modules
-  if (elementKey.includes('management') || elementKey.includes('admin')) {
-    console.log(`🔍 [PermissionRow] ${elementKey}${fieldName ? '.' + fieldName : ''} - View: ${hasViewPermission}, Edit: ${hasEditPermission}, Role: ${selectedRole?.name}`);
-  }
+  // Debug logging for troubleshooting
+  console.log(`🔍 [PermissionRow] ${elementKey}${fieldName ? '.' + fieldName : ''} - Role: ${selectedRole?.name}, System: ${isSystemRole}, View: ${hasViewPermission}, Edit: ${hasEditPermission}`);
 
   const handleViewChange = (checked: boolean) => {
     if (isSystemRole) return;

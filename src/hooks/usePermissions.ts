@@ -309,7 +309,7 @@ export const usePermissions = (selectedRoleId: string, permissions?: any[], role
     }
   };
 
-  // FIXED: Get effective permission for frontend elements - this was the main issue
+  // FIXED: Get effective permission for frontend elements - completely rewritten
   const getEffectivePermission = (
     roleId: string,
     elementKey: string,
@@ -318,7 +318,7 @@ export const usePermissions = (selectedRoleId: string, permissions?: any[], role
   ): boolean => {
     console.log(`🔍 [getEffectivePermission] Checking ${elementKey}${fieldName ? '.' + fieldName : ''} for role ${roleId} (${type})`);
     
-    // For system roles, return true for all permissions (this was working correctly)
+    // For system roles, return true for all permissions
     const role = roles?.find(r => r.id === roleId);
     if (role?.is_system === true) {
       console.log(`🔍 [getEffectivePermission] System role ${role.name} - granting all permissions`);
@@ -343,7 +343,7 @@ export const usePermissions = (selectedRoleId: string, permissions?: any[], role
       return result;
     }
 
-    // FIXED: Check for saved permissions - this was the main bug!
+    // Check for saved permissions in database
     const savedPermission = permissions?.find(
       p => p.role_id === roleId && p.frontend_registry_id === registryEntry.id
     );
@@ -354,7 +354,7 @@ export const usePermissions = (selectedRoleId: string, permissions?: any[], role
       return result;
     }
 
-    // FIXED: Default to false for non-system roles if no permission is found
+    // Default to false for non-system roles if no permission is found
     console.log(`🔍 [getEffectivePermission] No permission found - defaulting to FALSE for non-system role`);
     return false;
   };
