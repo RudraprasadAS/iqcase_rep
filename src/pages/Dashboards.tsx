@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ReportPreview } from '@/components/reports/ReportPreview';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 interface DashboardItem {
   id: string;
@@ -38,112 +39,174 @@ const Dashboards = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const { reports, runReportWithJoins, isLoadingReports } = useReports();
   
   const [showBuilder, setShowBuilder] = useState(false);
   const [editingDashboard, setEditingDashboard] = useState<SavedDashboard | null>(null);
-  const [savedDashboards, setSavedDashboards] = useState<SavedDashboard[]>([]);
   const [viewingDashboard, setViewingDashboard] = useState<SavedDashboard | null>(null);
   const [dashboardData, setDashboardData] = useState<Record<string, any[]>>({});
   const [loadingItems, setLoadingItems] = useState<Set<string>>(new Set());
-  const [currentUserRole, setCurrentUserRole] = useState<string>('');
 
-  // Get current user role for RBAC
-  useEffect(() => {
-    const getCurrentUserRole = async () => {
-      try {
-        const { data } = await supabase.rpc('get_current_user_info');
-        if (data && data.length > 0) {
-          setCurrentUserRole(data[0].role_name || '');
-        }
-      } catch (error) {
-        console.error('Error fetching user role:', error);
-      }
-    };
+  // Get current user info
+  const { data: currentUserData } = useQuery({
+    queryKey: ["current_user_info"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_current_user_info');
+      if (error) throw error;
+      return data?.[0];
+    },
+    enabled: !!user
+  });
 
-    if (user) {
-      getCurrentUserRole();
-    }
-  }, [user]);
-
-  // Load dashboards from localStorage on component mount with RBAC filtering
-  useEffect(() => {
-    const loadDashboards = () => {
-      try {
-        const saved = localStorage.getItem('savedDashboards');
-        if (saved) {
-          const dashboards = JSON.parse(saved) as SavedDashboard[];
-          
-          // Apply RBAC filtering - only show dashboards user can access
-          const filteredDashboards = dashboards.filter(dashboard => {
-            // Admins can see all dashboards
-            if (currentUserRole === 'admin' || currentUserRole === 'super_admin') {
-              return true;
-            }
-            
-            // Users can see public dashboards or dashboards they created
-            return dashboard.isPublic === true || dashboard.createdBy === user?.id;
-          });
-          
-          setSavedDashboards(filteredDashboards);
-        }
-      } catch (error) {
-        console.error('Error loading dashboards from localStorage:', error);
-      }
-    };
-
-    if (currentUserRole) {
-      loadDashboards();
-    }
-  }, [currentUserRole, user?.id]);
-
-  // Save dashboards to localStorage whenever they change
-  useEffect(() => {
-    try {
-      localStorage.setItem('savedDashboards', JSON.stringify(savedDashboards));
-    } catch (error) {
-      console.error('Error saving dashboards to localStorage:', error);
-    }
-  }, [savedDashboards]);
-
-  const handleSaveDashboard = (dashboardName: string, items: DashboardItem[], isPublic: boolean = false) => {
-    if (editingDashboard) {
-      // Update existing dashboard - check permissions
-      if (editingDashboard.createdBy !== user?.id && currentUserRole !== 'admin') {
-        toast({
-          title: "Access denied",
-          description: "You can only edit dashboards you created.",
-          variant: "destructive"
-        });
-        return;
+  // Fetch dashboards from database
+  const { data: savedDashboards = [], isLoading: isDashboardsLoading, refetch: refetchDashboards } = useQuery({
+    queryKey: ['saved_dashboards'],
+    queryFn: async () => {
+      console.log('📊 Fetching dashboards from database...');
+      
+      const { data, error } = await supabase
+        .from('dashboard_templates')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('📊 Error fetching dashboards:', error);
+        throw error;
       }
       
-      setSavedDashboards(dashboards => 
-        dashboards.map(d => 
-          d.id === editingDashboard.id 
-            ? { ...d, name: dashboardName, items, isPublic }
-            : d
-        )
-      );
-      setEditingDashboard(null);
-    } else {
-      // Create new dashboard
-      const newDashboard: SavedDashboard = {
-        id: Date.now().toString(),
-        name: dashboardName,
-        items: items,
-        createdAt: new Date().toISOString(),
-        createdBy: user?.id,
-        isPublic
+      console.log('📊 Raw dashboards from database:', data);
+      
+      // Transform database format to SavedDashboard format
+      const transformedDashboards = data?.map(db => ({
+        id: db.id,
+        name: db.name,
+        items: (db.layout as any)?.items || [],
+        createdAt: db.created_at,
+        createdBy: db.created_by,
+        isPublic: (db.layout as any)?.isPublic || false
+      })) || [];
+      
+      // Apply RBAC filtering
+      const filteredDashboards = transformedDashboards.filter(dashboard => {
+        // Show public dashboards to everyone
+        if (dashboard.isPublic) return true;
+        
+        // Show user's own dashboards
+        if (dashboard.createdBy === currentUserData?.user_id) return true;
+        
+        // Show all dashboards to admin users
+        if (currentUserData?.is_admin || currentUserData?.is_super_admin) return true;
+        
+        return false;
+      });
+      
+      console.log('📊 Filtered dashboards:', filteredDashboards);
+      return filteredDashboards;
+    },
+    enabled: !!currentUserData
+  });
+
+  // Save dashboard mutation
+  const saveDashboardMutation = useMutation({
+    mutationFn: async ({ name, items, isPublic }: { name: string; items: DashboardItem[]; isPublic: boolean }) => {
+      if (!currentUserData?.user_id) {
+        throw new Error('User not authenticated');
+      }
+      
+      const dashboardData = {
+        name,
+        description: `Dashboard created by ${currentUserData.user_id}`,
+        layout: { items, isPublic },
+        created_by: currentUserData.user_id,
+        is_active: true
       };
-      setSavedDashboards(prev => [...prev, newDashboard]);
+      
+      console.log('📊 Saving dashboard:', dashboardData);
+      
+      if (editingDashboard) {
+        // Update existing dashboard
+        const { data, error } = await supabase
+          .from('dashboard_templates')
+          .update({
+            name,
+            layout: { items, isPublic },
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', editingDashboard.id)
+          .select()
+          .single();
+        
+        if (error) throw error;
+        return data;
+      } else {
+        // Create new dashboard
+        const { data, error } = await supabase
+          .from('dashboard_templates')
+          .insert(dashboardData)
+          .select()
+          .single();
+        
+        if (error) throw error;
+        return data;
+      }
+    },
+    onSuccess: () => {
+      console.log('📊 Dashboard saved successfully');
+      queryClient.invalidateQueries({ queryKey: ['saved_dashboards'] });
+      refetchDashboards();
+      setShowBuilder(false);
+      setEditingDashboard(null);
+      toast({
+        title: "Dashboard saved",
+        description: "Your dashboard has been saved successfully"
+      });
+    },
+    onError: (error) => {
+      console.error('📊 Error saving dashboard:', error);
+      toast({
+        variant: "destructive",
+        title: "Error saving dashboard",
+        description: error.message || "Failed to save dashboard. Please try again."
+      });
     }
-    
-    setShowBuilder(false);
-    toast({
-      title: "Dashboard saved",
-      description: `Dashboard "${dashboardName}" has been saved successfully`
-    });
+  });
+
+  // Delete dashboard mutation
+  const deleteDashboardMutation = useMutation({
+    mutationFn: async (dashboardId: string) => {
+      const { error } = await supabase
+        .from('dashboard_templates')
+        .update({ is_active: false })
+        .eq('id', dashboardId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['saved_dashboards'] });
+      refetchDashboards();
+      if (viewingDashboard) {
+        setViewingDashboard(null);
+      }
+      toast({
+        title: "Dashboard deleted",
+        description: "Dashboard has been deleted successfully"
+      });
+    },
+    onError: (error) => {
+      console.error('📊 Error deleting dashboard:', error);
+      toast({
+        variant: "destructive",
+        title: "Error deleting dashboard",
+        description: error.message || "Failed to delete dashboard. Please try again."
+      });
+    }
+  });
+
+  const handleSaveDashboard = (dashboardName: string, items: DashboardItem[], isPublic: boolean = false) => {
+    console.log('📊 Handling save dashboard:', { dashboardName, items, isPublic });
+    saveDashboardMutation.mutate({ name: dashboardName, items, isPublic });
   };
 
   const loadMetricData = async (item: DashboardItem): Promise<any[]> => {
@@ -239,11 +302,11 @@ const Dashboards = () => {
   };
 
   const handleViewDashboard = async (dashboard: SavedDashboard) => {
-    // Check access permissions
+    // Check access permissions - public dashboards or own dashboards or admin access
     const canAccess = dashboard.isPublic || 
-                     dashboard.createdBy === user?.id || 
-                     currentUserRole === 'admin' || 
-                     currentUserRole === 'super_admin';
+                     dashboard.createdBy === currentUserData?.user_id || 
+                     currentUserData?.is_admin || 
+                     currentUserData?.is_super_admin;
     
     if (!canAccess) {
       toast({
@@ -259,10 +322,10 @@ const Dashboards = () => {
   };
 
   const handleEditDashboard = (dashboard: SavedDashboard) => {
-    // Check edit permissions
-    const canEdit = dashboard.createdBy === user?.id || 
-                   currentUserRole === 'admin' || 
-                   currentUserRole === 'super_admin';
+    // Check edit permissions - only creator or admin can edit
+    const canEdit = dashboard.createdBy === currentUserData?.user_id || 
+                   currentUserData?.is_admin || 
+                   currentUserData?.is_super_admin;
     
     if (!canEdit) {
       toast({
@@ -281,10 +344,10 @@ const Dashboards = () => {
   const handleDeleteDashboard = (dashboardId: string) => {
     const dashboard = savedDashboards.find(d => d.id === dashboardId);
     
-    // Check delete permissions
-    const canDelete = dashboard?.createdBy === user?.id || 
-                     currentUserRole === 'admin' || 
-                     currentUserRole === 'super_admin';
+    // Check delete permissions - only creator or admin can delete
+    const canDelete = dashboard?.createdBy === currentUserData?.user_id || 
+                     currentUserData?.is_admin || 
+                     currentUserData?.is_super_admin;
     
     if (!canDelete) {
       toast({
@@ -295,14 +358,7 @@ const Dashboards = () => {
       return;
     }
     
-    setSavedDashboards(dashboards => dashboards.filter(d => d.id !== dashboardId));
-    if (viewingDashboard?.id === dashboardId) {
-      setViewingDashboard(null);
-    }
-    toast({
-      title: "Dashboard deleted",
-      description: "Dashboard has been deleted successfully"
-    });
+    deleteDashboardMutation.mutate(dashboardId);
   };
 
   const handleCreateNew = () => {
@@ -542,81 +598,85 @@ const Dashboards = () => {
               Create and manage custom dashboards with your reports
             </p>
           </div>
-          <Button onClick={handleCreateNew}>
+          <Button onClick={handleCreateNew} disabled={saveDashboardMutation.isPending}>
             <Plus className="h-4 w-4 mr-2" />
             Create Dashboard
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {savedDashboards.length > 0 ? (
-            savedDashboards.map((dashboard) => (
-              <Card key={dashboard.id} className="hover:shadow-lg transition-shadow">
+        {isDashboardsLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-lg">Loading dashboards...</div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {savedDashboards.length > 0 ? (
+              savedDashboards.map((dashboard) => (
+                <Card key={dashboard.id} className="hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center justify-between">
+                      {dashboard.name}
+                      {dashboard.isPublic && (
+                        <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                          Public
+                        </span>
+                      )}
+                    </CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      {dashboard.items.length} items • Created {new Date(dashboard.createdAt).toLocaleDateString()}
+                    </p>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex space-x-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="flex-1"
+                        onClick={() => handleViewDashboard(dashboard)}
+                      >
+                        <Eye className="h-4 w-4 mr-1" />
+                        View
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="flex-1"
+                        onClick={() => handleEditDashboard(dashboard)}
+                      >
+                        <Edit className="h-4 w-4 mr-1" />
+                        Edit
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="text-red-600 hover:text-red-700"
+                        onClick={() => handleDeleteDashboard(dashboard.id)}
+                        disabled={deleteDashboardMutation.isPending}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              <Card className="hover:shadow-lg transition-shadow">
                 <CardHeader>
-                  <CardTitle className="text-lg flex items-center justify-between">
-                    {dashboard.name}
-                    {dashboard.isPublic && (
-                      <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
-                        Public
-                      </span>
-                    )}
-                  </CardTitle>
+                  <CardTitle className="text-lg">No Dashboards Yet</CardTitle>
                   <p className="text-sm text-muted-foreground">
-                    {dashboard.items.length} items • Created {new Date(dashboard.createdAt).toLocaleDateString()}
+                    Create your first dashboard to get started
                   </p>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex space-x-2">
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="flex-1"
-                      onClick={() => handleViewDashboard(dashboard)}
-                    >
-                      <Eye className="h-4 w-4 mr-1" />
-                      View
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="flex-1"
-                      onClick={() => handleEditDashboard(dashboard)}
-                    >
-                      <Edit className="h-4 w-4 mr-1" />
-                      Edit
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="text-red-600 hover:text-red-700"
-                      onClick={() => handleDeleteDashboard(dashboard.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  <Button variant="outline" size="sm" onClick={handleCreateNew}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Your First Dashboard
+                  </Button>
                 </CardContent>
               </Card>
-            ))
-          ) : (
-            <Card className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <CardTitle className="text-lg">Executive Overview</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  High-level metrics and KPIs
-                </p>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Sample dashboard - use the builder to create your own!
-                </p>
-                <Button variant="outline" size="sm" onClick={handleCreateNew}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Your First Dashboard
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
     </>
   );
