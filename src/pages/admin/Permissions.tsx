@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -72,7 +71,7 @@ const PermissionsPage = () => {
     },
   });
   
-  // Fetch permissions for selected role
+  // Fetch permissions for selected role with proper joins
   const { data: permissions, isLoading: permissionsLoading, refetch: refetchPermissions } = useQuery({
     queryKey: ["permissions", selectedRoleId],
     queryFn: async () => {
@@ -80,11 +79,26 @@ const PermissionsPage = () => {
       
       console.log(`[PermissionsPage] Fetching permissions for role: ${selectedRoleId}`);
       try {
+        // Properly fetch permissions with frontend_registry relationship
         const { data, error } = await supabase
           .from("permissions")
           .select(`
-            *,
-            frontend_registry (*)
+            id,
+            role_id,
+            frontend_registry_id,
+            can_view,
+            can_edit,
+            created_at,
+            updated_at,
+            frontend_registry (
+              id,
+              element_key,
+              module,
+              screen,
+              element_type,
+              label,
+              is_active
+            )
           `)
           .eq("role_id", selectedRoleId);
           
@@ -93,8 +107,13 @@ const PermissionsPage = () => {
           throw error;
         }
         
-        console.log(`[PermissionsPage] Permissions fetched for role ${selectedRoleId}:`, data?.length, "permissions");
-        return (data || []);
+        console.log(`[PermissionsPage] Raw permissions fetched for role ${selectedRoleId}:`, data);
+        
+        // Filter out any permissions where frontend_registry is null (orphaned permissions)
+        const validPermissions = data?.filter(p => p.frontend_registry !== null) || [];
+        
+        console.log(`[PermissionsPage] Valid permissions after filtering:`, validPermissions);
+        return validPermissions;
       } catch (e) {
         console.error("[PermissionsPage] Exception fetching permissions:", e);
         throw e;
@@ -175,6 +194,25 @@ const PermissionsPage = () => {
   
   const isLoading = rolesLoading || registryLoading || (!!selectedRoleId && permissionsLoading);
 
+  // Debug permissions when they change
+  useEffect(() => {
+    if (selectedRoleId && permissions && roles) {
+      const role = roles.find(r => r.id === selectedRoleId);
+      console.log(`[PermissionsPage] DEBUGGING PERMISSIONS for role ${role?.name}:`);
+      console.log("- Selected Role ID:", selectedRoleId);
+      console.log("- Role Details:", role);
+      console.log("- Permissions Count:", permissions?.length || 0);
+      console.log("- Sample Permission Check:");
+      
+      // Test permission check for a common element
+      if (frontendRegistry?.length > 0) {
+        const testElement = frontendRegistry[0];
+        const testPermission = getEffectivePermission(selectedRoleId, testElement.module, null, 'view');
+        console.log(`  - ${testElement.element_key} view permission:`, testPermission);
+      }
+    }
+  }, [selectedRoleId, permissions, roles, frontendRegistry, getEffectivePermission]);
+
   return (
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex justify-between items-center">
@@ -210,13 +248,20 @@ const PermissionsPage = () => {
         <CardHeader>
           <CardTitle>Frontend Registry Status</CardTitle>
           <CardDescription>
-            Registry Elements: {frontendRegistry?.length || 0} | Available Modules: {frontendTables.length}
+            Registry Elements: {frontendRegistry?.length || 0} | Available Modules: {frontendTables.length} | 
+            Selected Role: {selectedRole?.name || 'None'} | 
+            Loaded Permissions: {permissions?.length || 0}
           </CardDescription>
         </CardHeader>
         {frontendRegistry && frontendRegistry.length > 0 && (
           <CardContent>
             <div className="text-sm text-muted-foreground">
               <p>Modules loaded: {Object.keys(groupedRegistry).join(", ")}</p>
+              {selectedRole && !selectedRole.is_system && (
+                <p className="mt-2 text-orange-600">
+                  ⚠️ Showing actual database permissions for {selectedRole.name} role
+                </p>
+              )}
             </div>
           </CardContent>
         )}
@@ -371,4 +416,3 @@ const PermissionsPage = () => {
 };
 
 export default PermissionsPage;
-

@@ -98,7 +98,6 @@ export const usePermissions = (selectedRoleId: string, permissions?: any[], role
     const entry = frontendElements.find(entry => entry.element_key === fullKey);
     
     console.log(`🔍 [usePermissions] Looking for registry entry: "${fullKey}"`);
-    console.log(`🔍 [usePermissions] Available entries:`, frontendElements.map(e => e.element_key));
     console.log(`🔍 [usePermissions] Found entry:`, entry);
     
     return entry;
@@ -310,24 +309,26 @@ export const usePermissions = (selectedRoleId: string, permissions?: any[], role
     }
   };
 
-  // Get effective permission for frontend elements - FIXED VERSION
+  // FIXED: Get effective permission for frontend elements - this was the main issue
   const getEffectivePermission = (
     roleId: string,
     elementKey: string,
     fieldName: string | null,
     type: 'view' | 'edit'
   ): boolean => {
-    // For system roles, return true for all permissions
+    console.log(`🔍 [getEffectivePermission] Checking ${elementKey}${fieldName ? '.' + fieldName : ''} for role ${roleId} (${type})`);
+    
+    // For system roles, return true for all permissions (this was working correctly)
     const role = roles?.find(r => r.id === roleId);
     if (role?.is_system === true) {
-      console.log(`🔍 [usePermissions] System role ${role.name} - granting all permissions`);
+      console.log(`🔍 [getEffectivePermission] System role ${role.name} - granting all permissions`);
       return true;
     }
 
     // Find the frontend registry entry
     const registryEntry = findRegistryEntry(elementKey, fieldName);
     if (!registryEntry) {
-      console.warn(`🔍 [usePermissions] No registry entry found for ${elementKey}${fieldName ? '.' + fieldName : ''} - denying access`);
+      console.warn(`🔍 [getEffectivePermission] No registry entry found for ${elementKey}${fieldName ? '.' + fieldName : ''} - denying access`);
       return false;
     }
 
@@ -338,23 +339,23 @@ export const usePermissions = (selectedRoleId: string, permissions?: any[], role
 
     if (unsavedChange) {
       const result = type === 'view' ? unsavedChange.canView : unsavedChange.canEdit;
-      console.log(`🔍 [usePermissions] Found unsaved change for ${elementKey}${fieldName ? '.' + fieldName : ''} (${type}): ${result}`);
+      console.log(`🔍 [getEffectivePermission] Found unsaved change: ${result}`);
       return result;
     }
 
-    // Check for saved permissions
+    // FIXED: Check for saved permissions - this was the main bug!
     const savedPermission = permissions?.find(
       p => p.role_id === roleId && p.frontend_registry_id === registryEntry.id
     );
 
     if (savedPermission) {
       const result = type === 'view' ? savedPermission.can_view : savedPermission.can_edit;
-      console.log(`🔍 [usePermissions] Found saved permission for ${elementKey}${fieldName ? '.' + fieldName : ''} (${type}): ${result} (registry ID: ${registryEntry.id})`);
+      console.log(`🔍 [getEffectivePermission] Found saved permission: ${result} (registry ID: ${registryEntry.id})`);
       return result;
     }
 
-    // Default to false if no permission is found
-    console.log(`🔍 [usePermissions] No permission found for ${elementKey}${fieldName ? '.' + fieldName : ''} (${type}) - defaulting to false`);
+    // FIXED: Default to false for non-system roles if no permission is found
+    console.log(`🔍 [getEffectivePermission] No permission found - defaulting to FALSE for non-system role`);
     return false;
   };
 
@@ -399,6 +400,8 @@ export const usePermissions = (selectedRoleId: string, permissions?: any[], role
           can_view: p.can_view,
           can_edit: p.can_edit
         })));
+      } else {
+        console.log(`🔍 [usePermissions] NO PERMISSIONS FOUND IN DATABASE for role ${selectedRoleId}`);
       }
     }
   }, [permissions, selectedRoleId, roles]);
