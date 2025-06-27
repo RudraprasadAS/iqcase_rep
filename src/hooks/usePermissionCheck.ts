@@ -24,6 +24,48 @@ export const usePermissionCheck = (elementKey: string, permissionType: 'view' | 
         
         console.log(`🔒 [usePermissionCheck] Current user info:`, currentUser);
 
+        // Debug: Let's check what roles exist in the database
+        const { data: roles, error: rolesError } = await supabase
+          .from('roles')
+          .select('*')
+          .order('name');
+        
+        if (!rolesError) {
+          console.log(`🔒 [usePermissionCheck] Available roles:`, roles);
+        }
+
+        // Debug: Let's check what frontend registry entries exist
+        const { data: registryEntries, error: registryError } = await supabase
+          .from('frontend_registry')
+          .select('*')
+          .eq('element_key', elementKey)
+          .eq('is_active', true);
+        
+        if (!registryError) {
+          console.log(`🔒 [usePermissionCheck] Registry entries for ${elementKey}:`, registryEntries);
+        }
+
+        // Debug: Let's check what permissions exist for the current user's role
+        const { data: permissions, error: permError } = await supabase
+          .from('permissions')
+          .select(`
+            *,
+            frontend_registry!inner (
+              element_key,
+              is_active
+            ),
+            roles!inner (
+              name
+            )
+          `)
+          .eq('roles.name', currentUser.role_name)
+          .eq('frontend_registry.element_key', elementKey)
+          .eq('frontend_registry.is_active', true);
+
+        if (!permError) {
+          console.log(`🔒 [usePermissionCheck] Direct permission query results:`, permissions);
+        }
+
         // Use the backend function to check permissions
         const { data, error } = await supabase
           .rpc('current_user_has_frontend_permission', {
