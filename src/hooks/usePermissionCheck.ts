@@ -1,4 +1,3 @@
-
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -24,49 +23,43 @@ export const usePermissionCheck = (elementKey: string, permissionType: 'view' | 
         
         console.log(`🔒 [usePermissionCheck] Current user info:`, currentUser);
 
-        // Debug: Let's check what roles exist in the database
-        const { data: roles, error: rolesError } = await supabase
-          .from('roles')
-          .select('*')
-          .order('name');
-        
-        if (!rolesError) {
-          console.log(`🔒 [usePermissionCheck] Available roles:`, roles);
+        // For admin users, allow access to everything
+        if (currentUser.is_admin || currentUser.is_super_admin) {
+          console.log(`🔒 [usePermissionCheck] Admin user - allowing access to ${elementKey}`);
+          return true;
         }
 
-        // Debug: Let's check what frontend registry entries exist
-        const { data: registryEntries, error: registryError } = await supabase
-          .from('frontend_registry')
-          .select('*')
-          .eq('element_key', elementKey)
-          .eq('is_active', true);
-        
-        if (!registryError) {
-          console.log(`🔒 [usePermissionCheck] Registry entries for ${elementKey}:`, registryEntries);
+        // For caseworker users, allow access to core functionality
+        if (currentUser.is_case_worker || currentUser.role_name === 'caseworker') {
+          const allowedElements = [
+            'dashboard',
+            'cases',
+            'cases.create_case',
+            'cases.edit_case',
+            'cases.assign_case',
+            'cases.view_details',
+            'notifications',
+            'notifications.mark_read',
+            'reports',
+            'knowledge',
+            'insights'
+          ];
+          
+          if (allowedElements.includes(elementKey)) {
+            console.log(`🔒 [usePermissionCheck] Caseworker accessing allowed element ${elementKey} - permitting`);
+            return true;
+          }
         }
 
-        // Debug: Let's check what permissions exist for the current user's role
-        const { data: permissions, error: permError } = await supabase
-          .from('permissions')
-          .select(`
-            *,
-            frontend_registry!inner (
-              element_key,
-              is_active
-            ),
-            roles!inner (
-              name
-            )
-          `)
-          .eq('roles.name', currentUser.role_name)
-          .eq('frontend_registry.element_key', elementKey)
-          .eq('frontend_registry.is_active', true);
-
-        if (!permError) {
-          console.log(`🔒 [usePermissionCheck] Direct permission query results:`, permissions);
+        // For citizen users, allow access to citizen-specific features
+        if (currentUser.is_citizen) {
+          if (elementKey.startsWith('citizen')) {
+            console.log(`🔒 [usePermissionCheck] Citizen accessing citizen element ${elementKey} - permitting`);
+            return true;
+          }
         }
 
-        // Use the backend function to check permissions
+        // Use the backend function to check permissions as fallback
         const { data, error } = await supabase
           .rpc('current_user_has_frontend_permission', {
             p_element_key: elementKey,

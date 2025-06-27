@@ -45,17 +45,25 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     );
   }
 
-  // Check if user has access to this route using the new permission system
+  // Check if user has access to this route using the permission system
   if (!hasPermission) {
-    console.log(`🔍 [ProtectedRoute] Access denied for ${elementKey}, redirecting to ${redirectTo}`);
+    console.log(`🔍 [ProtectedRoute] Access denied for ${elementKey}`);
     
-    // Redirect to the specified route, but preserve the attempted location
+    // Instead of redirecting, show an access denied message to prevent infinite loops
     return (
-      <Navigate 
-        to={redirectTo} 
-        state={{ from: location, reason: 'access_denied', module, userRole: userInfo?.role?.name }}
-        replace 
-      />
+      <div className="container mx-auto py-6">
+        <Card>
+          <CardContent className="p-8 text-center">
+            <h2 className="text-xl font-semibold mb-4">Access Denied</h2>
+            <p className="text-muted-foreground mb-4">
+              You don't have permission to access this page.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Role: {userInfo?.role?.name} | Page: {elementKey}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
