@@ -1,3 +1,4 @@
+
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -29,7 +30,7 @@ export const usePermissionCheck = (elementKey: string, permissionType: 'view' | 
           return true;
         }
 
-        // For caseworker users, allow access to core functionality
+        // For caseworker users, allow access to core functionality including reports
         if (currentUser.is_case_worker || currentUser.role_name === 'caseworker') {
           const allowedElements = [
             'dashboard',
@@ -41,6 +42,10 @@ export const usePermissionCheck = (elementKey: string, permissionType: 'view' | 
             'notifications',
             'notifications.mark_read',
             'reports',
+            'reports.create_report',
+            'reports.edit_report',
+            'reports.view_report',
+            'reports.delete_report',
             'knowledge',
             'insights'
           ];

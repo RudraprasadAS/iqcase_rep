@@ -21,23 +21,23 @@ export const useReports = () => {
   const { user } = useAuth();
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
 
-  // Fetch all reports
+  // Fetch all reports - now with RLS enforcing privacy
   const { data: reports, isLoading: isLoadingReports } = useQuery({
     queryKey: ['reports'],
     queryFn: async () => {
       try {
-        console.log('Fetching reports...');
+        console.log('📊 [useReports] Fetching reports with RLS privacy controls...');
         const { data, error } = await supabase
           .from('reports')
           .select('*')
           .order('created_at', { ascending: false });
         
         if (error) {
-          console.error('Error fetching reports:', error);
+          console.error('📊 [useReports] Error fetching reports:', error);
           throw error;
         }
         
-        console.log('Reports fetched:', data);
+        console.log('📊 [useReports] Reports fetched (respecting privacy):', data?.length || 0);
         
         // Map DB structure to our interface
         return data.map(report => {
@@ -64,11 +64,11 @@ export const useReports = () => {
             base_table: report.base_table || report.module,
             module: report.module,
             filters: processedFilters,
-            date_grouping: report.date_grouping // Ensure date_grouping is included
+            date_grouping: report.date_grouping
           } as Report;
         });
       } catch (error) {
-        console.error('Error in fetchReports:', error);
+        console.error('📊 [useReports] Error in fetchReports:', error);
         throw error;
       }
     }
