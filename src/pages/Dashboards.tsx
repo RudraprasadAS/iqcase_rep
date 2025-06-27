@@ -115,10 +115,23 @@ const Dashboards = () => {
         throw new Error('User not authenticated');
       }
       
+      // Convert layout to proper JSON format for Supabase
+      const layoutData = {
+        items: items.map(item => ({
+          id: item.id,
+          type: item.type,
+          title: item.title,
+          reportId: item.reportId || null,
+          metric: item.metric || null,
+          position: item.position
+        })),
+        isPublic
+      };
+      
       const dashboardData = {
         name,
         description: `Dashboard created by ${currentUserData.user_id}`,
-        layout: { items, isPublic },
+        layout: layoutData as any, // Cast to any to satisfy Json type
         created_by: currentUserData.user_id,
         is_active: true
       };
@@ -131,7 +144,7 @@ const Dashboards = () => {
           .from('dashboard_templates')
           .update({
             name,
-            layout: { items, isPublic },
+            layout: layoutData as any, // Cast to any to satisfy Json type
             updated_at: new Date().toISOString()
           })
           .eq('id', editingDashboard.id)
