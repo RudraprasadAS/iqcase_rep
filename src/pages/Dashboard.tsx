@@ -2,7 +2,6 @@
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
-import { PermissionDebugger } from '@/components/debug/PermissionDebugger';
 
 const Dashboard = () => {
   console.log('🏠 [Dashboard] Rendering dashboard page');
@@ -13,9 +12,6 @@ const Dashboard = () => {
         <h1 className="text-3xl font-bold">Dashboard</h1>
         <p className="text-muted-foreground">Welcome to your dashboard</p>
       </div>
-
-      {/* Debug Component - Remove this after fixing permissions */}
-      <PermissionDebugger />
 
       <PermissionGuard elementKey="dashboard" permissionType="view">
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
