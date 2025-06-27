@@ -309,7 +309,7 @@ export const usePermissions = (selectedRoleId: string, permissions?: any[], role
     }
   };
 
-  // FIXED: Get effective permission for frontend elements - completely rewritten
+  // FIXED: Get effective permission - now properly checks database
   const getEffectivePermission = (
     roleId: string,
     elementKey: string,
@@ -318,9 +318,15 @@ export const usePermissions = (selectedRoleId: string, permissions?: any[], role
   ): boolean => {
     console.log(`🔍 [getEffectivePermission] Checking ${elementKey}${fieldName ? '.' + fieldName : ''} for role ${roleId} (${type})`);
     
-    // For system roles, return true for all permissions
+    // Find the role details
     const role = roles?.find(r => r.id === roleId);
-    if (role?.is_system === true) {
+    if (!role) {
+      console.log(`🔍 [getEffectivePermission] Role not found for ID ${roleId}`); 
+      return false;
+    }
+    
+    // For system roles, return true for all permissions
+    if (role.is_system === true) {
       console.log(`🔍 [getEffectivePermission] System role ${role.name} - granting all permissions`);
       return true;
     }
@@ -343,7 +349,7 @@ export const usePermissions = (selectedRoleId: string, permissions?: any[], role
       return result;
     }
 
-    // Check for saved permissions in database
+    // Check for saved permissions in database - THIS IS THE KEY FIX
     const savedPermission = permissions?.find(
       p => p.role_id === roleId && p.frontend_registry_id === registryEntry.id
     );
@@ -354,8 +360,8 @@ export const usePermissions = (selectedRoleId: string, permissions?: any[], role
       return result;
     }
 
-    // Default to false for non-system roles if no permission is found
-    console.log(`🔍 [getEffectivePermission] No permission found - defaulting to FALSE for non-system role`);
+    // IMPORTANT: For non-system roles, default to FALSE if no permission found
+    console.log(`🔍 [getEffectivePermission] No permission found for non-system role ${role.name} - defaulting to FALSE`);
     return false;
   };
 

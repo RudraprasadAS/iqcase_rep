@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Plus, Eye, Edit, Trash2, Settings, BarChart3, Calculator, PieChart, TrendingUp } from 'lucide-react';
 import { DashboardBuilder } from '@/components/dashboards/DashboardBuilder';
@@ -10,6 +10,7 @@ import { useReports } from '@/hooks/useReports';
 import { useToast } from '@/hooks/use-toast';
 import { ReportPreview } from '@/components/reports/ReportPreview';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 
 interface DashboardItem {
   id: string;
@@ -29,11 +30,14 @@ interface SavedDashboard {
   name: string;
   items: DashboardItem[];
   createdAt: string;
+  createdBy?: string;
+  isPublic?: boolean;
 }
 
 const Dashboards = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
   const { reports, runReportWithJoins, isLoadingReports } = useReports();
   
   const [showBuilder, setShowBuilder] = useState(false);
@@ -42,23 +46,56 @@ const Dashboards = () => {
   const [viewingDashboard, setViewingDashboard] = useState<SavedDashboard | null>(null);
   const [dashboardData, setDashboardData] = useState<Record<string, any[]>>({});
   const [loadingItems, setLoadingItems] = useState<Set<string>>(new Set());
+  const [currentUserRole, setCurrentUserRole] = useState<string>('');
 
-  // Load dashboards from localStorage on component mount
+  // Get current user role for RBAC
+  useEffect(() => {
+    const getCurrentUserRole = async () => {
+      try {
+        const { data } = await supabase.rpc('get_current_user_info');
+        if (data && data.length > 0) {
+          setCurrentUserRole(data[0].role_name || '');
+        }
+      } catch (error) {
+        console.error('Error fetching user role:', error);
+      }
+    };
+
+    if (user) {
+      getCurrentUserRole();
+    }
+  }, [user]);
+
+  // Load dashboards from localStorage on component mount with RBAC filtering
   useEffect(() => {
     const loadDashboards = () => {
       try {
         const saved = localStorage.getItem('savedDashboards');
         if (saved) {
-          const dashboards = JSON.parse(saved);
-          setSavedDashboards(dashboards);
+          const dashboards = JSON.parse(saved) as SavedDashboard[];
+          
+          // Apply RBAC filtering - only show dashboards user can access
+          const filteredDashboards = dashboards.filter(dashboard => {
+            // Admins can see all dashboards
+            if (currentUserRole === 'admin' || currentUserRole === 'super_admin') {
+              return true;
+            }
+            
+            // Users can see public dashboards or dashboards they created
+            return dashboard.isPublic === true || dashboard.createdBy === user?.id;
+          });
+          
+          setSavedDashboards(filteredDashboards);
         }
       } catch (error) {
         console.error('Error loading dashboards from localStorage:', error);
       }
     };
 
-    loadDashboards();
-  }, []);
+    if (currentUserRole) {
+      loadDashboards();
+    }
+  }, [currentUserRole, user?.id]);
 
   // Save dashboards to localStorage whenever they change
   useEffect(() => {
@@ -69,13 +106,22 @@ const Dashboards = () => {
     }
   }, [savedDashboards]);
 
-  const handleSaveDashboard = (dashboardName: string, items: DashboardItem[]) => {
+  const handleSaveDashboard = (dashboardName: string, items: DashboardItem[], isPublic: boolean = false) => {
     if (editingDashboard) {
-      // Update existing dashboard
+      // Update existing dashboard - check permissions
+      if (editingDashboard.createdBy !== user?.id && currentUserRole !== 'admin') {
+        toast({
+          title: "Access denied",
+          description: "You can only edit dashboards you created.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
       setSavedDashboards(dashboards => 
         dashboards.map(d => 
           d.id === editingDashboard.id 
-            ? { ...d, name: dashboardName, items }
+            ? { ...d, name: dashboardName, items, isPublic }
             : d
         )
       );
@@ -86,7 +132,9 @@ const Dashboards = () => {
         id: Date.now().toString(),
         name: dashboardName,
         items: items,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        createdBy: user?.id,
+        isPublic
       };
       setSavedDashboards(prev => [...prev, newDashboard]);
     }
@@ -191,17 +239,62 @@ const Dashboards = () => {
   };
 
   const handleViewDashboard = async (dashboard: SavedDashboard) => {
+    // Check access permissions
+    const canAccess = dashboard.isPublic || 
+                     dashboard.createdBy === user?.id || 
+                     currentUserRole === 'admin' || 
+                     currentUserRole === 'super_admin';
+    
+    if (!canAccess) {
+      toast({
+        title: "Access denied",
+        description: "You don't have permission to view this dashboard.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     setViewingDashboard(dashboard);
     await loadDashboardData(dashboard);
   };
 
   const handleEditDashboard = (dashboard: SavedDashboard) => {
+    // Check edit permissions
+    const canEdit = dashboard.createdBy === user?.id || 
+                   currentUserRole === 'admin' || 
+                   currentUserRole === 'super_admin';
+    
+    if (!canEdit) {
+      toast({
+        title: "Access denied",
+        description: "You can only edit dashboards you created.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     setEditingDashboard(dashboard);
     setShowBuilder(true);
     setViewingDashboard(null);
   };
 
   const handleDeleteDashboard = (dashboardId: string) => {
+    const dashboard = savedDashboards.find(d => d.id === dashboardId);
+    
+    // Check delete permissions
+    const canDelete = dashboard?.createdBy === user?.id || 
+                     currentUserRole === 'admin' || 
+                     currentUserRole === 'super_admin';
+    
+    if (!canDelete) {
+      toast({
+        title: "Access denied",
+        description: "You can only delete dashboards you created.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     setSavedDashboards(dashboards => dashboards.filter(d => d.id !== dashboardId));
     if (viewingDashboard?.id === dashboardId) {
       setViewingDashboard(null);
@@ -390,6 +483,7 @@ const Dashboards = () => {
               <h1 className="text-3xl font-bold">{viewingDashboard.name}</h1>
               <p className="text-muted-foreground">
                 {viewingDashboard.items.length} items • Created {new Date(viewingDashboard.createdAt).toLocaleDateString()}
+                {viewingDashboard.isPublic && <span className="ml-2 text-green-600">• Public</span>}
               </p>
             </div>
             <div className="flex gap-2">
@@ -459,7 +553,14 @@ const Dashboards = () => {
             savedDashboards.map((dashboard) => (
               <Card key={dashboard.id} className="hover:shadow-lg transition-shadow">
                 <CardHeader>
-                  <CardTitle className="text-lg">{dashboard.name}</CardTitle>
+                  <CardTitle className="text-lg flex items-center justify-between">
+                    {dashboard.name}
+                    {dashboard.isPublic && (
+                      <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                        Public
+                      </span>
+                    )}
+                  </CardTitle>
                   <p className="text-sm text-muted-foreground">
                     {dashboard.items.length} items • Created {new Date(dashboard.createdAt).toLocaleDateString()}
                   </p>
