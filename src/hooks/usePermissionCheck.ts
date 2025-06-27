@@ -9,14 +9,20 @@ export const usePermissionCheck = (elementKey: string, permissionType: 'view' | 
       console.log(`🔒 [usePermissionCheck] Checking permission for ${elementKey} (${permissionType})`);
       
       try {
-        // First, let's debug what user info we have
+        // First, let's see what user info we have
         const { data: userInfo, error: userError } = await supabase.rpc('get_current_user_info');
         if (userError) {
           console.error(`🔒 [usePermissionCheck] Error getting user info:`, userError);
           return false;
-        } else {
-          console.log(`🔒 [usePermissionCheck] Current user info:`, userInfo?.[0]);
         }
+        
+        const currentUser = userInfo?.[0];
+        if (!currentUser) {
+          console.error(`🔒 [usePermissionCheck] No user found`);
+          return false;
+        }
+        
+        console.log(`🔒 [usePermissionCheck] Current user info:`, currentUser);
 
         // Use the backend function to check permissions
         const { data, error } = await supabase
@@ -37,7 +43,7 @@ export const usePermissionCheck = (elementKey: string, permissionType: 'view' | 
         return false;
       }
     },
-    staleTime: 1 * 60 * 1000, // Reduced cache time to 1 minute for debugging
+    staleTime: 1 * 60 * 1000, // Cache for 1 minute
     gcTime: 2 * 60 * 1000, // Keep in cache for 2 minutes
   });
 
@@ -97,7 +103,7 @@ export const useBulkPermissionCheck = (permissions: Array<{ elementKey: string; 
   };
 };
 
-// FIXED: Legacy compatibility - useAccessCheck now properly uses backend permissions
+// Legacy compatibility - useAccessCheck with improved backend integration
 export const useAccessCheck = () => {
   const { data: userInfo, isLoading } = useQuery({
     queryKey: ['current-user-info'],
@@ -105,8 +111,7 @@ export const useAccessCheck = () => {
       console.log('🔒 [useAccessCheck] Fetching current user info');
       
       try {
-        const { data, error } = await supabase
-          .rpc('get_current_user_info');
+        const { data, error } = await supabase.rpc('get_current_user_info');
 
         if (error) {
           console.error('🔒 [useAccessCheck] Error fetching user info:', error);
@@ -142,10 +147,6 @@ export const useAccessCheck = () => {
     if (screen) elementKey += `.${screen}`;
     if (element_key) elementKey += `.${element_key}`;
     
-    // FIXED: Now we need to make an async call to check permissions
-    // Since this is a synchronous function, we'll return a more permissive result for known roles
-    // The real permission check happens in the async usePermissionCheck hook
-    
     // For admin users, allow access
     if (userInfo.is_admin || userInfo.is_super_admin) {
       console.log('🔒 [useAccessCheck] Admin user - allowing access');
@@ -154,7 +155,7 @@ export const useAccessCheck = () => {
     
     // For caseworker users, allow basic access to core modules
     if (userInfo.is_case_worker) {
-      const allowedModules = ['dashboard', 'cases', 'notifications'];
+      const allowedModules = ['dashboard', 'cases', 'notifications', 'reports', 'knowledge', 'insights'];
       if (allowedModules.some(mod => elementKey.startsWith(mod))) {
         console.log('🔒 [useAccessCheck] Caseworker accessing allowed module - permitting');
         return true;
