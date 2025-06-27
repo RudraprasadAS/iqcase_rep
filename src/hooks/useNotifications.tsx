@@ -17,7 +17,23 @@ export const useNotifications = () => {
       console.log('🔔 [useNotifications] Fetching notifications from backend');
       
       try {
-        // Let the backend handle all filtering based on RLS policies
+        // First get current user info to ensure we have the right user
+        const { data: userInfo, error: userError } = await supabase.rpc('get_current_user_info');
+        
+        if (userError) {
+          console.error('🔔 [useNotifications] Error getting user info:', userError);
+          throw userError;
+        }
+
+        const currentUser = userInfo?.[0];
+        if (!currentUser) {
+          console.error('🔔 [useNotifications] No current user found');
+          return [];
+        }
+
+        console.log('🔔 [useNotifications] Current user:', currentUser.user_id);
+
+        // Now fetch notifications - RLS will handle filtering
         const { data, error } = await supabase
           .from('notifications')
           .select(`
@@ -39,6 +55,7 @@ export const useNotifications = () => {
         }
 
         console.log('🔔 [useNotifications] Notifications fetched:', data?.length || 0);
+        console.log('🔔 [useNotifications] Sample notification:', data?.[0]);
         return data || [];
       } catch (error) {
         console.error('🔔 [useNotifications] Exception fetching notifications:', error);

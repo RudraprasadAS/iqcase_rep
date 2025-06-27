@@ -380,42 +380,47 @@ const ReportBuilder = () => {
         <title>{reportId ? (isEditMode ? 'Edit Report' : currentReport?.name || 'View Report') : 'Create Report'} | Case Management</title>
       </Helmet>
       
-      <div className="container mx-auto py-6">
-        <div className="flex items-center gap-4 mb-6">
+      <div className="container mx-auto py-6 px-4 max-w-full">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-6">
           <Button 
             variant="outline" 
             size="sm"
             onClick={() => navigate('/reports')}
+            className="shrink-0"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Reports
           </Button>
           
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold truncate">
               {currentReport?.name || (reportId ? 'Report' : 'Create New Report')}
             </h1>
             {currentReport?.description && (
-              <p className="text-muted-foreground">{currentReport.description}</p>
+              <p className="text-muted-foreground text-sm sm:text-base truncate">{currentReport.description}</p>
             )}
           </div>
 
           {isViewMode && (
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2 shrink-0">
               <Button
                 onClick={() => navigate(`/reports/builder?id=${reportId}&edit=true`)}
-                className="gap-2"
+                className="gap-2 text-sm"
+                size="sm"
               >
                 <Edit className="h-4 w-4" />
-                Edit Report
+                <span className="hidden sm:inline">Edit Report</span>
+                <span className="sm:hidden">Edit</span>
               </Button>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setShowConfiguration(!showConfiguration)}
+                className="text-sm"
               >
                 <Settings className="h-4 w-4 mr-2" />
-                {showConfiguration ? 'Hide' : 'Show'} Configuration
+                <span className="hidden sm:inline">{showConfiguration ? 'Hide' : 'Show'} Configuration</span>
+                <span className="sm:hidden">{showConfiguration ? 'Hide' : 'Show'}</span>
               </Button>
             </div>
           )}
@@ -425,16 +430,17 @@ const ReportBuilder = () => {
           // View Mode: Report Display First
           <div className="space-y-6">
             {/* Main Report Display */}
-            <Card>
+            <Card className="w-full">
               <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span>Report Results</span>
-                  <div className="flex gap-2">
+                <CardTitle className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <span className="text-lg sm:text-xl">Report Results</span>
+                  <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={exportToCsv}
                       disabled={!reportData || reportData.length === 0}
+                      className="text-sm"
                     >
                       <Download className="mr-2 h-4 w-4" />
                       Export CSV
@@ -443,6 +449,7 @@ const ReportBuilder = () => {
                       size="sm"
                       onClick={handleRunReport}
                       disabled={isLoadingData}
+                      className="text-sm"
                     >
                       <Play className="mr-2 h-4 w-4" />
                       Refresh
@@ -450,7 +457,7 @@ const ReportBuilder = () => {
                   </div>
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-4 sm:p-6">
                 <ReportPreview
                   data={reportData}
                   columns={selectedFields}
@@ -467,11 +474,11 @@ const ReportBuilder = () => {
             {/* Configuration - Collapsible */}
             <Collapsible open={showConfiguration} onOpenChange={setShowConfiguration}>
               <CollapsibleContent>
-                <Card>
+                <Card className="w-full">
                   <CardHeader>
                     <CardTitle>Report Configuration</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-6">
+                  <CardContent className="space-y-6 p-4 sm:p-6">
                     <ReportSettings
                       form={form}
                       tables={tables}
@@ -517,15 +524,15 @@ const ReportBuilder = () => {
             </Collapsible>
           </div>
         ) : (
-          // Edit/Create Mode: Side by side layout
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          // Edit/Create Mode: Side by side layout on larger screens, stacked on mobile
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
             {/* Configuration Panel */}
             <div className="space-y-6">
-              <Card>
+              <Card className="w-full">
                 <CardHeader>
                   <CardTitle>Report Configuration</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-6">
+                <CardContent className="space-y-6 p-4 sm:p-6">
                   <ReportSettings
                     form={form}
                     tables={tables}
@@ -566,10 +573,11 @@ const ReportBuilder = () => {
                     />
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <Button 
                       onClick={handleSaveReport}
                       disabled={!form.watch('name') || !form.watch('base_table') || selectedFields.length === 0}
+                      className="text-sm"
                     >
                       <Save className="h-4 w-4 mr-2" />
                       {reportId && isEditMode ? 'Update Report' : 'Save Report'}
@@ -579,6 +587,7 @@ const ReportBuilder = () => {
                       variant="outline"
                       onClick={handleRunReport}
                       disabled={!form.watch('base_table') || selectedFields.length === 0}
+                      className="text-sm"
                     >
                       <Play className="h-4 w-4 mr-2" />
                       Run Report
@@ -589,12 +598,12 @@ const ReportBuilder = () => {
             </div>
 
             {/* Preview Panel */}
-            <div>
-              <Card>
+            <div className="w-full">
+              <Card className="w-full">
                 <CardHeader>
                   <CardTitle>Report Preview</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-4 sm:p-6">
                   <ReportPreview
                     data={reportData}
                     columns={selectedFields}
