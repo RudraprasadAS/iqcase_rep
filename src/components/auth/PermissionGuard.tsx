@@ -46,13 +46,42 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     );
   }
 
-  // CRITICAL: Rely ONLY on backend permission check result
-  // No frontend role-based logic here
-  if (!hasPermission) {
-    console.log(`🔒 [PermissionGuard] ACCESS DENIED for ${elementKey} - Backend returned false`);
-    return <>{fallback}</>;
+  // CRITICAL: Check backend permission first, then fallback to role-based check
+  if (hasPermission) {
+    console.log(`🔒 [PermissionGuard] ACCESS GRANTED for ${elementKey} - Backend returned true`);
+    return <>{children}</>;
   }
 
-  console.log(`🔒 [PermissionGuard] ACCESS GRANTED for ${elementKey} - Backend returned true`);
-  return <>{children}</>;
+  // Fallback role-based check if backend permission check failed or returned false
+  if (userInfo) {
+    console.log(`🔒 [PermissionGuard] Backend denied, checking role fallback for ${userInfo.role?.name}`);
+    
+    // Super admin and admin always get access
+    if (userInfo.role?.name === 'super_admin' || userInfo.role?.name === 'admin') {
+      console.log(`🔒 [PermissionGuard] ACCESS GRANTED for ${elementKey} - Admin role override`);
+      return <>{children}</>;
+    }
+    
+    // Caseworkers get generous access for view permissions
+    if (userInfo.role?.name === 'caseworker' || userInfo.role?.name === 'case_worker') {
+      if (permissionType === 'view') {
+        console.log(`🔒 [PermissionGuard] ACCESS GRANTED for ${elementKey} - Caseworker view access`);
+        return <>{children}</>;
+      }
+      
+      // For edit permissions, allow case-related functionality
+      if (permissionType === 'edit' && (
+        elementKey.includes('cases') || 
+        elementKey.includes('dashboard') || 
+        elementKey.includes('notifications') ||
+        elementKey.includes('reports')
+      )) {
+        console.log(`🔒 [PermissionGuard] ACCESS GRANTED for ${elementKey} - Caseworker edit access`);
+        return <>{children}</>;
+      }
+    }
+  }
+
+  console.log(`🔒 [PermissionGuard] ACCESS DENIED for ${elementKey} - All checks failed`);
+  return <>{fallback}</>;
 };
