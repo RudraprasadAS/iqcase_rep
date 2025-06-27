@@ -47,6 +47,7 @@ export const usePermissionCheck = (elementKey: string, permissionType: 'view' | 
             'reports.edit_report',
             'reports.view_report',
             'reports.delete_report',
+            'reports.report_builder', // Add report builder access
             'knowledge',
             'insights'
           ];
