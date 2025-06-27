@@ -1,4 +1,3 @@
-
 import { NavLink } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { 
@@ -44,9 +43,9 @@ const navigation = [
 ];
 
 const reportNavigation = [
-  { name: 'Reports', href: '/reports', module: 'reports' },
-  { name: 'Report Builder', href: '/reports/builder', module: 'reports' },
-  { name: 'Dashboards', href: '/dashboards', module: 'reports' },
+  { name: 'Reports', href: '/analytics/reports', module: 'reports' },
+  { name: 'Report Builder', href: '/analytics/builder', module: 'reports' },
+  { name: 'Dashboards', href: '/analytics/dashboards', module: 'dashboards' },
 ];
 
 const adminNavigation = [

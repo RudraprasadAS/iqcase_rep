@@ -131,7 +131,33 @@ function App() {
                     } 
                   />
                   
-                  {/* Analytics */}
+                  {/* Analytics - Separate routes for different user types */}
+                  <Route 
+                    path="/analytics/reports" 
+                    element={
+                      <ProtectedRoute module="reports">
+                        <Reports />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/analytics/builder" 
+                    element={
+                      <ProtectedRoute module="reports" screen="report_builder">
+                        <ReportBuilder />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/analytics/dashboards" 
+                    element={
+                      <ProtectedRoute module="dashboards">
+                        <Dashboards />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  
+                  {/* Legacy routes for backward compatibility */}
                   <Route 
                     path="/reports" 
                     element={
