@@ -26,7 +26,10 @@ const Notifications = () => {
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const filteredNotifications = notifications.filter(notification => {
+  // Ensure notifications is always an array
+  const notificationsArray = Array.isArray(notifications) ? notifications : [];
+
+  const filteredNotifications = notificationsArray.filter(notification => {
     // Filter by read status
     if (filter === 'unread' && notification.is_read) return false;
     if (filter === 'read' && !notification.is_read) return false;
@@ -110,7 +113,7 @@ const Notifications = () => {
     }
   };
 
-  const uniqueTypes = [...new Set(notifications.map(n => n.notification_type))];
+  const uniqueTypes = [...new Set(notificationsArray.map(n => n.notification_type))];
 
   if (loading) {
     return (
@@ -177,13 +180,13 @@ const Notifications = () => {
       <Tabs value={filter} onValueChange={(value: any) => setFilter(value)}>
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="all">
-            All ({notifications.length})
+            All ({notificationsArray.length})
           </TabsTrigger>
           <TabsTrigger value="unread">
             Unread ({unreadCount})
           </TabsTrigger>
           <TabsTrigger value="read">
-            Read ({notifications.length - unreadCount})
+            Read ({notificationsArray.length - unreadCount})
           </TabsTrigger>
         </TabsList>
 
