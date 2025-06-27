@@ -57,6 +57,14 @@ const NotificationBell = () => {
     setIsOpen(false);
   };
 
+  const handleMarkAllAsRead = () => {
+    markAllAsRead();
+  };
+
+  const handleDeleteNotification = (notificationId: string) => {
+    deleteNotification(notificationId);
+  };
+
   const getNotificationIcon = (type: string) => {
     switch (type) {
       case 'case_assignment':
@@ -94,7 +102,7 @@ const NotificationBell = () => {
             <Button
               variant="ghost"
               size="sm"
-              onClick={markAllAsRead}
+              onClick={handleMarkAllAsRead}
               className="text-xs"
             >
               <Check className="h-3 w-3 mr-1" />
@@ -135,7 +143,7 @@ const NotificationBell = () => {
                       className="h-4 w-4 p-0 opacity-50 hover:opacity-100"
                       onClick={(e) => {
                         e.stopPropagation();
-                        deleteNotification(notification.id);
+                        handleDeleteNotification(notification.id);
                       }}
                     >
                       <X className="h-3 w-3" />

@@ -132,6 +132,39 @@ export const useNotifications = () => {
     },
   });
 
+  // Delete notification
+  const deleteNotificationMutation = useMutation({
+    mutationFn: async (notificationId: string) => {
+      console.log('🔔 [useNotifications] Deleting notification:', notificationId);
+      
+      const { error } = await supabase
+        .from("notifications")
+        .delete()
+        .eq("id", notificationId)
+        .eq("user_id", currentUserData?.user_id);
+
+      if (error) {
+        console.error('🔔 [useNotifications] Error deleting notification:', error);
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      toast({
+        title: "Success",
+        description: "Notification deleted",
+      });
+    },
+    onError: (error) => {
+      console.error('🔔 [useNotifications] Failed to delete notification:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete notification",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Calculate unread count
   const unreadCount = notifications.filter(n => !n.is_read).length;
   
@@ -155,10 +188,12 @@ export const useNotifications = () => {
     recentNotifications,
     unreadCount,
     isLoading,
+    loading: isLoading, // Add alias for backward compatibility
     isOpen,
     setIsOpen,
     markAsRead: markAsReadMutation.mutate,
     markAllAsRead: markAllAsReadMutation.mutate,
+    deleteNotification: deleteNotificationMutation.mutate,
     refetch,
     isMarkingAsRead: markAsReadMutation.isPending,
     isMarkingAllAsRead: markAllAsReadMutation.isPending,

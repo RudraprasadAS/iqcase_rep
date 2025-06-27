@@ -72,6 +72,14 @@ const Notifications = () => {
     }
   };
 
+  const handleMarkAllAsRead = () => {
+    markAllAsRead();
+  };
+
+  const handleDeleteNotification = (notificationId: string) => {
+    deleteNotification(notificationId);
+  };
+
   const getNotificationIcon = (type: string) => {
     switch (type) {
       case 'case_assignment':
@@ -125,7 +133,7 @@ const Notifications = () => {
           </p>
         </div>
         {unreadCount > 0 && (
-          <Button onClick={markAllAsRead} className="bg-blue-600 hover:bg-blue-700">
+          <Button onClick={handleMarkAllAsRead} className="bg-blue-600 hover:bg-blue-700">
             <CheckCheck className="h-4 w-4 mr-2" />
             Mark All Read ({unreadCount})
           </Button>
@@ -249,7 +257,7 @@ const Notifications = () => {
                               size="sm"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                deleteNotification(notification.id);
+                                handleDeleteNotification(notification.id);
                               }}
                             >
                               <Trash2 className="h-4 w-4" />
