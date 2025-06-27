@@ -23,54 +23,86 @@ export const useDashboardLayout = (dashboardId: string) => {
   const queryClient = useQueryClient();
   const [isEditMode, setIsEditMode] = useState(false);
 
+  // Get current user's internal ID for proper database access
+  const { data: currentUserData } = useQuery({
+    queryKey: ["current_user_info"],
+    queryFn: async () => {
+      console.log('📊 [useDashboardLayout] Fetching current user info...');
+      const { data, error } = await supabase.rpc('get_current_user_info');
+      if (error) {
+        console.error('📊 [useDashboardLayout] Error fetching user info:', error);
+        throw error;
+      }
+      const result = data?.[0];
+      console.log('📊 [useDashboardLayout] Current user info:', result);
+      return result;
+    },
+    enabled: !!user
+  });
+
   // Fetch saved layout
   const { data: savedLayout, isLoading } = useQuery({
-    queryKey: ['dashboard-layout', user?.id, dashboardId],
+    queryKey: ['dashboard-layout', currentUserData?.user_id, dashboardId],
     queryFn: async () => {
-      if (!user?.id) return null;
+      if (!currentUserData?.user_id) {
+        console.log('📊 [useDashboardLayout] No user ID available');
+        return null;
+      }
+      
+      console.log('📊 [useDashboardLayout] Fetching layout for user:', currentUserData.user_id, 'dashboard:', dashboardId);
       
       const { data, error } = await supabase
         .from('dashboard_layouts')
         .select('layout_data')
-        .eq('user_id', user.id)
+        .eq('user_id', currentUserData.user_id)
         .eq('dashboard_id', dashboardId)
         .maybeSingle();
       
       if (error) {
-        console.error('Error fetching layout:', error);
+        console.error('📊 [useDashboardLayout] Error fetching layout:', error);
         return null;
       }
       
+      console.log('📊 [useDashboardLayout] Fetched layout:', data);
       return data?.layout_data ? (data.layout_data as unknown as LayoutItem[]) : null;
     },
-    enabled: !!user?.id
+    enabled: !!currentUserData?.user_id
   });
 
   // Save layout mutation
   const saveLayoutMutation = useMutation({
     mutationFn: async (layout: LayoutItem[]) => {
-      if (!user?.id) throw new Error('User not authenticated');
+      if (!currentUserData?.user_id) {
+        throw new Error('User not authenticated or user ID not available');
+      }
+      
+      console.log('📊 [useDashboardLayout] Saving layout for user:', currentUserData.user_id, 'layout:', layout);
       
       const { error } = await supabase
         .from('dashboard_layouts')
         .upsert({
-          user_id: user.id,
+          user_id: currentUserData.user_id,
           dashboard_id: dashboardId,
           layout_data: layout as any
         });
       
-      if (error) throw error;
+      if (error) {
+        console.error('📊 [useDashboardLayout] Error saving layout:', error);
+        throw error;
+      }
+      
+      console.log('📊 [useDashboardLayout] Layout saved successfully');
       return layout;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dashboard-layout', user?.id, dashboardId] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-layout', currentUserData?.user_id, dashboardId] });
       toast({
         title: 'Layout saved',
         description: 'Your dashboard layout has been saved successfully'
       });
     },
     onError: (error) => {
-      console.error('Error saving layout:', error);
+      console.error('📊 [useDashboardLayout] Error saving layout:', error);
       toast({
         variant: 'destructive',
         title: 'Error',
@@ -80,6 +112,14 @@ export const useDashboardLayout = (dashboardId: string) => {
   });
 
   const saveLayout = (layout: LayoutItem[]) => {
+    if (!currentUserData?.user_id) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Unable to save layout - user not authenticated'
+      });
+      return;
+    }
     saveLayoutMutation.mutate(layout);
   };
 

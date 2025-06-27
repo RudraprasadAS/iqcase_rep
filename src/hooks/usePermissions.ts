@@ -61,6 +61,7 @@ export const usePermissions = (selectedRoleId: string, permissions?: any[], role
     onSuccess: () => {
       console.log("[usePermissions] Save mutation succeeded, invalidating queries and resetting state");
       queryClient.invalidateQueries({ queryKey: ["permissions", selectedRoleId] });
+      queryClient.invalidateQueries({ queryKey: ["permissions"] });
       toast({
         title: "Permissions saved",
         description: `All permission changes have been saved successfully.`
@@ -87,16 +88,18 @@ export const usePermissions = (selectedRoleId: string, permissions?: any[], role
 
   // Find frontend registry entry by element key
   const findRegistryEntry = (elementKey: string, fieldName?: string | null) => {
-    if (!frontendElements) return null;
+    if (!frontendElements) {
+      console.warn(`🔍 [usePermissions] No frontend elements available`);
+      return null;
+    }
     
     const fullKey = fieldName ? `${elementKey}.${fieldName}` : elementKey;
     
     const entry = frontendElements.find(entry => entry.element_key === fullKey);
     
-    // Debug logging for admin modules
-    if (elementKey.includes('management') || elementKey.includes('admin')) {
-      console.log(`🔍 [usePermissions] Looking for registry entry: ${fullKey}, found:`, entry);
-    }
+    console.log(`🔍 [usePermissions] Looking for registry entry: "${fullKey}"`);
+    console.log(`🔍 [usePermissions] Available entries:`, frontendElements.map(e => e.element_key));
+    console.log(`🔍 [usePermissions] Found entry:`, entry);
     
     return entry;
   };
@@ -126,6 +129,11 @@ export const usePermissions = (selectedRoleId: string, permissions?: any[], role
     const registryEntry = findRegistryEntry(elementKey, fieldName);
     if (!registryEntry) {
       console.error(`[usePermissions] Frontend registry entry not found for: ${elementKey}${fieldName ? '.' + fieldName : ''}`);
+      toast({
+        title: "Error",
+        description: `Could not find registry entry for ${elementKey}${fieldName ? '.' + fieldName : ''}`,
+        variant: "destructive"
+      });
       return;
     }
 
@@ -302,7 +310,7 @@ export const usePermissions = (selectedRoleId: string, permissions?: any[], role
     }
   };
 
-  // Get effective permission for frontend elements
+  // Get effective permission for frontend elements - FIXED VERSION
   const getEffectivePermission = (
     roleId: string,
     elementKey: string,
@@ -311,12 +319,15 @@ export const usePermissions = (selectedRoleId: string, permissions?: any[], role
   ): boolean => {
     // For system roles, return true for all permissions
     const role = roles?.find(r => r.id === roleId);
-    if (role?.is_system === true) return true;
+    if (role?.is_system === true) {
+      console.log(`🔍 [usePermissions] System role ${role.name} - granting all permissions`);
+      return true;
+    }
 
     // Find the frontend registry entry
     const registryEntry = findRegistryEntry(elementKey, fieldName);
     if (!registryEntry) {
-      console.warn(`🔍 [usePermissions] No registry entry found for ${elementKey}${fieldName ? '.' + fieldName : ''}`);
+      console.warn(`🔍 [usePermissions] No registry entry found for ${elementKey}${fieldName ? '.' + fieldName : ''} - denying access`);
       return false;
     }
 
@@ -327,9 +338,7 @@ export const usePermissions = (selectedRoleId: string, permissions?: any[], role
 
     if (unsavedChange) {
       const result = type === 'view' ? unsavedChange.canView : unsavedChange.canEdit;
-      if (elementKey.includes('management')) {
-        console.log(`🔍 [usePermissions] Found unsaved change for ${elementKey}${fieldName ? '.' + fieldName : ''} (${type}): ${result}`);
-      }
+      console.log(`🔍 [usePermissions] Found unsaved change for ${elementKey}${fieldName ? '.' + fieldName : ''} (${type}): ${result}`);
       return result;
     }
 
@@ -340,16 +349,12 @@ export const usePermissions = (selectedRoleId: string, permissions?: any[], role
 
     if (savedPermission) {
       const result = type === 'view' ? savedPermission.can_view : savedPermission.can_edit;
-      if (elementKey.includes('management')) {
-        console.log(`🔍 [usePermissions] Found saved permission for ${elementKey}${fieldName ? '.' + fieldName : ''} (${type}): ${result}`);
-      }
+      console.log(`🔍 [usePermissions] Found saved permission for ${elementKey}${fieldName ? '.' + fieldName : ''} (${type}): ${result} (registry ID: ${registryEntry.id})`);
       return result;
     }
 
     // Default to false if no permission is found
-    if (elementKey.includes('management')) {
-      console.log(`🔍 [usePermissions] No permission found for ${elementKey}${fieldName ? '.' + fieldName : ''} (${type}), defaulting to false`);
-    }
+    console.log(`🔍 [usePermissions] No permission found for ${elementKey}${fieldName ? '.' + fieldName : ''} (${type}) - defaulting to false`);
     return false;
   };
 
@@ -383,16 +388,28 @@ export const usePermissions = (selectedRoleId: string, permissions?: any[], role
     if (permissions && selectedRoleId) {
       console.log(`[usePermissions] Permissions fetched from database for role ${selectedRoleId}:`, permissions);
       
-      // Debug admin permissions specifically
+      // Debug specific permissions
       const role = roles?.find(r => r.id === selectedRoleId);
-      if (role?.name === 'caseworker') {
-        const adminPermissions = permissions.filter(p => 
-          p.frontend_registry?.element_key?.includes('management')
-        );
-        console.log(`🔍 [usePermissions] Admin permissions for caseworker:`, adminPermissions);
+      console.log(`🔍 [usePermissions] Role details:`, role);
+      
+      if (permissions.length > 0) {
+        console.log(`🔍 [usePermissions] Permission details:`, permissions.map(p => ({
+          registry_id: p.frontend_registry_id,
+          element_key: p.frontend_registry?.element_key,
+          can_view: p.can_view,
+          can_edit: p.can_edit
+        })));
       }
     }
   }, [permissions, selectedRoleId, roles]);
+
+  // Reset unsaved changes when role changes
+  useEffect(() => {
+    if (selectedRoleId) {
+      setUnsavedChanges([]);
+      setHasUnsavedChanges(false);
+    }
+  }, [selectedRoleId]);
 
   return {
     unsavedChanges,
