@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -309,7 +308,7 @@ export const usePermissions = (selectedRoleId: string, permissions?: any[], role
     }
   };
 
-  // FIXED: Get effective permission - now properly checks database
+  // FIXED: Get effective permission - now properly checks database without system role bypass
   const getEffectivePermission = (
     roleId: string,
     elementKey: string,
@@ -325,11 +324,7 @@ export const usePermissions = (selectedRoleId: string, permissions?: any[], role
       return false;
     }
     
-    // For system roles, return true for all permissions
-    if (role.is_system === true) {
-      console.log(`🔍 [getEffectivePermission] System role ${role.name} - granting all permissions`);
-      return true;
-    }
+    console.log(`🔍 [getEffectivePermission] Role found: ${role.name}, is_system: ${role.is_system}`);
 
     // Find the frontend registry entry
     const registryEntry = findRegistryEntry(elementKey, fieldName);
@@ -349,7 +344,7 @@ export const usePermissions = (selectedRoleId: string, permissions?: any[], role
       return result;
     }
 
-    // Check for saved permissions in database - THIS IS THE KEY FIX
+    // Check for saved permissions in database - CRITICAL: This is the main fix
     const savedPermission = permissions?.find(
       p => p.role_id === roleId && p.frontend_registry_id === registryEntry.id
     );
@@ -360,8 +355,17 @@ export const usePermissions = (selectedRoleId: string, permissions?: any[], role
       return result;
     }
 
-    // IMPORTANT: For non-system roles, default to FALSE if no permission found
-    console.log(`🔍 [getEffectivePermission] No permission found for non-system role ${role.name} - defaulting to FALSE`);
+    // CRITICAL FIX: For system roles, check if they should have default permissions
+    // But still return based on what's actually in the database
+    if (role.is_system === true) {
+      console.log(`🔍 [getEffectivePermission] System role ${role.name} with no explicit permission - should this be granted by default?`);
+      // System roles should have permissions explicitly set in the database
+      // If not found, return false to show the issue
+      return false;
+    }
+
+    // For non-system roles, default to FALSE if no permission found
+    console.log(`🔍 [getEffectivePermission] No permission found for role ${role.name} - defaulting to FALSE`);
     return false;
   };
 

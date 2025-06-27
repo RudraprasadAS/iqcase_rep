@@ -1,72 +1,64 @@
 
-import { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/useAuth";
-
-export interface Notification {
-  id: string;
-  title: string;
-  message: string;
-  notification_type: string;
-  is_read: boolean;
-  created_at: string;
-  case_id?: string;
-  user_id: string;
-}
+import { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
 
 export const useNotifications = () => {
-  const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [isOpen, setIsOpen] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [loading, setLoading] = useState(true);
 
-  // Get current user's internal ID for proper notification access
-  const { data: currentUserData } = useQuery({
-    queryKey: ["current_user_info"],
+  // Fetch notifications with proper backend filtering
+  const { data: notificationsData, isLoading } = useQuery({
+    queryKey: ['notifications'],
     queryFn: async () => {
-      console.log('🔔 [useNotifications] Fetching current user info...');
-      const { data, error } = await supabase.rpc('get_current_user_info');
-      if (error) {
-        console.error('🔔 [useNotifications] Error fetching user info:', error);
+      console.log('🔔 [useNotifications] Fetching notifications from backend');
+      
+      try {
+        // Let the backend handle all filtering based on RLS policies
+        const { data, error } = await supabase
+          .from('notifications')
+          .select(`
+            id,
+            title,
+            message,
+            notification_type,
+            is_read,
+            case_id,
+            user_id,
+            created_at,
+            updated_at
+          `)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('🔔 [useNotifications] Error fetching notifications:', error);
+          throw error;
+        }
+
+        console.log('🔔 [useNotifications] Notifications fetched:', data?.length || 0);
+        return data || [];
+      } catch (error) {
+        console.error('🔔 [useNotifications] Exception fetching notifications:', error);
         throw error;
       }
-      const result = data?.[0];
-      console.log('🔔 [useNotifications] Current user info:', result);
-      return result;
     },
-    enabled: !!user
-  });
-
-  // Fetch notifications for the current user
-  const { data: notifications = [], isLoading, refetch } = useQuery({
-    queryKey: ["notifications", currentUserData?.user_id],
-    queryFn: async () => {
-      if (!currentUserData?.user_id) {
-        console.log('🔔 [useNotifications] No user ID available, returning empty notifications');
-        return [];
-      }
-      
-      console.log('🔔 [useNotifications] Fetching notifications for user:', currentUserData.user_id);
-      
-      const { data, error } = await supabase
-        .from("notifications")
-        .select("*")
-        .eq("user_id", currentUserData.user_id)
-        .order("created_at", { ascending: false })
-        .limit(50);
-
-      if (error) {
-        console.error('🔔 [useNotifications] Error fetching notifications:', error);
-        throw error;
-      }
-
-      console.log('🔔 [useNotifications] Fetched notifications:', data?.length || 0);
-      return data || [];
-    },
-    enabled: !!currentUserData?.user_id,
     refetchInterval: 30000, // Refetch every 30 seconds
   });
+
+  // Update local state when data changes
+  useEffect(() => {
+    if (notificationsData) {
+      console.log('🔔 [useNotifications] Updating local state with notifications:', notificationsData.length);
+      setNotifications(notificationsData);
+      const unread = notificationsData.filter(n => !n.is_read).length;
+      setUnreadCount(unread);
+      console.log('🔔 [useNotifications] Unread count:', unread);
+    }
+    setLoading(isLoading);
+  }, [notificationsData, isLoading]);
 
   // Mark notification as read
   const markAsReadMutation = useMutation({
@@ -74,62 +66,58 @@ export const useNotifications = () => {
       console.log('🔔 [useNotifications] Marking notification as read:', notificationId);
       
       const { error } = await supabase
-        .from("notifications")
-        .update({ is_read: true })
-        .eq("id", notificationId)
-        .eq("user_id", currentUserData?.user_id);
-
+        .from('notifications')
+        .update({ is_read: true, updated_at: new Date().toISOString() })
+        .eq('id', notificationId);
+        
       if (error) {
-        console.error('🔔 [useNotifications] Error marking notification as read:', error);
+        console.error('🔔 [useNotifications] Error marking as read:', error);
         throw error;
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
     onError: (error) => {
-      console.error('🔔 [useNotifications] Failed to mark notification as read:', error);
+      console.error('🔔 [useNotifications] Failed to mark as read:', error);
       toast({
         title: "Error",
         description: "Failed to mark notification as read",
-        variant: "destructive",
+        variant: "destructive"
       });
-    },
+    }
   });
 
   // Mark all notifications as read
   const markAllAsReadMutation = useMutation({
     mutationFn: async () => {
-      if (!currentUserData?.user_id) return;
-      
-      console.log('🔔 [useNotifications] Marking all notifications as read for user:', currentUserData.user_id);
+      console.log('🔔 [useNotifications] Marking all notifications as read');
       
       const { error } = await supabase
-        .from("notifications")
-        .update({ is_read: true })
-        .eq("user_id", currentUserData.user_id)
-        .eq("is_read", false);
-
+        .from('notifications')
+        .update({ is_read: true, updated_at: new Date().toISOString() })
+        .eq('is_read', false);
+        
       if (error) {
-        console.error('🔔 [useNotifications] Error marking all notifications as read:', error);
+        console.error('🔔 [useNotifications] Error marking all as read:', error);
         throw error;
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
       toast({
         title: "Success",
-        description: "All notifications marked as read",
+        description: "All notifications marked as read"
       });
     },
     onError: (error) => {
-      console.error('🔔 [useNotifications] Failed to mark all notifications as read:', error);
+      console.error('🔔 [useNotifications] Failed to mark all as read:', error);
       toast({
         title: "Error",
-        description: "Failed to mark notifications as read",
-        variant: "destructive",
+        description: "Failed to mark all notifications as read",
+        variant: "destructive"
       });
-    },
+    }
   });
 
   // Delete notification
@@ -138,21 +126,20 @@ export const useNotifications = () => {
       console.log('🔔 [useNotifications] Deleting notification:', notificationId);
       
       const { error } = await supabase
-        .from("notifications")
+        .from('notifications')
         .delete()
-        .eq("id", notificationId)
-        .eq("user_id", currentUserData?.user_id);
-
+        .eq('id', notificationId);
+        
       if (error) {
         console.error('🔔 [useNotifications] Error deleting notification:', error);
         throw error;
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
       toast({
         title: "Success",
-        description: "Notification deleted",
+        description: "Notification deleted"
       });
     },
     onError: (error) => {
@@ -160,42 +147,30 @@ export const useNotifications = () => {
       toast({
         title: "Error",
         description: "Failed to delete notification",
-        variant: "destructive",
+        variant: "destructive"
       });
-    },
+    }
   });
 
-  // Calculate unread count
-  const unreadCount = notifications.filter(n => !n.is_read).length;
-  
-  // Get recent notifications (last 5)
-  const recentNotifications = notifications.slice(0, 5);
+  const markAsRead = (notificationId: string) => {
+    markAsReadMutation.mutate(notificationId);
+  };
 
-  // Debug logging
-  useEffect(() => {
-    console.log('🔔 [useNotifications] Notification state update:', {
-      userDataAvailable: !!currentUserData,
-      userId: currentUserData?.user_id,
-      totalNotifications: notifications.length,
-      unreadCount,
-      recentCount: recentNotifications.length,
-      isLoading
-    });
-  }, [notifications, unreadCount, recentNotifications.length, isLoading, currentUserData]);
+  const markAllAsRead = () => {
+    markAllAsReadMutation.mutate();
+  };
+
+  const deleteNotification = (notificationId: string) => {
+    deleteNotificationMutation.mutate(notificationId);
+  };
 
   return {
     notifications,
-    recentNotifications,
     unreadCount,
-    isLoading,
-    loading: isLoading, // Add alias for backward compatibility
-    isOpen,
-    setIsOpen,
-    markAsRead: markAsReadMutation.mutate,
-    markAllAsRead: markAllAsReadMutation.mutate,
-    deleteNotification: deleteNotificationMutation.mutate,
-    refetch,
-    isMarkingAsRead: markAsReadMutation.isPending,
-    isMarkingAllAsRead: markAllAsReadMutation.isPending,
+    loading: loading || isLoading,
+    markAsRead,
+    markAllAsRead,
+    deleteNotification,
+    refetch: () => queryClient.invalidateQueries({ queryKey: ['notifications'] })
   };
 };

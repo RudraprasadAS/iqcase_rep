@@ -27,7 +27,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   );
 
   console.log(`🔒 [PermissionGuard] Checking ${elementKey} (${permissionType}) for user:`, userInfo?.role?.name);
-  console.log(`🔒 [PermissionGuard] Has permission:`, hasPermission, 'Loading:', isLoading, 'Error:', error);
+  console.log(`🔒 [PermissionGuard] Backend permission result:`, hasPermission, 'Loading:', isLoading, 'Error:', error);
 
   if (isLoading || roleLoading) {
     console.log(`🔒 [PermissionGuard] Still loading permissions for ${elementKey}`);
@@ -46,12 +46,13 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     );
   }
 
-  // IMPORTANT: Only grant access if permission is explicitly TRUE
+  // CRITICAL: Rely ONLY on backend permission check result
+  // No frontend role-based logic here
   if (!hasPermission) {
-    console.log(`🔒 [PermissionGuard] ACCESS DENIED for ${elementKey} - User: ${userInfo?.role?.name}`);
+    console.log(`🔒 [PermissionGuard] ACCESS DENIED for ${elementKey} - Backend returned false`);
     return <>{fallback}</>;
   }
 
-  console.log(`🔒 [PermissionGuard] ACCESS GRANTED for ${elementKey} - User: ${userInfo?.role?.name}`);
+  console.log(`🔒 [PermissionGuard] ACCESS GRANTED for ${elementKey} - Backend returned true`);
   return <>{children}</>;
 };
