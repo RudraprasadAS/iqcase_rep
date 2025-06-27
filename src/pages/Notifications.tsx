@@ -208,7 +208,7 @@ const Notifications = () => {
                   <CardTitle className="text-lg">{date}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  {dateNotifications.map((notification) => (
+                  {Array.isArray(dateNotifications) && dateNotifications.map((notification) => (
                     <div
                       key={notification.id}
                       className={`flex items-start space-x-4 p-4 rounded-lg border cursor-pointer hover:bg-gray-50 transition-colors ${
