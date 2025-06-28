@@ -101,20 +101,22 @@ export const ChartConfiguration = ({
         const isSelected = chartConfig.type === type.value;
 
         return (
-          <Button
-            key={type.value}
-            variant={isSelected ? 'default' : 'outline'}
-            className={`h-auto p-3 flex flex-col items-center gap-2 text-wrap text-pretty ${
-              isSelected ? 'bg-primary text-white' : 'bg-background text-foreground'
-            }`}
-            onClick={() => updateChartConfig({ type: type.value as ChartConfig['type'] })}
-          >
-            <Icon className="h-5 w-5" />
-            <div className="text-center break-words">
-              <div className="font-medium text-xs">{type.label}</div>
-              <div className="text-xs text-muted-foreground">{type.description}</div>
-            </div>
-          </Button>
+<Button
+  key={type.value}
+  variant="outline"
+  className={`h-auto p-3 flex flex-col items-center gap-2 rounded-md border 
+    ${chartConfig.type === type.value 
+      ? 'bg-gray-100 text-foreground border-gray-400' 
+      : 'bg-white text-foreground hover:bg-gray-50'}`}
+  onClick={() => updateChartConfig({ type: type.value as ChartConfig['type'] })}
+>
+  <Icon className="h-5 w-5" />
+  <div className="text-center break-words">
+    <div className="font-medium text-xs">{type.label}</div>
+    <div className="text-xs text-muted-foreground">{type.description}</div>
+  </div>
+</Button>
+
         );
       })}
     </div>
