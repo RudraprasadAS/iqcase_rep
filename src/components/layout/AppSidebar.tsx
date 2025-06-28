@@ -94,17 +94,19 @@ export function AppSidebar() {
                 <AccessControl key={item.name} module={item.module} type="can_view" fallback={null}>
                   <SidebarMenuItem>
                     <SidebarMenuButton asChild tooltip={item.name}>
-                    <NavLink
-                      to={item.href}
-                      className={({ isActive }) =>
-                        cn(
-                          "flex items-center gap-2 px-3 py-2 rounded-md transition-colors",
-                          isActive
-                            ? "bg-gray-200 text-black font-medium"
-                            : "text-muted-foreground hover:bg-gray-100"
-                        )
-                      }
-                    >
+<NavLink
+  to={item.href}
+  end={false} // ensures highlighting on nested routes like /cases/123
+  className={({ isActive }) =>
+    cn(
+      "flex items-center gap-2 px-3 py-2 rounded-md transition-colors w-full",
+      isActive
+        ? "bg-gray-200 text-black font-semibold border-l-4 border-blue-600"
+        : "text-muted-foreground hover:bg-gray-100"
+    )
+  }
+>
+
 
                         <item.icon />
                         <span>{item.name}</span>
