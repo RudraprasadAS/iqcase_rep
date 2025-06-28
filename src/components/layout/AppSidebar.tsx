@@ -96,9 +96,13 @@ export function AppSidebar() {
                     <SidebarMenuButton asChild tooltip={item.name}>
                       <NavLink
                         to={item.href}
-                        className={({ isActive }) =>
-                          cn(isActive && "bg-blue-100 text-blue-900")
-                        }
+                      className={({ isActive }) =>
+                        cn(
+                          "flex items-center gap-2 px-3 py-2 rounded-md transition-colors hover:bg-gray-100",
+                          isActive ? "bg-gray-200 text-black font-medium" : "text-muted-foreground"
+                        )
+                      }
+
                       >
                         <item.icon />
                         <span>{item.name}</span>
