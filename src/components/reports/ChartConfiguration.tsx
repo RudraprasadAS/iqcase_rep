@@ -99,26 +99,18 @@ export const ChartConfiguration = ({
             {chartTypes.map((type) => {
               const Icon = type.icon;
               return (
-<Button
-  key={type.value}
-  variant="ghost"
-  className={cn(
-    "h-auto p-3 flex flex-col items-center gap-2 rounded-md border text-xs text-center transition-all duration-150 w-full",
-    chartConfig.type === type.value
-      ? "bg-primary/10 text-primary border-primary"
-      : "bg-background hover:bg-muted text-muted-foreground"
-  )}
-  onClick={() => updateChartConfig({ type: type.value as ChartConfig['type'] })}
->
-  <Icon className="h-5 w-5" />
-  <div className="flex flex-col items-center justify-center px-1 text-xs leading-tight">
-    <span className="font-medium">{type.label}</span>
-    <span className="text-muted-foreground text-[11px] break-words text-center">
-      {type.description}
-    </span>
-  </div>
-</Button>
-
+                <Button
+                  key={type.value}
+                  variant={chartConfig.type === type.value ? 'default' : 'outline'}
+                  className="h-auto p-3 flex flex-col items-center gap-2"
+                  onClick={() => updateChartConfig({ type: type.value as ChartConfig['type'] })}
+                >
+                  <Icon className="h-5 w-5" />
+                  <div className="text-center">
+                    <div className="font-medium text-xs">{type.label}</div>
+                    <div className="text-xs text-muted-foreground">{type.description}</div>
+                  </div>
+                </Button>
               );
             })}
           </div>
