@@ -111,10 +111,12 @@ export const ChartConfiguration = ({
   onClick={() => updateChartConfig({ type: type.value as ChartConfig['type'] })}
 >
   <Icon className="h-5 w-5" />
-  <div className="text-center break-words">
-    <div className="font-medium text-xs">{type.label}</div>
-    <div className="text-xs text-muted-foreground">{type.description}</div>
+  <div className="text-center w-full overflow-hidden text-ellipsis break-words">
+  <div className="font-medium text-xs leading-tight">{type.label}</div>
+  <div className="text-xs text-muted-foreground leading-snug break-words">
+    {type.description}
   </div>
+</div>
 </Button>
 
         );
