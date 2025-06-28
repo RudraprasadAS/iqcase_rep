@@ -90,32 +90,37 @@ export const ChartConfiguration = ({
       <h3 className="text-sm font-medium">Chart Configuration</h3>
       
       {/* Chart Type Selection */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm">Visualization Type</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-3">
-            {chartTypes.map((type) => {
-              const Icon = type.icon;
-              return (
-                <Button
-                  key={type.value}
-                  variant={chartConfig.type === type.value ? 'default' : 'outline'}
-                  className="h-auto p-3 flex flex-col items-center gap-2"
-                  onClick={() => updateChartConfig({ type: type.value as ChartConfig['type'] })}
-                >
-                  <Icon className="h-5 w-5" />
-                  <div className="text-center">
-                    <div className="font-medium text-xs">{type.label}</div>
-                    <div className="text-xs text-muted-foreground">{type.description}</div>
-                  </div>
-                </Button>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+<Card>
+  <CardHeader>
+    <CardTitle className="text-sm">Visualization Type</CardTitle>
+  </CardHeader>
+  <CardContent>
+    <div className="grid grid-cols-2 gap-3">
+      {chartTypes.map((type) => {
+        const Icon = type.icon;
+        const isSelected = chartConfig.type === type.value;
+
+        return (
+          <Button
+            key={type.value}
+            variant={isSelected ? 'default' : 'outline'}
+            className={`h-auto p-3 flex flex-col items-center gap-2 text-wrap text-pretty ${
+              isSelected ? 'bg-primary text-white' : 'bg-background text-foreground'
+            }`}
+            onClick={() => updateChartConfig({ type: type.value as ChartConfig['type'] })}
+          >
+            <Icon className="h-5 w-5" />
+            <div className="text-center break-words">
+              <div className="font-medium text-xs">{type.label}</div>
+              <div className="text-xs text-muted-foreground">{type.description}</div>
+            </div>
+          </Button>
+        );
+      })}
+    </div>
+  </CardContent>
+</Card>
+
 
       {/* Axis Configuration */}
       {requiresAxes && (
