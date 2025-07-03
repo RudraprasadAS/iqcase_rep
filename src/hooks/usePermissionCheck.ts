@@ -40,6 +40,7 @@ export const usePermissionCheck = (elementKey: string, permissionType: 'view' | 
             'cases.edit_case',
             'cases.assign_case',
             'cases.view_details',
+            'cases.case_detail', // Add case detail page access
             'notifications',
             'notifications.mark_read',
             'reports',
