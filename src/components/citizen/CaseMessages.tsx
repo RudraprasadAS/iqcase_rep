@@ -78,9 +78,13 @@ const CaseMessages = ({ messages, caseId, onMessagesUpdated }: CaseMessagesProps
   });
 
   const getMessageAttachments = (messageId: string, messageCreatedAt: string) => {
-    // For now, return empty array to prevent showing attachments on all messages
-    // This is a temporary fix until we have proper message-attachment linking
-    return [];
+    // Get attachments created within 2 minutes of the message
+    const messageTime = new Date(messageCreatedAt).getTime();
+    return messageAttachments.filter(attachment => {
+      const attachmentTime = new Date(attachment.created_at).getTime();
+      const timeDiff = Math.abs(attachmentTime - messageTime);
+      return timeDiff <= 2 * 60 * 1000; // 2 minutes in milliseconds
+    });
   };
 
   const formatDateTime = (dateString: string) => {

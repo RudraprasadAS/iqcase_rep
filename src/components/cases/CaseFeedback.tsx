@@ -161,7 +161,7 @@ const CaseFeedback = ({ caseId, caseTitle, caseStatus, isInternal = true }: Case
       console.log('✅ Internal user data:', userData);
 
       // Only external/citizen users should be able to submit feedback
-      if (userData.user_type !== 'external') {
+      if (userData.user_type !== 'external' && userData.user_type !== 'public') {
         console.log('❌ User is internal, cannot submit feedback. User type:', userData.user_type);
         setCanSubmitFeedback(false);
         return;
@@ -212,7 +212,7 @@ const CaseFeedback = ({ caseId, caseTitle, caseStatus, isInternal = true }: Case
       const canSubmit = !hasAlreadySubmittedFeedback;
       
       console.log('🎯 Final eligibility check:');
-      console.log('   - Is external user:', userData.user_type === 'external');
+      console.log('   - Is external/public user:', userData.user_type === 'external' || userData.user_type === 'public');
       console.log('   - Case is closed/resolved:', isCaseClosed);
       console.log('   - User submitted case:', caseData.submitted_by === userData.id);
       console.log('   - Already has feedback:', hasAlreadySubmittedFeedback);

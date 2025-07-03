@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { notifyExternalUserOfCaseUpdate } from './externalNotificationUtils';
+import { notifyRelevantUsers } from './notifications/activityNotifications';
 
 // Helper function to get current user's internal ID
 const getCurrentInternalUserId = async () => {
@@ -258,6 +259,9 @@ export const logMessageAdded = async (caseId: string, message: string, isInterna
       throw error;
     }
 
+    // Notify relevant users about the message
+    await notifyRelevantUsers(caseId, 'message_added', `New ${isInternal ? 'internal ' : ''}message added`, userId, userId);
+
     // If it's not an internal message, notify external user
     if (!isInternal) {
       const { data: caseData } = await supabase
@@ -323,6 +327,9 @@ export const logTaskCreated = async (caseId: string, taskName: string, assignedT
       throw error;
     }
 
+    // Notify relevant users about the new task
+    await notifyRelevantUsers(caseId, 'task_created', description, performedBy, performedBy);
+    
     console.log('📋 Task created activity logged successfully');
   } catch (error) {
     console.error('📋 Exception in logTaskCreated:', error);
@@ -347,6 +354,9 @@ export const logTaskCompleted = async (caseId: string, taskName: string, perform
       throw error;
     }
 
+    // Notify relevant users about the completed task
+    await notifyRelevantUsers(caseId, 'task_completed', `Task "${taskName}" completed`, performedBy, performedBy);
+    
     console.log('📋 Task completed activity logged successfully');
   } catch (error) {
     console.error('📋 Exception in logTaskCompleted:', error);
@@ -371,6 +381,9 @@ export const logAttachmentAdded = async (caseId: string, fileName: string, perfo
       throw error;
     }
 
+    // Notify relevant users about the new attachment
+    await notifyRelevantUsers(caseId, 'attachment_added', `Attachment "${fileName}" added`, performedBy, performedBy);
+    
     console.log('📋 Attachment added activity logged successfully');
   } catch (error) {
     console.error('📋 Exception in logAttachmentAdded:', error);
@@ -395,6 +408,9 @@ export const logWatcherAdded = async (caseId: string, watcherName: string, perfo
       throw error;
     }
 
+    // Notify relevant users about the new watcher
+    await notifyRelevantUsers(caseId, 'watcher_added', `${watcherName} was added as a watcher`, performedBy, performedBy);
+    
     console.log('👁️ Watcher added activity logged successfully');
   } catch (error) {
     console.error('👁️ Exception in logWatcherAdded:', error);
