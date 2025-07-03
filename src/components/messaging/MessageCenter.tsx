@@ -138,13 +138,9 @@ const MessageCenter = ({ caseId, isInternal = false }: MessageCenterProps) => {
   };
 
   const getMessageAttachments = (messageId: string, messageCreatedAt: string) => {
-    // Get attachments created within 5 minutes of the message
-    const messageTime = new Date(messageCreatedAt).getTime();
-    return messageAttachments.filter(attachment => {
-      const attachmentTime = new Date(attachment.created_at).getTime();
-      const timeDiff = Math.abs(attachmentTime - messageTime);
-      return timeDiff <= 5 * 60 * 1000; // 5 minutes in milliseconds
-    });
+    // For now, return empty array to prevent showing attachments on all messages
+    // This is a temporary fix until we have proper message-attachment linking
+    return [];
   };
 
   const viewAttachment = (attachment: Attachment) => {
