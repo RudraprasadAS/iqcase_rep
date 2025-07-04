@@ -7,12 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { CheckSquare, Square, Plus, Trash2, Calendar as CalendarIcon, User } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { useTasksApi } from '@/hooks/useTasksApi';
 import { useAuth } from '@/hooks/useAuth';
 import { format } from 'date-fns';
-import { logTaskCreated, logTaskUpdated, logTaskDeleted } from '@/utils/activityLogger';
-import { createTaskAssignmentNotification } from '@/utils/notifications/notificationService';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Task {
   id: string;
@@ -39,49 +37,19 @@ interface SimpleCaseTasksProps {
 
 const SimpleCaseTasks = ({ caseId, onActivityUpdate }: SimpleCaseTasksProps) => {
   const { user } = useAuth();
-  const { toast } = useToast();
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const { tasks, loading, createTask, updateTask, deleteTask } = useTasksApi(caseId);
   const [users, setUsers] = useState<User[]>([]);
   const [newTaskName, setNewTaskName] = useState('');
   const [selectedAssignee, setSelectedAssignee] = useState<string>('');
   const [selectedDueDate, setSelectedDueDate] = useState<Date | undefined>();
-  const [loading, setLoading] = useState(true);
-  const [internalUserId, setInternalUserId] = useState<string | null>(null);
   const [showTaskForm, setShowTaskForm] = useState(false);
 
   useEffect(() => {
-    if (user) {
-      fetchInternalUserId();
-    }
-  }, [user]);
-
-  useEffect(() => {
     if (caseId) {
-      fetchTasks();
       fetchUsers();
     }
   }, [caseId]);
 
-  const fetchInternalUserId = async () => {
-    if (!user) return;
-
-    try {
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (userError) {
-        console.error('User lookup error:', userError);
-        return;
-      }
-
-      setInternalUserId(userData.id);
-    } catch (error) {
-      console.error('Error fetching internal user ID:', error);
-    }
-  };
 
   const fetchUsers = async () => {
     try {
@@ -99,201 +67,52 @@ const SimpleCaseTasks = ({ caseId, onActivityUpdate }: SimpleCaseTasksProps) => 
     }
   };
 
-  const fetchTasks = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('case_tasks')
-        .select(`
-          *,
-          users!case_tasks_created_by_fkey(name),
-          assigned_user:users!case_tasks_assigned_to_fkey(name)
-        `)
-        .eq('case_id', caseId)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setTasks(data || []);
-    } catch (error) {
-      console.error('Error fetching tasks:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const toggleTaskStatus = async (taskId: string, currentStatus: string) => {
-    if (!internalUserId) return;
-    
     const newStatus = currentStatus === 'completed' ? 'open' : 'completed';
-    const task = tasks.find(t => t.id === taskId);
     
-    try {
-      const { error } = await supabase
-        .from('case_tasks')
-        .update({ status: newStatus })
-        .eq('id', taskId);
-
-      if (error) throw error;
-      
-      // Log the task status change activity
-      console.log('🚀 About to log task status change');
-      await logTaskUpdated(caseId, task?.task_name || 'Unknown Task', { status: newStatus }, internalUserId);
-      console.log('🚀 Task status change logged successfully');
-      
-      await fetchTasks();
-      
-      // Call the callback to refresh activities in the parent component
-      if (onActivityUpdate) {
-        onActivityUpdate();
-      }
-      
-      toast({
-        title: "Success",
-        description: `Task marked as ${newStatus}`
-      });
-    } catch (error) {
-      console.error('Error updating task:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update task",
-        variant: "destructive"
-      });
+    updateTask(taskId, { status: newStatus });
+    
+    // Call the callback to refresh activities in the parent component
+    if (onActivityUpdate) {
+      setTimeout(() => onActivityUpdate(), 500);
     }
   };
 
-  const createTask = async () => {
-    if (!newTaskName.trim() || !internalUserId) return;
+  const handleCreateTask = async () => {
+    if (!newTaskName.trim()) return;
 
-    try {
-      console.log('🔔 STARTING TASK CREATION PROCESS...');
-      console.log('🔔 Task details:', {
-        caseId,
-        taskName: newTaskName.trim(),
-        selectedAssignee,
-        internalUserId
-      });
+    const taskData: any = {
+      task_name: newTaskName.trim(),
+    };
 
-      const taskData: any = {
-        case_id: caseId,
-        task_name: newTaskName.trim(),
-        created_by: internalUserId,
-        status: 'open'
-      };
+    if (selectedAssignee) {
+      taskData.assigned_to = selectedAssignee;
+    }
 
-      if (selectedAssignee) {
-        taskData.assigned_to = selectedAssignee;
-      }
+    if (selectedDueDate) {
+      taskData.due_date = selectedDueDate.toISOString();
+    }
 
-      if (selectedDueDate) {
-        taskData.due_date = selectedDueDate.toISOString();
-      }
-
-      console.log('🔔 Inserting task with data:', taskData);
-
-      const { error } = await supabase
-        .from('case_tasks')
-        .insert(taskData);
-
-      if (error) {
-        console.error('🔔 ERROR inserting task:', error);
-        throw error;
-      }
-      
-      console.log('🔔 Task inserted successfully');
-
-      // Log the task creation activity
-      console.log('🚀 About to log task creation');
-      await logTaskCreated(caseId, newTaskName.trim(), selectedAssignee || null, internalUserId);
-      console.log('🚀 Task creation logged successfully');
-      
-      // Send notification if task is assigned to someone other than the creator
-      if (selectedAssignee && selectedAssignee !== internalUserId) {
-        console.log('🔔 CONDITIONS MET FOR NOTIFICATION:');
-        console.log('🔔 - selectedAssignee exists:', !!selectedAssignee);
-        console.log('🔔 - selectedAssignee !== internalUserId:', selectedAssignee !== internalUserId);
-        console.log('🔔 - assignee ID:', selectedAssignee);
-        console.log('🔔 - creator ID:', internalUserId);
-        
-        console.log('🔔 Calling createTaskAssignmentNotification...');
-        
-        const notificationResult = await createTaskAssignmentNotification(
-          selectedAssignee,
-          newTaskName.trim(),
-          caseId,
-          internalUserId
-        );
-        
-        console.log('🔔 NOTIFICATION RESULT:', notificationResult);
-        
-        if (!notificationResult.success) {
-          console.error('🔔 NOTIFICATION FAILED:', notificationResult.error);
-        } else {
-          console.log('🔔 NOTIFICATION CREATED SUCCESSFULLY!');
-        }
-      } else {
-        console.log('🔔 NO NOTIFICATION NEEDED - task assigned to creator or no assignee');
-      }
-      
-      setNewTaskName('');
-      setSelectedAssignee('');
-      setSelectedDueDate(undefined);
-      setShowTaskForm(false);
-      await fetchTasks();
-      
-      // Call the callback to refresh activities in the parent component
-      if (onActivityUpdate) {
-        onActivityUpdate();
-      }
-      
-      toast({
-        title: "Success",
-        description: "Task created successfully"
-      });
-    } catch (error) {
-      console.error('🔔 EXCEPTION in createTask:', error);
-      toast({
-        title: "Error",
-        description: "Failed to create task",
-        variant: "destructive"
-      });
+    createTask(taskData);
+    
+    setNewTaskName('');
+    setSelectedAssignee('');
+    setSelectedDueDate(undefined);
+    setShowTaskForm(false);
+    
+    // Call the callback to refresh activities in the parent component
+    if (onActivityUpdate) {
+      setTimeout(() => onActivityUpdate(), 500);
     }
   };
 
-  const deleteTask = async (taskId: string) => {
-    if (!internalUserId) return;
+  const handleDeleteTask = async (taskId: string) => {
+    deleteTask(taskId);
     
-    const task = tasks.find(t => t.id === taskId);
-    
-    try {
-      const { error } = await supabase
-        .from('case_tasks')
-        .delete()
-        .eq('id', taskId);
-
-      if (error) throw error;
-      
-      // Log the task deletion activity
-      console.log('🚀 About to log task deletion');
-      await logTaskDeleted(caseId, task?.task_name || 'Unknown Task', internalUserId);
-      console.log('🚀 Task deletion logged successfully');
-      
-      await fetchTasks();
-      
-      // Call the callback to refresh activities in the parent component
-      if (onActivityUpdate) {
-        onActivityUpdate();
-      }
-      
-      toast({
-        title: "Success",
-        description: "Task deleted successfully"
-      });
-    } catch (error) {
-      console.error('Error deleting task:', error);
-      toast({
-        title: "Error",
-        description: "Failed to delete task",
-        variant: "destructive"
-      });
+    // Call the callback to refresh activities in the parent component
+    if (onActivityUpdate) {
+      setTimeout(() => onActivityUpdate(), 500);
     }
   };
 
@@ -375,7 +194,7 @@ const SimpleCaseTasks = ({ caseId, onActivityUpdate }: SimpleCaseTasksProps) => 
             </div>
 
             <Button 
-              onClick={createTask} 
+              onClick={handleCreateTask} 
               size="sm" 
               disabled={!newTaskName.trim()}
               className="w-full"
@@ -434,7 +253,7 @@ const SimpleCaseTasks = ({ caseId, onActivityUpdate }: SimpleCaseTasksProps) => 
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => deleteTask(task.id)}
+                onClick={() => handleDeleteTask(task.id)}
                 className="text-red-500 hover:text-red-700"
               >
                 <Trash2 className="h-4 w-4" />

@@ -156,6 +156,31 @@ class ApiService {
       body: JSON.stringify(data),
     });
   }
+
+  // Tasks API
+  async createTask(caseId: string, taskData: any) {
+    return this.request(`/tasks/case/${caseId}`, {
+      method: 'POST',
+      body: JSON.stringify(taskData),
+    });
+  }
+
+  async getTasks(caseId: string) {
+    return this.request(`/tasks/case/${caseId}`);
+  }
+
+  async updateTask(taskId: string, updates: any) {
+    return this.request(`/tasks/${taskId}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+  }
+
+  async deleteTask(taskId: string) {
+    return this.request(`/tasks/${taskId}`, {
+      method: 'DELETE',
+    });
+  }
 }
 
 export const apiService = new ApiService();

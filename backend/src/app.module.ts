@@ -5,6 +5,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { UsersModule } from './modules/users/users.module';
 import { PermissionsModule } from './modules/permissions/permissions.module';
 import { AuditModule } from './modules/audit/audit.module';
+import { TasksModule } from './modules/tasks/tasks.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { AuditModule } from './modules/audit/audit.module';
     PermissionsModule,
     NotificationsModule,
     AuditModule,
+    TasksModule,
   ],
 })
 export class AppModule {}

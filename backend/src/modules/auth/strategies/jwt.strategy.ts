@@ -19,10 +19,15 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   async validate(payload: any) {
     try {
-      // For Supabase JWT tokens, validate with Supabase directly
-      const token = ExtractJwt.fromAuthHeaderAsBearerToken();
-      return await this.authService.validateSupabaseToken(payload.token || payload.sub);
+      console.log('🔐 JWT payload:', payload);
+      
+      // For Supabase JWT tokens, validate and get user info
+      const userInfo = await this.authService.validateSupabaseToken(payload.sub);
+      
+      console.log('🔐 User validated:', userInfo);
+      return userInfo;
     } catch (error) {
+      console.error('🔐 JWT validation error:', error);
       throw new UnauthorizedException();
     }
   }
