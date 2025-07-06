@@ -1,0 +1,12 @@
+node_modules/
+.next/
+dist/
+build/
+package-lock.json
+yarn.lock
+.env
+.DS_Store
+coverage/
+*.log
+.turbo/
+.vercel/
